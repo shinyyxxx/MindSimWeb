@@ -1,0 +1,31 @@
+# FastAPI & Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+websockets==12.0
+python-multipart==0.0.6
+
+# Redis
+redis==5.0.1
+
+# PostgreSQL + PostGIS
+asyncpg==0.29.0
+psycopg[binary]==3.2.12
+geoalchemy2==0.14.3
+sqlalchemy==2.0.25
+
+# ZODB
+ZODB==6.1
+persistent==6.3
+transaction==5.0
+BTrees==6.2
+zodbpickle==4.2
+zc.lockfile==4.0
+ZConfig==4.2
+zope.interface==8.0.1
+
+# HTTP Client
+httpx==0.26.0
+
+# Utilities
+pydantic==2.5.3
+python-dotenv==1.0.0
