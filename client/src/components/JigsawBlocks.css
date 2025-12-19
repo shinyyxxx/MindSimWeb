@@ -1,0 +1,242 @@
+/* Jigsaw Block Components - Scratch-style puzzle pieces */
+
+.jigsaw-block {
+  position: relative;
+  background: var(--block-color, #4C97FF);
+  border-radius: 4px;
+  padding: 0;
+  margin: 0;
+  min-width: 120px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  user-select: none;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.jigsaw-block:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.jigsaw-block:active {
+  filter: brightness(0.95);
+}
+
+/* Jigsaw Content */
+.jigsaw-content {
+  padding: 8px 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.jigsaw-content-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* Connector pieces (notches and tabs) - Scratch-style */
+.jigsaw-connector {
+  position: absolute;
+  background: var(--block-color, #4C97FF);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  z-index: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Bottom connector (tab that connects downward) - Scratch style */
+.bottom-connector {
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 7px;
+  border-radius: 0 0 4px 4px;
+  border-top: none;
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Top connector (notch that receives from above) - Scratch style */
+.top-connector {
+  top: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 7px;
+  border-radius: 4px 4px 0 0;
+  border-bottom: none;
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Left connector (tab on the left side) - Scratch style */
+.left-connector {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 24px;
+  border-radius: 4px 0 0 4px;
+  border-right: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  border-left: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Right connector (tab on the right side) - Scratch style */
+.right-connector {
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  border-right: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Starter Jigsaw - only connects downward */
+.starter-jigsaw {
+  border-radius: 4px 4px 0 0;
+  padding-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.starter-jigsaw .jigsaw-content {
+  border-radius: 4px 4px 0 0;
+}
+
+/* Attribute Jigsaw - can connect in all directions */
+.attribute-jigsaw {
+  border-radius: 4px;
+  padding: 0;
+  margin: 0;
+}
+
+.attribute-jigsaw .jigsaw-content {
+  flex: 1;
+  border-radius: 0;
+  padding: 8px 12px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attribute-jigsaw .jigsaw-content-wrapper {
+  min-height: 32px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Sub Component Jigsaw - container for attributes */
+.subcomponent-jigsaw {
+  border-radius: 4px 4px 0 0;
+  min-width: 200px;
+  padding-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.subcomponent-jigsaw .jigsaw-content {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px 4px 0 0;
+}
+
+.subcomponent-header {
+  padding: 8px 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.4);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.subcomponent-slot {
+  min-height: 50px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-start;
+  margin: 0 4px;
+  border-radius: 0 0 2px 2px;
+}
+
+.subcomponent-placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-style: italic;
+  padding: 8px;
+  text-align: center;
+  user-select: none;
+}
+
+/* When attributes are dropped inside */
+.subcomponent-slot:has(.attribute-jigsaw) .subcomponent-placeholder {
+  display: none;
+}
+
+/* Connection visual feedback */
+.jigsaw-block.connecting {
+  outline: 2px dashed rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.jigsaw-block.connected {
+  box-shadow: 0 0 0 2px rgba(76, 151, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Stack blocks vertically when connected */
+.jigsaw-block + .jigsaw-block {
+  margin-top: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .jigsaw-block {
+    min-width: 100px;
+  }
+  
+  .jigsaw-content {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  .subcomponent-jigsaw {
+    min-width: 180px;
+  }
+  
+  .subcomponent-header {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+

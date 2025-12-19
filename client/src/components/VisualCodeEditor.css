@@ -1,0 +1,150 @@
+.visual-code-editor {
+  display: flex;
+  height: 100%;
+  gap: 16px;
+}
+
+.block-palette {
+  width: 200px;
+  background: #f8f9fa;
+  border-right: 1px solid #e5e7eb;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.block-palette h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.block-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.block-template {
+  padding: 10px 12px;
+  background: var(--template-color, #4C97FF);
+  color: white;
+  border-radius: 6px;
+  cursor: grab;
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s;
+}
+
+.block-template:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+.block-template:hover {
+  filter: brightness(1.1);
+}
+
+.execute-button {
+  padding: 10px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.execute-button:hover {
+  background: #2563eb;
+}
+
+.block-editor {
+  flex: 1;
+  position: relative;
+  background: #ffffff;
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+  min-height: 400px;
+  overflow: auto;
+}
+
+.empty-editor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #9ca3af;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.code-block {
+  position: absolute;
+  cursor: move;
+}
+
+.code-block.selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.block-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.block-input {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 40px;
+  outline: none;
+}
+
+.block-input.small {
+  min-width: 30px;
+  width: 30px;
+}
+
+.block-input:focus {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.block-delete {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.block-delete:hover {
+  background: #dc2626;
+}
+

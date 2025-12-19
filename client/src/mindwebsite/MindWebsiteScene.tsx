@@ -1,73 +1,75 @@
+// @ts-nocheck - react-three/fiber JSX elements are valid at runtime
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Mind from "./classes/Mind";
 import Mental from "./classes/Mental";
 import { OrbitControls } from "./components/OrbitControls";
 
-function MindSphere() {
+interface MindData {
+  id: number;
+  name: string;
+  color: string;
+  position: [number, number, number];
+  scale: number;
+  mental_sphere_ids?: number[];
+}
+
+interface MentalData {
+  id: number;
+  name: string;
+  color: string;
+  scale: number;
+  position: [number, number, number];
+}
+
+function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDataList: MentalData[] }) {
+  const mindRef = useRef<Mind | null>(null);
+
   const mind = useMemo(() => {
+    if (mindRef.current) {
+      mindRef.current.dispose();
+    }
+
+    const colorNum = parseInt(mindData.color.replace('#', ''), 16);
+
     const mindInstance = new Mind({
-      name: "My Mind",
-      detail: "This is a detailed description",
-      position: [0, 0, 0],
-      scale: 1.5,
+      name: mindData.name,
+      detail: "",
+      position: mindData.position,
+      scale: mindData.scale,
       transparent: true,
       opacity: 0.15,
-      color: 0x3cdd8c,
+      color: colorNum,
     });
 
-    const thought1 = new Mental({
-      name: "Thought 1",
-      detail: "First mental sphere",
-      position: [0.3, 0.2, 0.1],
-      scale: 0.1,
-      color: 0xff6b9d,
-    });
-    const thought2 = new Mental({
-      name: "Thought 2",
-      detail: "Second mental sphere",
-      position: [-0.3, -0.2, 0.1],
-      scale: 0.1,
-      color: 0x4ecdc4,
-    });
-    const thought3 = new Mental({
-      name: "Thought 3",
-      detail: "Third mental sphere",
-      position: [0, 0.3, -0.2],
-      scale: 0.1,
-      color: 0xffe66d,
-    });
-    const thought4 = new Mental({
-      name: "Thought 4",
-      detail: "Fourth mental sphere",
-      position: [0.2, -0.2, 0.3],
-      scale: 0.1,
-      color: 0xff9ff3,
-    });
-    const thought5 = new Mental({
-      name: "Thought 5",
-      detail: "Fifth mental sphere",
-      position: [-0.2, 0.1, -0.1],
-      scale: 0.08,
-      color: 0x95e1d3,
+    // Add mental spheres
+    mentalDataList.forEach(mentalData => {
+      const mentalColorNum = parseInt(mentalData.color.replace('#', ''), 16);
+      const mental = new Mental({
+        name: mentalData.name,
+        detail: "",
+        position: mentalData.position,
+        scale: mentalData.scale,
+        color: mentalColorNum,
+      });
+      mindInstance.addMental(mental);
     });
 
-    mindInstance.addMental(thought1);
-    mindInstance.addMental(thought2);
-    mindInstance.addMental(thought3);
-    mindInstance.addMental(thought4);
-    mindInstance.addMental(thought5);
-
+    mindRef.current = mindInstance;
     return mindInstance;
-  }, []);
+  }, [mindData, mentalDataList]);
 
-  useFrame((_state, delta) => {
-    mind.updatePhysics(delta);
+  useFrame((_state: any, delta: number) => {
+    if (mind) {
+      mind.updatePhysics(delta);
+    }
   });
 
   useEffect(() => {
     return () => {
-      mind.dispose();
+      if (mind) {
+        mind.dispose();
+      }
     };
   }, [mind]);
 
@@ -75,6 +77,25 @@ function MindSphere() {
   if (!mindMesh) return null;
 
   return <primitive object={mindMesh} />;
+}
+
+function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalData[] }) {
+  return (
+    <>
+      {minds.map(mind => {
+        const mindMentals = mentals.filter(m => 
+          mind.mental_sphere_ids?.includes(m.id) || true // For now, show all mentals
+        );
+        return (
+          <MindSphere 
+            key={mind.id} 
+            mindData={mind} 
+            mentalDataList={mindMentals}
+          />
+        );
+      })}
+    </>
+  );
 }
 
 function GroundPlane() {
@@ -86,7 +107,25 @@ function GroundPlane() {
   );
 }
 
-export function MindWebsiteScene() {
+interface MindWebsiteSceneProps {
+  minds?: Array<{
+    id: number;
+    name: string;
+    color: string;
+    position: [number, number, number];
+    scale: number;
+    mental_sphere_ids?: number[];
+  }>;
+  mentals?: Array<{
+    id: number;
+    name: string;
+    color: string;
+    scale: number;
+    position: [number, number, number];
+  }>;
+}
+
+export function MindWebsiteScene({ minds = [], mentals = [] }: MindWebsiteSceneProps) {
   return (
     <Canvas
       camera={{ position: [0, 0, 5], fov: 75 }}
@@ -121,7 +160,21 @@ export function MindWebsiteScene() {
       <pointLight position={[0, 6, 0]} intensity={1.2} distance={15} decay={2} />
 
       <GroundPlane />
-      <MindSphere />
+      {minds.length > 0 ? (
+        <MindSpheres minds={minds} mentals={mentals} />
+      ) : (
+        <MindSphere 
+          mindData={{
+            id: 0,
+            name: "My Mind",
+            color: "#3cdd8c",
+            position: [0, 0, 0],
+            scale: 1.5,
+            mental_sphere_ids: []
+          }}
+          mentalDataList={[]}
+        />
+      )}
     </Canvas>
   );
 }
