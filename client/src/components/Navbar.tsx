@@ -1,7 +1,9 @@
-import { NavLink } from "react-router-dom";
+import React from 'react'
+import { NavLink } from 'react-router-dom'
 
-export function Navbar() {
-  const linkClass = ({ isActive }) => `link ${isActive ? "active" : ""}`;
+export function Navbar(): React.ReactElement {
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `link ${isActive ? 'active' : ''}`
 
   return (
     <header className="nav">
@@ -23,7 +25,12 @@ export function Navbar() {
         </NavLink>
       </nav>
     </header>
-  );
+  )
 }
+
+
+
+
+
 
 

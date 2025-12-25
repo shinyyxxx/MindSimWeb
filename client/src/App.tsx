@@ -1,11 +1,12 @@
+import React from 'react'
 import './App.css'
-import { Routes, Route } from "react-router-dom";
-import { Navbar } from "./components/Navbar.jsx";
-import { Home } from "./pages/Home.jsx";
-import { SimplePage } from "./pages/SimplePage.jsx";
-import { Playground } from "./pages/Playground.jsx";
+import { Routes, Route } from 'react-router-dom'
+import { Navbar } from './components/Navbar'
+import { Home } from './pages/Home'
+import { SimplePage } from './pages/SimplePage'
+import { Playground } from './pages/Playground'
 
-function App() {
+function App(): React.ReactElement {
   return (
     <>
       <Navbar />
@@ -24,3 +25,10 @@ function App() {
 }
 
 export default App
+
+
+
+
+
+
+

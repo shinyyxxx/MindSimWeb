@@ -1,4 +1,10 @@
-export function SimplePage({ title }) {
+import React from 'react'
+
+interface SimplePageProps {
+  title: string
+}
+
+export function SimplePage({ title }: SimplePageProps): React.ReactElement {
   return (
     <main className="page">
       <div className="simple-wrap">
@@ -6,7 +12,12 @@ export function SimplePage({ title }) {
         <p className="simple-muted">This is a placeholder page for now.</p>
       </div>
     </main>
-  );
+  )
 }
+
+
+
+
+
 
 

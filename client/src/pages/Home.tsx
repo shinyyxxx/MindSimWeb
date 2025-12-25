@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
-import { SamskaraDemo } from "../components/SamskaraDemo.jsx";
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { SamskaraDemo } from '../components/SamskaraDemo'
 
-export function Home() {
+export function Home(): React.ReactElement {
   return (
     <main className="page">
       <section className="hero-section">
@@ -27,9 +28,11 @@ export function Home() {
 
         <div className="skandha-item">
           <div className="skandha-card">
-            <div style={{ fontSize: 48, color: "#667eea" }}>●</div>
+            <div style={{ fontSize: 48, color: '#667eea' }}>●</div>
             <h3 className="skandha-title">Rupa (Form)</h3>
-            <p className="skandha-text">The physical form and material aspects of existence</p>
+            <p className="skandha-text">
+              The physical form and material aspects of existence
+            </p>
           </div>
           <div className="skandha-3d">
             <model-viewer
@@ -40,37 +43,51 @@ export function Home() {
               auto-rotate
               rotation-per-second="20deg"
               touch-action="pan-y"
-              style={{ width: "100%", height: "100%" }}
+              style={{ width: '100%', height: '100%' }}
             ></model-viewer>
           </div>
         </div>
 
         <div className="skandha-item">
-          <div className="skandha-3d" style={{ background: "white" }}>
+          <div className="skandha-3d" style={{ background: 'white' }}>
             <img
               src="/assets/emotion/emotion.png"
               alt="Emotion"
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
             />
           </div>
           <div className="skandha-card">
-            <div style={{ fontSize: 48, color: "#e74c3c" }}>♥</div>
+            <div style={{ fontSize: 48, color: '#e74c3c' }}>♥</div>
             <h3 className="skandha-title">Vedana (Sensation)</h3>
-            <p className="skandha-text">Feelings and sensations arising from contact with objects</p>
+            <p className="skandha-text">
+              Feelings and sensations arising from contact with objects
+            </p>
           </div>
         </div>
 
         <div className="skandha-item">
           <div className="skandha-card">
-            <div style={{ fontSize: 48, color: "#764ba2" }}>👁</div>
+            <div style={{ fontSize: 48, color: '#764ba2' }}>👁</div>
             <h3 className="skandha-title">Samjna (Perception)</h3>
-            <p className="skandha-text">Recognition and perception of objects and their characteristics</p>
+            <p className="skandha-text">
+              Recognition and perception of objects and their characteristics
+            </p>
           </div>
-          <div className="skandha-3d" style={{ background: "white" }}>
+          <div className="skandha-3d" style={{ background: 'white' }}>
             <img
               src="/assets/optical/opticBunny.png"
               alt="Optical perception"
-              style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                display: 'block',
+              }}
             />
           </div>
         </div>
@@ -78,7 +95,7 @@ export function Home() {
         <div className="skandha-item">
           <SamskaraDemo />
           <div className="skandha-card">
-            <div style={{ fontSize: 48, color: "#f39c12" }}>⚡</div>
+            <div style={{ fontSize: 48, color: '#f39c12' }}>⚡</div>
             <h3 className="skandha-title">Samskara (Mental Formations)</h3>
             <p className="skandha-text">
               Volitional factors, mental formations, and conditioned responses
@@ -88,9 +105,11 @@ export function Home() {
 
         <div className="skandha-item">
           <div className="skandha-card">
-            <div style={{ fontSize: 48, color: "#27ae60" }}>🧠</div>
+            <div style={{ fontSize: 48, color: '#27ae60' }}>🧠</div>
             <h3 className="skandha-title">Vijnana (Consciousness)</h3>
-            <p className="skandha-text">Awareness and consciousness that cognizes and distinguishes</p>
+            <p className="skandha-text">
+              Awareness and consciousness that cognizes and distinguishes
+            </p>
           </div>
           <div className="skandha-3d">
             <model-viewer
@@ -101,7 +120,7 @@ export function Home() {
               auto-rotate
               rotation-per-second="15deg"
               touch-action="pan-y"
-              style={{ width: "100%", height: "100%" }}
+              style={{ width: '100%', height: '100%' }}
             ></model-viewer>
           </div>
         </div>
@@ -117,14 +136,23 @@ export function Home() {
           <Link
             className="btn btn-outline"
             to="/login"
-            style={{ background: "rgba(255,255,255,0.2)", color: "white", borderColor: "white" }}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              borderColor: 'white',
+            }}
           >
             Learn More
           </Link>
         </div>
       </section>
     </main>
-  );
+  )
 }
+
+
+
+
+
 
 
