@@ -13,11 +13,13 @@ import redis.asyncio as redis
 from app.config import REDIS_URL, CHANNEL_MIND_UPDATES, CHANNEL_TASKS, CHANNEL_TASK_RESULTS
 from app.schemas import (
     MindUpsert, GetMindRequest, GetMindResponse, 
-    UpsertMindResponse, MindResponse, MentalSphereRequest, MentalSphereResponse
+    UpsertMindResponse, MindResponse, MentalSphereRequest, MentalSphereResponse,
+    MentalSphereUpsert, UpsertMentalSphereResponse, MentalSphereResponseData
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
-    add_mental_spheres_to_mind, delete_mental_spheres_from_mind
+    add_mental_spheres_to_mind, delete_mental_spheres_from_mind,
+    create_mental_sphere_zodb, update_mental_sphere_zodb, get_mental_sphere_zodb
 )
 from zodb_module.zodb_management import get_connection, init_zodb, close_zodb
 from app.database import init_database
@@ -64,10 +66,12 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+_subscriber_task = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _subscriber_task
     print("Starting server...")
     init_zodb()
     
@@ -76,11 +80,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Database init warning: {e}")
     
-    asyncio.create_task(redis_result_subscriber())
+    # Start the Redis subscriber task
+    _subscriber_task = asyncio.create_task(redis_result_subscriber())
+    print("[MAIN] Redis subscriber task started")
     
     yield
     
     print("Shutting down...")
+    # Cancel the subscriber task
+    if _subscriber_task:
+        _subscriber_task.cancel()
+        try:
+            await _subscriber_task
+        except asyncio.CancelledError:
+            pass
     close_zodb()
 
 
@@ -99,54 +112,111 @@ app.add_middleware(
 
 
 async def redis_result_subscriber():
-    try:
-        redis_client = redis.from_url(REDIS_URL)
-        pubsub = redis_client.pubsub()
-        await pubsub.subscribe(CHANNEL_TASK_RESULTS, CHANNEL_MIND_UPDATES)
-        
-        print(f"Subscribed to: {CHANNEL_TASK_RESULTS}, {CHANNEL_MIND_UPDATES}")
-        
-        async for message in pubsub.listen():
-            if message["type"] == "message":
+    """Background task to subscribe to Redis channels and forward messages to WebSocket clients"""
+    while True:
+        redis_client = None
+        pubsub = None
+        try:
+            redis_client = redis.from_url(REDIS_URL)
+            pubsub = redis_client.pubsub()
+            await pubsub.subscribe(CHANNEL_TASK_RESULTS, CHANNEL_MIND_UPDATES)
+            
+            print(f"[MAIN] Subscribed to: {CHANNEL_TASK_RESULTS}, {CHANNEL_MIND_UPDATES}")
+            
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        try:
+                            data = json.loads(message["data"])
+                            channel_raw = message["channel"]
+                            channel = channel_raw.decode() if isinstance(channel_raw, bytes) else channel_raw
+                            
+                            print(f"[MAIN] Received message on channel: {channel} (expected: {CHANNEL_TASK_RESULTS})")
+                            
+                            if channel == CHANNEL_TASK_RESULTS:
+                                request_id = data.get("request_id")
+                                user_id = manager.get_request_user(request_id)
+                                
+                                print(f"[MAIN] Received task result: {data.get('action')} (request_id: {request_id}, user_id: {user_id}, status: {data.get('status')})")
+                                
+                                if user_id:
+                                    response_msg = {
+                                        "type": "response",
+                                        "request_id": request_id,
+                                        "action": data.get("action"),
+                                        "status": data.get("status"),
+                                        "data": data.get("data"),
+                                        "error": data.get("error")
+                                    }
+                                    print(f"[MAIN] Sending response to user {user_id}: {response_msg.get('action')} - {response_msg.get('status')}")
+                                    await manager.send_to_user(user_id, response_msg)
+                                else:
+                                    print(f"[MAIN] WARNING: No user_id found for request_id: {request_id}")
+                                
+                                if data.get("action") in ["upsert_mind", "upsert_mental", "append_mental", "remove_mental"] and data.get("status") == "success":
+                                    await manager.broadcast({
+                                        "type": "update",
+                                        "action": data.get("action"),
+                                        "data": data.get("data")
+                                    }, exclude_user=user_id)
+                            
+                            elif channel == CHANNEL_MIND_UPDATES:
+                                await manager.broadcast({
+                                    "type": "update",
+                                    "action": "mind_updated",
+                                    "data": data
+                                })
+                                
+                        except json.JSONDecodeError as e:
+                            print(f"[MAIN] Invalid JSON: {message['data']} - {e}")
+                        except Exception as e:
+                            print(f"[MAIN] Error processing message: {e}")
+                            import traceback
+                            traceback.print_exc()
+            except asyncio.CancelledError:
+                print("[MAIN] Subscriber cancelled, breaking loop")
+                break
+            except Exception as e:
+                print(f"[MAIN] Error in pubsub.listen(): {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+                        
+        except asyncio.CancelledError:
+            print("[MAIN] Subscriber task cancelled")
+            break
+        except Exception as e:
+            print(f"[MAIN] Redis subscriber error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Clean up before retrying
+            if pubsub:
                 try:
-                    data = json.loads(message["data"])
-                    channel = message["channel"].decode() if isinstance(message["channel"], bytes) else message["channel"]
-                    
-                    if channel == CHANNEL_TASK_RESULTS:
-                        request_id = data.get("request_id")
-                        user_id = manager.get_request_user(request_id)
-                        
-                        if user_id:
-                            await manager.send_to_user(user_id, {
-                                "type": "response",
-                                "request_id": request_id,
-                                "action": data.get("action"),
-                                "status": data.get("status"),
-                                "data": data.get("data"),
-                                "error": data.get("error")
-                            })
-                        
-                        if data.get("action") in ["upsert_mind", "append_mental", "remove_mental"] and data.get("status") == "success":
-                            await manager.broadcast({
-                                "type": "update",
-                                "action": data.get("action"),
-                                "data": data.get("data")
-                            }, exclude_user=user_id)
-                    
-                    elif channel == CHANNEL_MIND_UPDATES:
-                        await manager.broadcast({
-                            "type": "update",
-                            "action": "mind_updated",
-                            "data": data
-                        })
-                        
-                except json.JSONDecodeError:
-                    print(f"Invalid JSON: {message['data']}")
-                except Exception as e:
-                    print(f"Error processing message: {e}")
-                    
-    except Exception as e:
-        print(f"Redis subscriber error: {e}")
+                    await pubsub.aclose()
+                except Exception:
+                    pass
+            if redis_client:
+                try:
+                    await redis_client.aclose()
+                except Exception:
+                    pass
+            
+            # Wait before retrying
+            print("[MAIN] Retrying Redis subscriber in 5 seconds...")
+            await asyncio.sleep(5)
+        finally:
+            # Clean up on exit
+            if pubsub:
+                try:
+                    await pubsub.aclose()
+                except Exception:
+                    pass
+            if redis_client:
+                try:
+                    await redis_client.aclose()
+                except Exception:
+                    pass
 
 
 @app.websocket("/ws/{user_id}")
@@ -188,6 +258,29 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                     "action": action,
                     "status": "saving",
                     "data": {"mind": preview_mind}
+                })
+            elif action == "upsert_mental":
+                preview_mental = {
+                    "id": data.get("id") or "pending",
+                    "name": data.get("name", ""),
+                    "detail": data.get("detail", ""),
+                    "color": data.get("color", "#FFFFFF"),
+                    "image": data.get("image", ""),
+                    "rec_status": data.get("rec_status", True),
+                    "position": data.get("position", [0, 0, 0]),
+                    "rotation": data.get("rotation", [0, 0, 0]),
+                    "scale": data.get("scale", 1.0),
+                    "created_by": None,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat(),
+                    "_status": "saving"
+                }
+                await websocket.send_json({
+                    "type": "preview",
+                    "request_id": request_id,
+                    "action": action,
+                    "status": "saving",
+                    "data": {"mental_sphere": preview_mental}
                 })
             else:
                 await websocket.send_json({
@@ -257,7 +350,7 @@ async def upsert_mind_endpoint(request: MindUpsert):
         
         redis_client = redis.from_url(REDIS_URL)
         await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(mind))
-        await redis_client.close()
+        await redis_client.aclose()
         
         return UpsertMindResponse(
             message="Mind saved successfully",
@@ -310,6 +403,47 @@ async def remove_mental_endpoint(request: MentalSphereRequest):
             message="Mental spheres removed successfully",
             mind_id=request.mind_id,
             mental_sphere_ids=list(mental_sphere_ids)
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/upsert_mental", response_model=UpsertMentalSphereResponse)
+async def upsert_mental_endpoint(request: MentalSphereUpsert):
+    try:
+        _, root = get_connection()
+        
+        mental_data = {
+            'name': request.name,
+            'detail': request.detail,
+            'color': request.color,
+            'image': request.image,
+            'rec_status': request.rec_status,
+            'position': request.position,
+            'rotation': request.rotation,
+            'scale': request.scale,
+            'created_by': 1
+        }
+        
+        if request.id:
+            sphere_id = update_mental_sphere_zodb(root, request.id, mental_data)
+        else:
+            sphere_id = create_mental_sphere_zodb(root, mental_data)
+        
+        mental_sphere = get_mental_sphere_zodb(root, sphere_id)
+        
+        if not mental_sphere:
+            raise HTTPException(status_code=404, detail=f"Mental sphere with ID {sphere_id} not found")
+        
+        redis_client = redis.from_url(REDIS_URL)
+        await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(mental_sphere))
+        await redis_client.aclose()
+        
+        return UpsertMentalSphereResponse(
+            message="Mental sphere saved successfully",
+            mental_sphere=MentalSphereResponseData(**mental_sphere)
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

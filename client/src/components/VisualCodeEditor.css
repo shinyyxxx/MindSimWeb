@@ -87,12 +87,27 @@
 .code-block {
   position: absolute;
   cursor: move;
+  user-select: none;
+}
+
+.code-block:active {
+  cursor: grabbing;
 }
 
 .code-block.selected {
   outline: 2px solid #3b82f6;
   outline-offset: 4px;
   border-radius: 4px;
+}
+
+.code-block.snap-target {
+  outline: 2px dashed #10b981;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.code-block.connected {
+  box-shadow: 0 0 0 2px rgba(76, 151, 255, 0.3);
 }
 
 .block-content {
@@ -112,6 +127,8 @@
   font-weight: 500;
   min-width: 40px;
   outline: none;
+  user-select: text;
+  cursor: text;
 }
 
 .block-input.small {

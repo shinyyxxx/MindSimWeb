@@ -17,7 +17,6 @@ function App(): React.ReactElement {
         <Route path="/playground" element={<Playground />} />
         <Route path="/login" element={<SimplePage title="Login" />} />
         <Route path="/register" element={<SimplePage title="Register" />} />
-        <Route path="/demo" element={<SimplePage title="Demo" />} />
         <Route path="*" element={<SimplePage title="Not Found" />} />
       </Routes>
     </>

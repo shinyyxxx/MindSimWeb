@@ -142,6 +142,30 @@ async def process_task(task: dict, http_client: httpx.AsyncClient) -> dict:
                     "error": result.get("detail", "Unknown error")
                 }
         
+        elif action == "upsert_mental":
+            response = await http_client.post(
+                f"{BACKEND_URL}/api/upsert_mental",
+                json=data,
+                timeout=30.0
+            )
+            result = response.json()
+            
+            if response.status_code == 200:
+                print(f"  {result.get('message')} (id: {result['mental_sphere']['id']})")
+                return {
+                    "status": "success",
+                    "action": action,
+                    "request_id": request_id,
+                    "data": result
+                }
+            else:
+                return {
+                    "status": "error",
+                    "action": action,
+                    "request_id": request_id,
+                    "error": result.get("detail", "Unknown error")
+                }
+        
         else:
             return {
                 "status": "error",
@@ -177,15 +201,18 @@ async def worker_main():
                 if message["type"] == "message":
                     try:
                         task = json.loads(message["data"])
+                        print(f"\n[WORKER] Received task: {task.get('action')} (request_id: {task.get('request_id')})")
                         result = await process_task(task, http_client)
                         
                         await redis_client.publish(CHANNEL_TASK_RESULTS, json.dumps(result))
-                        print(f"Result published for: {result.get('request_id')}\n")
+                        print(f"[WORKER] Result published for: {result.get('request_id')} (status: {result.get('status')})\n")
                         
-                    except json.JSONDecodeError:
-                        print(f"Invalid JSON: {message['data']}")
+                    except json.JSONDecodeError as e:
+                        print(f"[WORKER] Invalid JSON: {message['data']} - Error: {e}")
                     except Exception as e:
-                        print(f"Error: {e}")
+                        print(f"[WORKER] Error processing task: {e}")
+                        import traceback
+                        traceback.print_exc()
                     
     except redis.ConnectionError:
         print("Could not connect to Redis. Is it running?")

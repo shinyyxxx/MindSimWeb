@@ -80,7 +80,7 @@ export class CodeParser {
             variable: varName,
             data: {
               name: 'My Mind',
-              color: '#3cdd8c',
+              color: '#ffffff',
               scale: 1.5,
               position: [0, 0, 0],
               rotation: [0, 0, 0],

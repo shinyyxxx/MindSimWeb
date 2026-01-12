@@ -55,3 +55,35 @@ class MentalSphereResponse(BaseModel):
     message: str
     mind_id: int
     mental_sphere_ids: List[int]
+
+
+class MentalSphereUpsert(BaseModel):
+    id: Optional[int] = None
+    name: str = Field(..., min_length=1)
+    detail: str = ""
+    color: str = "#FFFFFF"
+    image: str = ""
+    rec_status: bool = True
+    position: List[float] = [0, 0, 0]
+    rotation: List[float] = [0, 0, 0]
+    scale: float = 1.0
+
+
+class MentalSphereResponseData(BaseModel):
+    id: int
+    name: str
+    detail: str
+    color: str
+    image: str
+    rec_status: bool
+    position: List[float]
+    rotation: List[float]
+    scale: float
+    created_by: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class UpsertMentalSphereResponse(BaseModel):
+    message: str
+    mental_sphere: MentalSphereResponseData

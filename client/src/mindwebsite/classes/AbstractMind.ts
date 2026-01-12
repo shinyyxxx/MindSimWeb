@@ -54,7 +54,7 @@ export class AbstractMind {
     // Configuration
     this.name = options.name || ''
     this.detail = options.detail || ''
-    const colorValue = options.color || 0x3cdd8c
+    const colorValue = options.color || 0xffffff
     this.color = typeof colorValue === 'string'
       ? parseInt(colorValue.replace('#', ''), 16)
       : colorValue
