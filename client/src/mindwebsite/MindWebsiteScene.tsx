@@ -1,5 +1,6 @@
 // @ts-nocheck - react-three/fiber JSX elements are valid at runtime
 import { Canvas, useFrame } from "@react-three/fiber";
+import { Environment } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import Mind from "./classes/Mind";
 import Mental from "./classes/Mental";
@@ -55,15 +56,18 @@ function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDa
         position: mindData.position,
         scale: mindData.scale,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.4,
         color: colorNum,
+        labelEnabled: true,
+        labelWorldSize: 0.6,
+        labelOffset: 0.25,
       });
 
       mindRef.current = mindInstance;
     }
 
     return mindRef.current;
-  }, [mindData.id, mindData.color, mindData.scale]);
+  }, [mindData.id, mindData.color, mindData.scale, mindData.name]);
 
   // Update mental spheres dynamically when mentalDataList changes
   useEffect(() => {
@@ -164,25 +168,13 @@ function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalDat
         // Only show mental spheres that are explicitly in the mind's mental_sphere_ids array
         // Also filter out mental spheres without names (preview/invalid)
         const mindMentals = mentals.filter(m => {
-          // Must have a name (not empty or whitespace)
-          if (!m.name || m.name.trim() === '') {
-            return false;
-          }
-          // Must have a valid ID
-          if (!m.id || typeof m.id !== 'number') {
-            return false;
-          }
-          // Must be explicitly in the mind's mental_sphere_ids array (and array must exist and not be empty)
-          // This ensures mental spheres are ONLY shown when explicitly added via append_mental
+          if (!m.name || m.name.trim() === '') return false;
+          if (!m.id || typeof m.id !== 'number') return false;
+          // If no mapping provided, fall back to showing all mentals.
           if (!mind.mental_sphere_ids || !Array.isArray(mind.mental_sphere_ids) || mind.mental_sphere_ids.length === 0) {
-            return false;
+            return true;
           }
-          // Must be in the array - this is the critical check
-          const isInMind = mind.mental_sphere_ids.includes(m.id);
-          if (!isInMind) {
-            return false;
-          }
-          return true;
+          return mind.mental_sphere_ids.includes(m.id);
         });
         
         // Debug: Log what mental spheres are being shown for each mind
@@ -213,7 +205,11 @@ function GroundPlane() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
       <planeGeometry args={[20, 20]} />
-      <meshStandardMaterial color={0xffffff} metalness={0.0} roughness={1.0} />
+      <meshStandardMaterial 
+        color={0x808080} 
+        metalness={0.1}
+        roughness={0.5}
+      />
     </mesh>
   );
 }
@@ -242,8 +238,10 @@ export function MindWebsiteScene({ minds = [], mentals = [] }: MindWebsiteSceneP
       camera={{ position: [0, 0, 5], fov: 75 }}
       shadows
       gl={{ antialias: true, toneMappingExposure: 1.2 }}
-      style={{ width: "100%", height: "100%" }}
+      style={{ width: "100%", height: "100%", background: "#ffffff" }}
     >
+      <Environment preset="dawn" background blur={1} />
+
       <OrbitControls
         enableDamping={true}
         dampingFactor={0.05}
@@ -254,10 +252,10 @@ export function MindWebsiteScene({ minds = [], mentals = [] }: MindWebsiteSceneP
         target={[0, 0, 0]}
       />
 
-      <ambientLight intensity={0.2} />
+      <ambientLight intensity={1.0} />
       <directionalLight
         position={[5, 8, 5]}
-        intensity={1.5}
+        intensity={2.0}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -267,8 +265,9 @@ export function MindWebsiteScene({ minds = [], mentals = [] }: MindWebsiteSceneP
         shadow-camera-top={10}
         shadow-camera-bottom={-10}
       />
-      <directionalLight position={[-5, 3, -5]} intensity={0.3} />
-      <pointLight position={[0, 6, 0]} intensity={1.2} distance={15} decay={2} />
+      <directionalLight position={[-5, 3, -5]} intensity={1.5} />
+      <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
+      <pointLight position={[0, 0, 5]} intensity={1.5} distance={15} decay={2} />
 
       <GroundPlane />
       {minds.length > 0 && <MindSpheres minds={minds} mentals={mentals} />}

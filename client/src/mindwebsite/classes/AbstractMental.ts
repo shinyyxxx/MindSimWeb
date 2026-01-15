@@ -5,6 +5,9 @@ export interface MentalBaseOptions {
   detail?: string
   color?: number | string
   scale?: number
+  modelPath?: string
+  modelTargetWorldSize?: number
+  modelOffset?: { x?: number; y?: number; z?: number }
   /**
    * Desired constant movement speed in local-space units per frame at 60fps
    * (Mind.updatePhysics multiplies by deltaTime*60 to stay stable across FPS)
@@ -396,6 +399,14 @@ export class AbstractMental {
 
   getMesh(): THREE.Mesh | null {
     return this.mesh
+  }
+
+  getType(): string {
+    return 'mental'
+  }
+
+  getLabelObject(): THREE.Sprite | null {
+    return this.labelSprite
   }
 
   dispose(): void {

@@ -1,6 +1,7 @@
 import { AbstractMind } from './AbstractMind'
 import type { MindBaseOptions } from './AbstractMind'
 import Mental from './Mental'
+import * as THREE from 'three'
 
 /**
  * Mind class extends AbstractMind
@@ -16,6 +17,35 @@ export class Mind extends AbstractMind {
     this.createGeometry()
     this.createMaterial()
     this.createMesh()
+  }
+
+  createMaterial(): void {
+    const baseOpacity = Math.min(this.opacity, 0.6)
+    this.material = new THREE.MeshPhysicalMaterial({
+      color: this.color,
+      transmission: 0.55,
+      thickness: 1.0,
+      roughness: 0.15,
+      metalness: 0.05,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.1,
+      envMapIntensity: 0.8,
+      transparent: true,
+      opacity: baseOpacity,
+      ior: 1.2,
+      attenuationColor: '#ffffff',
+      attenuationDistance: 1.4,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  }
+
+  createMesh(): void {
+    super.createMesh()
+    if (this.mesh) {
+      this.mesh.castShadow = true
+      this.mesh.receiveShadow = true
+    }
   }
 
   /**
@@ -251,6 +281,12 @@ export class Mind extends AbstractMind {
 
     // Update positions based on velocity with boundary prediction
     this.mentals.forEach((mental) => {
+      if (mental.isFrozen()) {
+        // Keep frozen mentals anchored; zero velocity to avoid drift
+        mental.setVelocity(0, 0, 0)
+        return
+      }
+
       // Keep constant slow motion forever (if it ever hits 0/NaN, re-seed a direction)
       mental.normalizeVelocityToMotionSpeed()
 
@@ -309,7 +345,10 @@ export class Mind extends AbstractMind {
     // Check collisions between all pairs of mental spheres
     for (let i = 0; i < this.mentals.length; i++) {
       for (let j = i + 1; j < this.mentals.length; j++) {
-        this.handleCollision(this.mentals[i], this.mentals[j])
+        const a = this.mentals[i]
+        const b = this.mentals[j]
+        if (a.isFrozen() || b.isFrozen()) continue
+        this.handleCollision(a, b)
       }
     }
 

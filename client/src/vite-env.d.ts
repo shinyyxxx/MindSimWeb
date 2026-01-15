@@ -1,4 +1,16 @@
 /// <reference types="vite/client" />
+
+declare namespace JSX {
+  interface IntrinsicElements {
+    'model-viewer': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      'camera-controls'?: boolean
+      'auto-rotate'?: boolean
+      ar?: boolean
+      src?: string
+      [key: string]: any
+    }
+  }
+}
 /// <reference types="react" />
 
 // React Three Fiber JSX types
