@@ -4,8 +4,8 @@ import './VisualCodeEditor.css'
 
 type BlockType = 'create_mind' | 'create_mental' | 'set_attribute' | 'add_mental'
 
-type CreateMindData = { variableName: string; name: string; color: string; scale: number }
-type CreateMentalData = { variableName: string; name: string; color: string; scale: number }
+type CreateMindData = { variableName: string }
+type CreateMentalData = { variableName: string }
 type SetAttributeData = { 
   target: string
   color: string
@@ -88,9 +88,9 @@ type CodeExample = {
 function getDefaultDataForType(type: BlockType): BlockData {
   switch (type) {
     case 'create_mind':
-      return { variableName: 'x', name: 'My Mind', color: '#ffffff', scale: 1.5 }
+      return { variableName: 'x' }
     case 'create_mental':
-      return { variableName: 'y', name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1 }
+      return { variableName: 'y' }
     case 'set_attribute':
       return { target: 'x', color: '#fe0000', name: '', scale: '1.5', enableColor: true, enableName: false, enableScale: false }
     case 'add_mental':
@@ -122,27 +122,9 @@ function generateCodeFromBlocks(blocks: Block[]): string {
       switch (currentBlock.type) {
         case 'create_mind':
           code += `${currentBlock.data.variableName} = Mind()\n`
-          if (currentBlock.data.name !== 'My Mind') {
-            code += `${currentBlock.data.variableName}.name = "${currentBlock.data.name}"\n`
-          }
-          if (currentBlock.data.color !== '#ffffff') {
-            code += `${currentBlock.data.variableName}.color = "${currentBlock.data.color}"\n`
-          }
-          if (currentBlock.data.scale !== 1.5) {
-            code += `${currentBlock.data.variableName}.scale = ${currentBlock.data.scale}\n`
-          }
           break
         case 'create_mental':
           code += `${currentBlock.data.variableName} = Mental()\n`
-          if (currentBlock.data.name !== 'Mental Sphere') {
-            code += `${currentBlock.data.variableName}.name = "${currentBlock.data.name}"\n`
-          }
-          if (currentBlock.data.color !== '#ff6b9d') {
-            code += `${currentBlock.data.variableName}.color = "${currentBlock.data.color}"\n`
-          }
-          if (currentBlock.data.scale !== 0.1) {
-            code += `${currentBlock.data.variableName}.scale = ${currentBlock.data.scale}\n`
-          }
           break
         case 'set_attribute':
           if (currentBlock.data.enableColor && currentBlock.data.color) {
@@ -273,14 +255,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
             color: '#4C97FF',
             x: xPosition,
             y: yPosition,
-            data: { variableName: varName, name: 'My Mind', color: '#ffffff', scale: 1.5 },
+            data: { variableName: varName },
             prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
           }
           if (index > 0) {
             newBlocks[index - 1].nextBlockId = block.id
           }
           newBlocks.push(block)
-          blockHeight = 68
+          blockHeight = BLOCK_HEIGHT
         }
       }
       // Parse: y = Mental()
@@ -295,14 +277,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
             color: '#FF8C1A',
             x: xPosition,
             y: yPosition,
-            data: { variableName: varName, name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1 },
+            data: { variableName: varName },
             prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
           }
           if (index > 0) {
             newBlocks[index - 1].nextBlockId = block.id
           }
           newBlocks.push(block)
-          blockHeight = 68
+          blockHeight = BLOCK_HEIGHT
         }
       }
       // Parse: x.add(y)
@@ -552,15 +534,6 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
       // Total: 8 + (24 * 4) + (4 * 3) + 8 = 8 + 96 + 12 + 8 = 124px
       return 124
     }
-    if (block.type === 'create_mind' || block.type === 'create_mental') {
-      // With color picker row added:
-      // - Top padding: 8px
-      // - 2 rows: variable input + color picker
-      // - Each row ~24px + gap 4px
-      // - Bottom padding: 8px
-      // Total: 8 + (24 * 2) + 4 + 8 = 68px
-      return 68
-    }
     return BLOCK_HEIGHT
   }
 
@@ -762,26 +735,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           >
             <StarterJigsaw color={block.color}>
               <div className="block-content">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="text"
-                    value={block.data.variableName}
-                    onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
-                    className="block-input"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span> = Mind()</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#ccc' }}>color:</span>
-                  <input
-                    type="color"
-                    value={block.data.color}
-                    onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
-                    className="block-input block-input-color"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={block.data.variableName}
+                  onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
+                  className="block-input"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span> = Mind()</span>
               </div>
             </StarterJigsaw>
             <button className="block-delete" onClick={() => deleteBlock(block.id)}>
@@ -804,26 +765,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           >
             <StarterJigsaw color={block.color}>
               <div className="block-content">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="text"
-                    value={block.data.variableName}
-                    onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
-                    className="block-input"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <span> = Mental()</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#ccc' }}>color:</span>
-                  <input
-                    type="color"
-                    value={block.data.color}
-                    onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
-                    className="block-input block-input-color"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={block.data.variableName}
+                  onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
+                  className="block-input"
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span> = Mental()</span>
               </div>
             </StarterJigsaw>
             <button className="block-delete" onClick={() => deleteBlock(block.id)}>
