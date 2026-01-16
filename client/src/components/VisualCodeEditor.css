@@ -64,6 +64,58 @@
   background: #2563eb;
 }
 
+.examples-button {
+  padding: 10px 16px;
+  background: #666;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 13px;
+}
+
+.examples-button:hover {
+  background: #555;
+}
+
+.examples-panel {
+  position: absolute;
+  top: 0;
+  left: 216px;
+  width: 350px;
+  height: 100%;
+  background: rgba(10, 10, 15, 0.98);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  z-index: 100;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  color: white;
+}
+
+.examples-panel h3 {
+  color: #00d4ff;
+  margin: 0 0 15px 0;
+  font-size: 16px;
+}
+
+.examples-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.example-card {
+  transition: all 0.2s;
+}
+
+.example-card:active {
+  transform: scale(0.98);
+}
+
 .block-editor {
   flex: 1;
   position: relative;

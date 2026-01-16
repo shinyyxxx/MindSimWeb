@@ -6,7 +6,15 @@ type BlockType = 'create_mind' | 'create_mental' | 'set_attribute' | 'add_mental
 
 type CreateMindData = { variableName: string; name: string; color: string; scale: number }
 type CreateMentalData = { variableName: string; name: string; color: string; scale: number }
-type SetAttributeData = { target: string; color: string; name: string; scale: string }
+type SetAttributeData = { 
+  target: string
+  color: string
+  name: string
+  scale: string
+  enableColor: boolean
+  enableName: boolean
+  enableScale: boolean
+}
 type AddMentalData = { mindVar: string; mentalVar: string }
 
 type BlockData = CreateMindData | CreateMentalData | SetAttributeData | AddMentalData
@@ -69,6 +77,14 @@ export interface VisualCodeEditorProps {
   onExecute?: (code: string) => void
 }
 
+type CodeExample = {
+  id: string
+  title: string
+  description: string
+  code: string
+  category: 'basic' | 'intermediate' | 'advanced'
+}
+
 function getDefaultDataForType(type: BlockType): BlockData {
   switch (type) {
     case 'create_mind':
@@ -76,7 +92,7 @@ function getDefaultDataForType(type: BlockType): BlockData {
     case 'create_mental':
       return { variableName: 'y', name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1 }
     case 'set_attribute':
-      return { target: 'x', color: '#fe0000', name: '', scale: '1.5' }
+      return { target: 'x', color: '#fe0000', name: '', scale: '1.5', enableColor: true, enableName: false, enableScale: false }
     case 'add_mental':
       return { mindVar: 'x', mentalVar: 'y' }
   }
@@ -129,13 +145,13 @@ function generateCodeFromBlocks(blocks: Block[]): string {
           }
           break
         case 'set_attribute':
-          if (currentBlock.data.color) {
+          if (currentBlock.data.enableColor && currentBlock.data.color) {
             code += `${currentBlock.data.target}.color = ${formatValue(currentBlock.data.color)}\n`
           }
-          if (currentBlock.data.name) {
+          if (currentBlock.data.enableName && currentBlock.data.name) {
             code += `${currentBlock.data.target}.name = ${formatValue(currentBlock.data.name)}\n`
           }
-          if (currentBlock.data.scale) {
+          if (currentBlock.data.enableScale && currentBlock.data.scale) {
             code += `${currentBlock.data.target}.scale = ${currentBlock.data.scale}\n`
           }
           break
@@ -153,6 +169,52 @@ function generateCodeFromBlocks(blocks: Block[]): string {
   return code
 }
 
+// Example code templates
+const CODE_EXAMPLES: CodeExample[] = [
+  {
+    id: 'basic-mind',
+    title: 'Basic Mind',
+    description: 'Create a simple mind',
+    code: 'x = Mind()',
+    category: 'basic'
+  },
+  {
+    id: 'colored-mind',
+    title: 'Colored Mind',
+    description: 'Create a mind with custom color',
+    code: 'x = Mind()\nx.color = "#ff0000"',
+    category: 'basic'
+  },
+  {
+    id: 'mind-with-mental',
+    title: 'Mind + Mental',
+    description: 'Create a mind and attach a mental sphere',
+    code: 'x = Mind()\ny = Mental()\nx.add(y)',
+    category: 'intermediate'
+  },
+  {
+    id: 'multiple-mentals',
+    title: 'Multiple Mental Spheres',
+    description: 'Create a mind with multiple mental spheres',
+    code: 'x = Mind()\ny = Mental()\nz = Mental()\nz.color = "#00ff00"\nx.add(y)\nx.add(z)',
+    category: 'intermediate'
+  },
+  {
+    id: 'styled-mind',
+    title: 'Styled Mind',
+    description: 'Create a fully customized mind',
+    code: 'x = Mind()\nx.color = "#9966ff"\nx.name = "Creative Mind"\nx.scale = 2.0',
+    category: 'intermediate'
+  },
+  {
+    id: 'complex-structure',
+    title: 'Complex Structure',
+    description: 'Create multiple minds with styled mental spheres',
+    code: 'x = Mind()\nx.color = "#ff6b9d"\ny = Mental()\ny.color = "#00d4ff"\ny.name = "Perception"\nz = Mental()\nz.color = "#00ff88"\nz.name = "Feeling"\nx.add(y)\nx.add(z)',
+    category: 'advanced'
+  }
+]
+
 /**
  * Visual Code Editor Component
  * Allows users to build code using jigsaw blocks
@@ -163,6 +225,7 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null)
   const [draggedPlacedBlock, setDraggedPlacedBlock] = useState<{ id: number; offsetX: number; offsetY: number } | null>(null)
   const [snapTarget, setSnapTarget] = useState<{ id: number; side: 'top' | 'bottom' } | null>(null)
+  const [showExamples, setShowExamples] = useState<boolean>(false)
   const blockRefs = useRef<Map<number, HTMLDivElement>>(new Map())
   const editorRef = useRef<HTMLDivElement | null>(null)
 
@@ -181,6 +244,131 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
   const emitCodeChange = (nextBlocks: Block[]) => {
     if (!onCodeChange) return
     onCodeChange(generateCodeFromBlocks(nextBlocks))
+  }
+
+  const loadExample = (example: CodeExample) => {
+    // Clear existing blocks
+    setBlocks([])
+    setShowExamples(false)
+    
+    // Parse the example code into blocks
+    const lines = example.code.split('\n').filter(line => line.trim())
+    const newBlocks: Block[] = []
+    let yPosition = 50
+    const xPosition = 100
+    
+    lines.forEach((line, index) => {
+      const trimmed = line.trim()
+      let blockHeight = BLOCK_HEIGHT
+      
+      // Parse: x = Mind()
+      if (/^\w+\s*=\s*Mind\(\)/.test(trimmed)) {
+        const match = trimmed.match(/^(\w+)\s*=\s*Mind\(\)/)
+        if (match) {
+          const varName = match[1]
+          const block: Block = {
+            id: Date.now() + index,
+            type: 'create_mind',
+            label: 'Create Mind',
+            color: '#4C97FF',
+            x: xPosition,
+            y: yPosition,
+            data: { variableName: varName, name: 'My Mind', color: '#ffffff', scale: 1.5 },
+            prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
+          }
+          if (index > 0) {
+            newBlocks[index - 1].nextBlockId = block.id
+          }
+          newBlocks.push(block)
+          blockHeight = 68
+        }
+      }
+      // Parse: y = Mental()
+      else if (/^\w+\s*=\s*Mental\(\)/.test(trimmed)) {
+        const match = trimmed.match(/^(\w+)\s*=\s*Mental\(\)/)
+        if (match) {
+          const varName = match[1]
+          const block: Block = {
+            id: Date.now() + index,
+            type: 'create_mental',
+            label: 'Create Mental',
+            color: '#FF8C1A',
+            x: xPosition,
+            y: yPosition,
+            data: { variableName: varName, name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1 },
+            prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
+          }
+          if (index > 0) {
+            newBlocks[index - 1].nextBlockId = block.id
+          }
+          newBlocks.push(block)
+          blockHeight = 68
+        }
+      }
+      // Parse: x.add(y)
+      else if (/^\w+\.add\((\w+)\)/.test(trimmed)) {
+        const match = trimmed.match(/^(\w+)\.add\((\w+)\)/)
+        if (match) {
+          const block: Block = {
+            id: Date.now() + index,
+            type: 'add_mental',
+            label: 'Add Mental',
+            color: '#59C059',
+            x: xPosition,
+            y: yPosition,
+            data: { mindVar: match[1], mentalVar: match[2] },
+            prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
+          }
+          if (index > 0) {
+            newBlocks[index - 1].nextBlockId = block.id
+          }
+          newBlocks.push(block)
+        }
+      }
+      // Parse: x.attribute = value (set attribute)
+      else if (/^\w+\.\w+\s*=\s*.+/.test(trimmed)) {
+        const match = trimmed.match(/^(\w+)\.(\w+)\s*=\s*(.+)/)
+        if (match) {
+          const varName = match[1]
+          const attribute = match[2]
+          let value = match[3].trim()
+          
+          // Remove quotes
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1)
+          }
+          
+          const block: Block = {
+            id: Date.now() + index,
+            type: 'set_attribute',
+            label: 'Set Attribute',
+            color: '#9966FF',
+            x: xPosition,
+            y: yPosition,
+            data: {
+              target: varName,
+              color: attribute === 'color' ? value : '#fe0000',
+              name: attribute === 'name' ? value : '',
+              scale: attribute === 'scale' ? value : '1.5',
+              enableColor: attribute === 'color',
+              enableName: attribute === 'name',
+              enableScale: attribute === 'scale'
+            },
+            prevBlockId: index > 0 ? Date.now() + index - 1 : undefined
+          }
+          if (index > 0) {
+            newBlocks[index - 1].nextBlockId = block.id
+          }
+          newBlocks.push(block)
+          blockHeight = 124
+        }
+      }
+      
+      yPosition += blockHeight + 10
+    })
+    
+    setBlocks(newBlocks)
+    emitCodeChange(newBlocks)
   }
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, template: BlockTemplate) => {
@@ -358,10 +546,20 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
     if (block.type === 'set_attribute') {
       // Calculate based on actual content: 
       // - Top padding: 8px
-      // - 3 rows: each row has input field (~24px with padding) + gap (4px between rows)
+      // - 4 rows: target input + 3 attribute rows with checkboxes
+      // - Each row has input field (~24px with padding) + gap (4px between rows)
       // - Bottom padding: 8px (from starter-jigsaw)
-      // Total: 8 + (24 * 3) + (4 * 2) + 8 = 8 + 72 + 8 + 8 = 96px
-      return 96
+      // Total: 8 + (24 * 4) + (4 * 3) + 8 = 8 + 96 + 12 + 8 = 124px
+      return 124
+    }
+    if (block.type === 'create_mind' || block.type === 'create_mental') {
+      // With color picker row added:
+      // - Top padding: 8px
+      // - 2 rows: variable input + color picker
+      // - Each row ~24px + gap 4px
+      // - Bottom padding: 8px
+      // Total: 8 + (24 * 2) + 4 + 8 = 68px
+      return 68
     }
     return BLOCK_HEIGHT
   }
@@ -564,14 +762,26 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           >
             <StarterJigsaw color={block.color}>
               <div className="block-content">
-                <input
-                  type="text"
-                  value={block.data.variableName}
-                  onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
-                  className="block-input"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span> = Mind()</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="text"
+                    value={block.data.variableName}
+                    onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
+                    className="block-input"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span> = Mind()</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#ccc' }}>color:</span>
+                  <input
+                    type="color"
+                    value={block.data.color}
+                    onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
+                    className="block-input block-input-color"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
               </div>
             </StarterJigsaw>
             <button className="block-delete" onClick={() => deleteBlock(block.id)}>
@@ -594,14 +804,26 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           >
             <StarterJigsaw color={block.color}>
               <div className="block-content">
-                <input
-                  type="text"
-                  value={block.data.variableName}
-                  onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
-                  className="block-input"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span> = Mental()</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="text"
+                    value={block.data.variableName}
+                    onChange={(e) => updateBlockData(block.id, { variableName: e.target.value })}
+                    className="block-input"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span> = Mental()</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#ccc' }}>color:</span>
+                  <input
+                    type="color"
+                    value={block.data.color}
+                    onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
+                    className="block-input block-input-color"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
               </div>
             </StarterJigsaw>
             <button className="block-delete" onClick={() => deleteBlock(block.id)}>
@@ -624,41 +846,73 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           >
             <StarterJigsaw color={block.color}>
               <div className="block-content attribute-content">
-                <div className="attribute-row">
+                <div className="attribute-row" style={{ marginBottom: '6px' }}>
                   <input
                     type="text"
                     value={block.data.target}
                     onChange={(e) => updateBlockData(block.id, { target: e.target.value })}
                     className="block-input small"
                     onClick={(e) => e.stopPropagation()}
+                    placeholder="var"
                   />
-                  <span>.color = </span>
+                </div>
+                <div className="attribute-row">
+                  <input
+                    type="checkbox"
+                    checked={block.data.enableColor}
+                    onChange={(e) => updateBlockData(block.id, { enableColor: e.target.checked })}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '14px', height: '14px', marginRight: '4px', cursor: 'pointer' }}
+                  />
+                  <span style={{ opacity: block.data.enableColor ? 1 : 0.5 }}>.color = </span>
                   <input
                     type="color"
                     value={block.data.color}
                     onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
                     className="block-input block-input-color"
                     onClick={(e) => e.stopPropagation()}
+                    disabled={!block.data.enableColor}
+                    style={{ opacity: block.data.enableColor ? 1 : 0.5 }}
                   />
                 </div>
                 <div className="attribute-row">
-                  <span>.name = </span>
+                  <input
+                    type="checkbox"
+                    checked={block.data.enableName}
+                    onChange={(e) => updateBlockData(block.id, { enableName: e.target.checked })}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '14px', height: '14px', marginRight: '4px', cursor: 'pointer' }}
+                  />
+                  <span style={{ opacity: block.data.enableName ? 1 : 0.5 }}>.name = </span>
                   <input
                     type="text"
                     value={block.data.name}
                     onChange={(e) => updateBlockData(block.id, { name: e.target.value })}
                     className="block-input"
                     onClick={(e) => e.stopPropagation()}
+                    disabled={!block.data.enableName}
+                    style={{ opacity: block.data.enableName ? 1 : 0.5 }}
+                    placeholder="name"
                   />
                 </div>
                 <div className="attribute-row">
-                  <span>.scale = </span>
+                  <input
+                    type="checkbox"
+                    checked={block.data.enableScale}
+                    onChange={(e) => updateBlockData(block.id, { enableScale: e.target.checked })}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: '14px', height: '14px', marginRight: '4px', cursor: 'pointer' }}
+                  />
+                  <span style={{ opacity: block.data.enableScale ? 1 : 0.5 }}>.scale = </span>
                   <input
                     type="text"
                     value={block.data.scale}
                     onChange={(e) => updateBlockData(block.id, { scale: e.target.value })}
                     className="block-input"
                     onClick={(e) => e.stopPropagation()}
+                    disabled={!block.data.enableScale}
+                    style={{ opacity: block.data.enableScale ? 1 : 0.5 }}
+                    placeholder="1.0"
                   />
                 </div>
               </div>
@@ -731,6 +985,17 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           ))}
         </div>
         <button
+          className="examples-button"
+          onClick={() => setShowExamples(!showExamples)}
+          style={{ 
+            marginBottom: '10px',
+            background: showExamples ? '#00d4ff' : '#666',
+            transition: 'background 0.2s'
+          }}
+        >
+          {showExamples ? '← Back to Blocks' : '💡 Code Examples'}
+        </button>
+        <button
           className="execute-button"
           onClick={() => {
             // eslint-disable-next-line no-console
@@ -741,6 +1006,69 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
           Execute
         </button>
       </div>
+      
+      {showExamples && (
+        <div className="examples-panel">
+          <h3 style={{ marginBottom: '15px', color: '#00d4ff' }}>Code Examples</h3>
+          <div className="examples-grid">
+            {CODE_EXAMPLES.map((example) => (
+              <div
+                key={example.id}
+                className="example-card"
+                onClick={() => loadExample(example)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  marginBottom: '10px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(0, 212, 255, 0.1)'
+                  e.currentTarget.style.borderColor = '#00d4ff'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{
+                    fontSize: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    background: example.category === 'basic' ? '#00ff88' : example.category === 'intermediate' ? '#ffc800' : '#ff6b9d',
+                    color: '#000',
+                    fontWeight: '600'
+                  }}>
+                    {example.category.toUpperCase()}
+                  </span>
+                  <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>{example.title}</h4>
+                </div>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#999' }}>
+                  {example.description}
+                </p>
+                <pre style={{
+                  margin: 0,
+                  padding: '8px',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  fontFamily: 'monospace',
+                  color: '#ccc',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {example.code.split('\n').slice(0, 3).join('\n')}
+                  {example.code.split('\n').length > 3 ? '\n...' : ''}
+                </pre>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div
         ref={editorRef}
         className="block-editor"
