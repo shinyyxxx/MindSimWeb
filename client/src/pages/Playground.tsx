@@ -121,18 +121,66 @@ export function Playground(): React.ReactElement {
         }
 
         setMinds((prev) => {
-          const existing = prev.find((m) => m.id === mind.id)
+          // eslint-disable-next-line no-console
+          console.log('[Playground] upsert_mind response handler - current minds:', prev.map(m => ({ id: m.id, name: m.name, preview: m._preview })))
+          
+          // Remove any preview versions first
+          const filtered = prev.filter((m) => !(m._preview && m.id === mind.id))
+          
+          // Find existing non-preview mind
+          const existing = filtered.find((m) => !m._preview && m.id === mind.id)
+          
+          // eslint-disable-next-line no-console
+          console.log('[Playground] upsert_mind response - existing mind found:', existing ? { id: existing.id, name: existing.name } : 'none')
+          
+          // Preserve existing mental_sphere_ids if server response doesn't include them or has empty array
+          // This prevents clearing mental spheres when updating mind attributes
+          const preservedMentalSphereIds = existing && existing.mental_sphere_ids && existing.mental_sphere_ids.length > 0
+            ? existing.mental_sphere_ids
+            : (mind.mental_sphere_ids && mind.mental_sphere_ids.length > 0 ? mind.mental_sphere_ids : [])
+          
+          const existingVariable = existing?.variable || variable
+          
           // Ensure mental_sphere_ids is always an array (never undefined)
           const updatedMind: MindData = { 
             ...mind, 
-            variable,
-            mental_sphere_ids: mind.mental_sphere_ids || []
+            variable: existingVariable,
+            mental_sphere_ids: preservedMentalSphereIds
           }
-          const next = existing
-            ? prev.map((m) => (m.id === mind.id ? updatedMind : m))
-            : [...prev, updatedMind]
-          mindsRef.current = next
-          return next
+          
+          // Always update existing mind, never add a new one if it already exists
+          let next: MindData[]
+          if (existing) {
+            next = filtered.map((m) => (m.id === mind.id && !m._preview ? updatedMind : m))
+          } else {
+            // Double-check we're not adding a duplicate (defensive check)
+            const duplicateCheck = filtered.find((m) => !m._preview && m.id === mind.id)
+            if (duplicateCheck) {
+              // eslint-disable-next-line no-console
+              console.warn('[Playground] upsert_mind response - duplicate detected, updating instead of adding')
+              next = filtered.map((m) => (m.id === mind.id && !m._preview ? updatedMind : m))
+            } else {
+              next = [...filtered, updatedMind]
+            }
+          }
+          
+          // Final safety check: ensure no duplicates by ID
+          const seenIds = new Set<number>()
+          const deduplicated = next.filter((m) => {
+            if (seenIds.has(m.id)) {
+              // eslint-disable-next-line no-console
+              console.warn('[Playground] upsert_mind response - removing duplicate mind with id:', m.id)
+              return false
+            }
+            seenIds.add(m.id)
+            return true
+          })
+          
+          // eslint-disable-next-line no-console
+          console.log('[Playground] upsert_mind response handler - resulting minds:', deduplicated.map(m => ({ id: m.id, name: m.name, preview: m._preview })))
+          
+          mindsRef.current = deduplicated
+          return deduplicated
         })
       } else if (data.action === 'upsert_mental' && data.data?.mental_sphere) {
         const mental = data.data.mental_sphere as MentalData
@@ -144,11 +192,20 @@ export function Playground(): React.ReactElement {
         }
 
         setMentals((prev) => {
+          // Find existing mental (including preview versions)
           const existing = prev.find((m) => m.id === mental.id)
-          const updatedMental: MentalData = { ...mental, variable }
-          const next = existing
-            ? prev.map((m) => (m.id === mental.id ? updatedMental : m))
-            : [...prev, updatedMental]
+          const existingVariable = existing?.variable || variable
+          
+          // Remove any preview versions and update/replace with the real one
+          const filtered = prev.filter((m) => !(m._preview && m.id === mental.id))
+          const updatedMental: MentalData = { ...mental, variable: existingVariable }
+          
+          // Check if non-preview version already exists
+          const nonPreviewExisting = filtered.find((m) => !m._preview && m.id === mental.id)
+          const next = nonPreviewExisting
+            ? filtered.map((m) => (m.id === mental.id && !m._preview ? updatedMental : m))
+            : [...filtered, updatedMental]
+          
           mentalsRef.current = next
           return next
         })
@@ -173,33 +230,64 @@ export function Playground(): React.ReactElement {
         }
         
         setMinds((prev) => {
-          const existing = prev.find((m) => m.id === mind.id)
+          // eslint-disable-next-line no-console
+          console.log('[Playground] mind_updated broadcast handler - current minds:', prev.map(m => ({ id: m.id, name: m.name, preview: m._preview })))
+          
+          // Remove any preview versions first
+          const filtered = prev.filter((m) => !(m._preview && m.id === mind.id))
+          
+          // Find existing non-preview mind
+          const existing = filtered.find((m) => !m._preview && m.id === mind.id)
+          
+          // eslint-disable-next-line no-console
+          console.log('[Playground] mind_updated broadcast - existing mind found:', existing ? { id: existing.id, name: existing.name } : 'none')
           
           // Only update minds that were created in the current execution session
           // Ignore mind updates for minds that don't exist in current state and weren't created here
           // This prevents minds from other sessions/users from appearing
           if (!existing) {
             // Don't add new minds from broadcasts - only update existing ones
+            // eslint-disable-next-line no-console
+            console.log('[Playground] mind_updated broadcast - ignoring, mind not found in current state')
             return prev
           }
           
+          // Preserve existing mental_sphere_ids if server response doesn't include them or has empty array
+          // This prevents clearing mental spheres when updating mind attributes
+          const preservedMentalSphereIds = existing.mental_sphere_ids && existing.mental_sphere_ids.length > 0
+            ? existing.mental_sphere_ids
+            : (mind.mental_sphere_ids && mind.mental_sphere_ids.length > 0 ? mind.mental_sphere_ids : [])
           // Ensure mental_sphere_ids is always an array (never undefined)
           const updatedMind: MindData = {
             ...mind,
             variable: existing.variable,
-            mental_sphere_ids: mind.mental_sphere_ids || []
+            mental_sphere_ids: preservedMentalSphereIds
           }
-          const next = prev.map((m) => (m.id === mind.id ? updatedMind : m))
+          // Update only the non-preview version, ensuring no duplicates
+          const next = filtered.map((m) => (m.id === mind.id && !m._preview ? updatedMind : m))
+          
+          // eslint-disable-next-line no-console
+          console.log('[Playground] mind_updated broadcast handler - resulting minds:', next.map(m => ({ id: m.id, name: m.name, preview: m._preview })))
+          
           mindsRef.current = next
           return next
         })
       } else if (data.action === 'upsert_mental' && data.data?.mental_sphere) {
         const mental = data.data.mental_sphere as MentalData
         setMentals((prev) => {
-          const existing = prev.find((m) => m.id === mental.id)
-          const next = existing
-            ? prev.map((m) => (m.id === mental.id ? { ...mental, variable: m.variable } : m))
-            : [...prev, mental]
+          // Only update mental spheres that were created in the current execution session
+          // Ignore mental sphere updates for spheres that don't exist in current state
+          // This prevents mental spheres from other sessions/users from appearing
+          const existing = prev.find((m) => !m._preview && m.id === mental.id)
+          
+          if (!existing) {
+            // Don't add new mental spheres from broadcasts - only update existing ones
+            return prev
+          }
+          
+          // Update the existing mental sphere, preserving its variable
+          const updatedMental: MentalData = { ...mental, variable: existing.variable }
+          const next = prev.map((m) => (m.id === mental.id && !m._preview ? updatedMental : m))
           mentalsRef.current = next
           return next
         })
@@ -235,9 +323,9 @@ export function Playground(): React.ReactElement {
     }
   }
 
-  const handleCodeChange = (newCode: string) => {
+  const handleCodeChange = React.useCallback((newCode: string) => {
     setCode(newCode)
-  }
+  }, [])
 
   const updateMentalAttribute = (variable: string, attribute: string, value: string) => {
     setMentals((prev) => {
@@ -254,12 +342,17 @@ export function Playground(): React.ReactElement {
   }
 
   const handleExecute = (codeToExecute: string) => {
+    // eslint-disable-next-line no-console
+    console.log('[Playground] handleExecute called with code:', codeToExecute)
+    
     if (!wsClient || !wsClient.connected) {
       alert('WebSocket not connected. Please wait...')
       return
     }
 
     // Clear the right side first
+    // eslint-disable-next-line no-console
+    console.log('[Playground] Clearing minds and mentals before execution')
     setMinds([])
     setMentals([])
     mindsRef.current = []
@@ -277,13 +370,68 @@ export function Playground(): React.ReactElement {
       const parser = new CodeParser()
       const actions = parser.parse(codeToExecute)
 
+      // eslint-disable-next-line no-console
+      console.log('[Playground] Parsed actions:', actions)
+
       // If no actions parsed, don't execute
       if (actions.length === 0) {
+        // eslint-disable-next-line no-console
+        console.log('[Playground] No actions to execute')
         return
       }
 
-      actions.forEach((action: ParsedAction, index: number) => {
+      // Batch consecutive update_mind_attribute and update_mental_attribute actions for the same variable
+      const batchedActions: ParsedAction[] = []
+      let i = 0
+      while (i < actions.length) {
+        const action = actions[i]
+        if (action.type === 'update_mind_attribute') {
+          // Collect all consecutive update_mind_attribute actions for the same variable
+          const batchedUpdate: { variable: string; attributes: Record<string, string> } = {
+            variable: action.variable,
+            attributes: { [action.attribute]: action.value },
+          }
+          i++
+          while (i < actions.length && actions[i].type === 'update_mind_attribute' && actions[i].variable === batchedUpdate.variable) {
+            batchedUpdate.attributes[actions[i].attribute] = actions[i].value
+            i++
+          }
+          // Create a single batched action (we'll handle it specially in the switch)
+          batchedActions.push({
+            type: 'update_mind_attribute_batch',
+            variable: batchedUpdate.variable,
+            attributes: batchedUpdate.attributes,
+          } as any)
+        } else if (action.type === 'update_mental_attribute') {
+          // Collect all consecutive update_mental_attribute actions for the same variable
+          const batchedUpdate: { variable: string; attributes: Record<string, string> } = {
+            variable: action.variable,
+            attributes: { [action.attribute]: action.value },
+          }
+          i++
+          while (i < actions.length && actions[i].type === 'update_mental_attribute' && actions[i].variable === batchedUpdate.variable) {
+            batchedUpdate.attributes[actions[i].attribute] = actions[i].value
+            i++
+          }
+          // Create a single batched action (we'll handle it specially in the switch)
+          batchedActions.push({
+            type: 'update_mental_attribute_batch',
+            variable: batchedUpdate.variable,
+            attributes: batchedUpdate.attributes,
+          } as any)
+        } else {
+          batchedActions.push(action)
+          i++
+        }
+      }
+
+      // eslint-disable-next-line no-console
+      console.log('[Playground] Batched actions:', batchedActions)
+
+      batchedActions.forEach((action: ParsedAction, index: number) => {
         setTimeout(() => {
+          // eslint-disable-next-line no-console
+          console.log(`[Playground] Executing action ${index + 1}/${batchedActions.length}:`, action)
           switch (action.type) {
             case 'create_mind': {
               const requestId = `mind_${action.variable}_${Date.now()}_${index}`
@@ -302,6 +450,71 @@ export function Playground(): React.ReactElement {
                 },
                 request_id: requestId,
               })
+              break
+            }
+
+            case 'update_mind_attribute_batch': {
+              const batchedAction = action as any
+              const mindVarInfo = variableToIdRef.current.get(batchedAction.variable)
+              // Filter out preview minds when looking for the target mind
+              const mind = mindsRef.current.find(
+                (m) =>
+                  !m._preview &&
+                  (m.variable === batchedAction.variable || (mindVarInfo && mindVarInfo.type === 'mind' && mindVarInfo.id === m.id)),
+              )
+
+              if (mind) {
+                const updatedMind: MindData = { ...mind }
+                // Apply all batched attributes at once
+                if (batchedAction.attributes.color !== undefined) {
+                  updatedMind.color = batchedAction.attributes.color
+                }
+                if (batchedAction.attributes.name !== undefined) {
+                  updatedMind.name = batchedAction.attributes.name
+                }
+                if (batchedAction.attributes.scale !== undefined) {
+                  updatedMind.scale = Number.parseFloat(batchedAction.attributes.scale) || updatedMind.scale
+                }
+
+                // Update local state immediately to avoid color flicker
+                setMinds((prev) => {
+                  const next = prev.map((m) => (m.id === mind.id && !m._preview ? updatedMind : m))
+                  mindsRef.current = next
+                  return next
+                })
+
+                // Send single upsert_mind request with all attributes combined
+                wsClient.send({
+                  action: 'upsert_mind',
+                  data: {
+                    id: mind.id,
+                    name: updatedMind.name,
+                    detail: mind.detail || '',
+                    color: updatedMind.color,
+                    position: mind.position || [0, 0, 0],
+                    rotation: mind.rotation || [0, 0, 0],
+                    scale: updatedMind.scale,
+                    rec_status: true,
+                  },
+                  request_id: `update_${batchedAction.variable}_batch_${Date.now()}`,
+                })
+              } else {
+                // eslint-disable-next-line no-console
+                console.warn(
+                  `Mind with variable ${batchedAction.variable} not found yet. Waiting for creation...`,
+                )
+                setTimeout(() => {
+                  const retryMind = minds.find(
+                    (m) =>
+                      !m._preview &&
+                      (m.variable === batchedAction.variable ||
+                        (mindVarInfo && mindVarInfo.id === m.id)),
+                  )
+                  if (retryMind) {
+                    handleExecute(codeToExecute)
+                  }
+                }, 500)
+              }
               break
             }
 
@@ -383,6 +596,73 @@ export function Playground(): React.ReactElement {
                 },
                 request_id: requestId,
               })
+              break
+            }
+
+            case 'update_mental_attribute_batch': {
+              const batchedAction = action as any
+              const mentalVarInfo = variableToIdRef.current.get(batchedAction.variable)
+              // Filter out preview mentals
+              const mental = mentalsRef.current.find(
+                (m) =>
+                  !m._preview &&
+                  (m.variable === batchedAction.variable || (mentalVarInfo && mentalVarInfo.type === 'mental' && mentalVarInfo.id === m.id)),
+              )
+
+              if (mental) {
+                const updatedMental: MentalData = { ...mental }
+                // Apply all batched attributes at once
+                if (batchedAction.attributes.color !== undefined) {
+                  updatedMental.color = batchedAction.attributes.color
+                }
+                if (batchedAction.attributes.name !== undefined) {
+                  updatedMental.name = batchedAction.attributes.name
+                }
+                if (batchedAction.attributes.scale !== undefined) {
+                  updatedMental.scale = Number.parseFloat(batchedAction.attributes.scale) || updatedMental.scale
+                }
+
+                // Update local state immediately to avoid color flicker
+                setMentals((prev) => {
+                  const next = prev.map((m) => (m.id === mental.id && !m._preview ? updatedMental : m))
+                  mentalsRef.current = next
+                  return next
+                })
+
+                // Send single upsert_mental request with all attributes combined
+                wsClient.send({
+                  action: 'upsert_mental',
+                  data: {
+                    id: mental.id,
+                    name: updatedMental.name,
+                    detail: '',
+                    color: updatedMental.color,
+                    image: '',
+                    position: mental.position || [0.3, 0.2, 0.1],
+                    rotation: [0, 0, 0],
+                    scale: updatedMental.scale,
+                    rec_status: true,
+                  },
+                  request_id: `update_${batchedAction.variable}_batch_${Date.now()}`,
+                })
+              } else {
+                // eslint-disable-next-line no-console
+                console.warn(
+                  `Mental sphere with variable ${batchedAction.variable} not found yet. Waiting for creation...`,
+                )
+                setTimeout(() => {
+                  const retryMental = mentals.find(
+                    (m) =>
+                      !m._preview &&
+                      (m.variable === batchedAction.variable ||
+                        (mentalVarInfo && mentalVarInfo.id === m.id)),
+                  )
+                  if (retryMental) {
+                    // Use a callback to avoid setState during render
+                    setTimeout(() => handleExecute(codeToExecute), 0)
+                  }
+                }, 500)
+              }
               break
             }
 

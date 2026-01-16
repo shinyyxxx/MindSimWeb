@@ -6,7 +6,7 @@ type BlockType = 'create_mind' | 'create_mental' | 'set_attribute' | 'add_mental
 
 type CreateMindData = { variableName: string; name: string; color: string; scale: number }
 type CreateMentalData = { variableName: string; name: string; color: string; scale: number }
-type SetAttributeData = { target: string; attribute: string; value: string }
+type SetAttributeData = { target: string; color: string; name: string; scale: string }
 type AddMentalData = { mindVar: string; mentalVar: string }
 
 type BlockData = CreateMindData | CreateMentalData | SetAttributeData | AddMentalData
@@ -76,7 +76,7 @@ function getDefaultDataForType(type: BlockType): BlockData {
     case 'create_mental':
       return { variableName: 'y', name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1 }
     case 'set_attribute':
-      return { target: 'x', attribute: 'color', value: '#fe0000' }
+      return { target: 'x', color: '#fe0000', name: '', scale: '1.5' }
     case 'add_mental':
       return { mindVar: 'x', mentalVar: 'y' }
   }
@@ -129,7 +129,15 @@ function generateCodeFromBlocks(blocks: Block[]): string {
           }
           break
         case 'set_attribute':
-          code += `${currentBlock.data.target}.${currentBlock.data.attribute} = ${formatValue(currentBlock.data.value)}\n`
+          if (currentBlock.data.color) {
+            code += `${currentBlock.data.target}.color = ${formatValue(currentBlock.data.color)}\n`
+          }
+          if (currentBlock.data.name) {
+            code += `${currentBlock.data.target}.name = ${formatValue(currentBlock.data.name)}\n`
+          }
+          if (currentBlock.data.scale) {
+            code += `${currentBlock.data.target}.scale = ${currentBlock.data.scale}\n`
+          }
           break
         case 'add_mental':
           code += `${currentBlock.data.mindVar}.add(${currentBlock.data.mentalVar})\n`
@@ -137,7 +145,8 @@ function generateCodeFromBlocks(blocks: Block[]): string {
       }
 
       // Move to next block in chain
-      currentBlock = currentBlock.nextBlockId ? blocks.find((b) => b.id === currentBlock.nextBlockId) : undefined
+      const nextBlockId: number | undefined = currentBlock.nextBlockId
+      currentBlock = nextBlockId ? blocks.find((b) => b.id === nextBlockId) : undefined
     }
   })
 
@@ -216,7 +225,7 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
     e.dataTransfer.dropEffect = 'copy'
   }
 
-  const updateBlockData = (blockId: number, newData: Partial<CreateMindData & CreateMentalData & SetAttributeData & AddMentalData>) => {
+  const updateBlockData = (blockId: number, newData: Partial<CreateMindData & CreateMentalData & SetAttributeData & AddMentalData> | Record<string, any>) => {
     setBlocks((prev) => {
       const next = prev.map((block) =>
         block.id === blockId ? ({ ...block, data: { ...(block as any).data, ...newData } } as Block) : block,
@@ -346,6 +355,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
   }
 
   const getBlockHeight = (block: Block): number => {
+    if (block.type === 'set_attribute') {
+      // Calculate based on actual content: 
+      // - Top padding: 8px
+      // - 3 rows: each row has input field (~24px with padding) + gap (4px between rows)
+      // - Bottom padding: 8px (from starter-jigsaw)
+      // Total: 8 + (24 * 3) + (4 * 2) + 8 = 8 + 72 + 8 + 8 = 96px
+      return 96
+    }
     return BLOCK_HEIGHT
   }
 
@@ -387,7 +404,8 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
       }
     })
 
-    return bestTarget ? { id: bestTarget.id, side: bestTarget.side } : null
+    if (!bestTarget) return null
+    return { id: (bestTarget as { id: number; side: 'top' | 'bottom'; distance: number }).id, side: (bestTarget as { id: number; side: 'top' | 'bottom'; distance: number }).side }
   }
 
   const handleBlockMouseDown = (e: React.MouseEvent<HTMLDivElement>, block: Block) => {
@@ -605,30 +623,44 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
             onMouseDown={(e) => handleBlockMouseDown(e, block)}
           >
             <StarterJigsaw color={block.color}>
-              <div className="block-content">
-                <input
-                  type="text"
-                  value={block.data.target}
-                  onChange={(e) => updateBlockData(block.id, { target: e.target.value })}
-                  className="block-input small"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span>.</span>
-                <input
-                  type="text"
-                  value={block.data.attribute}
-                  onChange={(e) => updateBlockData(block.id, { attribute: e.target.value })}
-                  className="block-input small"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <span> = </span>
-                <input
-                  type="text"
-                  value={block.data.value}
-                  onChange={(e) => updateBlockData(block.id, { value: e.target.value })}
-                  className="block-input"
-                  onClick={(e) => e.stopPropagation()}
-                />
+              <div className="block-content attribute-content">
+                <div className="attribute-row">
+                  <input
+                    type="text"
+                    value={block.data.target}
+                    onChange={(e) => updateBlockData(block.id, { target: e.target.value })}
+                    className="block-input small"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <span>.color = </span>
+                  <input
+                    type="color"
+                    value={block.data.color}
+                    onChange={(e) => updateBlockData(block.id, { color: e.target.value })}
+                    className="block-input block-input-color"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="attribute-row">
+                  <span>.name = </span>
+                  <input
+                    type="text"
+                    value={block.data.name}
+                    onChange={(e) => updateBlockData(block.id, { name: e.target.value })}
+                    className="block-input"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="attribute-row">
+                  <span>.scale = </span>
+                  <input
+                    type="text"
+                    value={block.data.scale}
+                    onChange={(e) => updateBlockData(block.id, { scale: e.target.value })}
+                    className="block-input"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
               </div>
             </StarterJigsaw>
             <button className="block-delete" onClick={() => deleteBlock(block.id)}>
@@ -698,7 +730,14 @@ export function VisualCodeEditor({ onCodeChange, onExecute }: VisualCodeEditorPr
             </div>
           ))}
         </div>
-        <button className="execute-button" onClick={() => onExecute && onExecute(currentCode)}>
+        <button
+          className="execute-button"
+          onClick={() => {
+            // eslint-disable-next-line no-console
+            console.log('[VisualCodeEditor] Execute button clicked, code:', currentCode)
+            onExecute && onExecute(currentCode)
+          }}
+        >
           Execute
         </button>
       </div>

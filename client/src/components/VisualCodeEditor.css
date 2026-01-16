@@ -117,6 +117,16 @@
   white-space: nowrap;
 }
 
+.block-content.attribute-content {
+  flex-direction: column;
+}
+
+.attribute-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .block-input {
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -134,6 +144,30 @@
 .block-input.small {
   min-width: 30px;
   width: 30px;
+}
+
+.block-input-color {
+  width: 50px;
+  height: 24px;
+  padding: 2px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.block-input-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.block-input-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 2px;
+}
+
+.block-input-color::-moz-color-swatch {
+  border: none;
+  border-radius: 2px;
 }
 
 .block-input:focus {
