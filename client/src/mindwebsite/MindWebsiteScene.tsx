@@ -98,13 +98,20 @@ function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDa
       if (!mentalMapRef.current.has(mentalData.id)) {
         // Create new mental sphere
         const mentalColorNum = parseInt(mentalData.color.replace('#', ''), 16);
+        const isUniversal = mentalData.id < 0; // Universal factors have negative IDs
         const mental = new Mental({
           name: mentalData.name,
           detail: "",
           position: mentalData.position,
           scale: mentalData.scale,
           color: mentalColorNum,
+          motionSpeed: isUniversal ? 0 : undefined, // Only freeze universal factors
         });
+        // Freeze universal mental factors (negative IDs) so they stay in place
+        if (isUniversal) {
+          mental.setFrozen(true);
+          mental.setVelocity(0, 0, 0);
+        }
         mind.addMental(mental);
         mentalMapRef.current.set(mentalData.id, mental);
       } else {
@@ -150,6 +157,17 @@ function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDa
   return <primitive object={mindMesh} />;
 }
 
+// Universal 7 mental factors (frontend-only, not stored in backend)
+const UNIVERSAL_MENTAL_FACTORS: MentalData[] = [
+  { id: -1, name: 'Contact', color: '#ff6b6b', scale: 0.1, position: [0.3, -0.6, 0.1] },
+  { id: -2, name: 'Feeling', color: '#4ecdc4', scale: 0.1, position: [-0.2, -0.5, 0.2] },
+  { id: -3, name: 'Perception', color: '#95e1d3', scale: 0.1, position: [0.5, -0.3, -0.3] },
+  { id: -4, name: 'Intention', color: '#f38181', scale: 0.1, position: [-0.3, -0.5, -0.6] },
+  { id: -5, name: 'Attention', color: '#aa96da', scale: 0.1, position: [0.1, -0.4, -0.2] },
+  { id: -6, name: 'Consciousness', color: '#ffd93d', scale: 0.1, position: [-0.5, -0.4, -0.3] },
+  { id: -7, name: 'Awareness', color: '#6bcf7f', scale: 0.1, position: [0.0, -0.7, 0.4] },
+];
+
 function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalData[] }) {
   // Debug: Log what's being passed to the scene
   if (minds.length > 0 || mentals.length > 0) {
@@ -167,7 +185,7 @@ function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalDat
         // Filter mentals that belong to this mind based on mental_sphere_ids
         // Only show mental spheres that are explicitly in the mind's mental_sphere_ids array
         // Also filter out mental spheres without names (preview/invalid)
-        const mindMentals = mentals.filter(m => {
+        const backendMentals = mentals.filter(m => {
           if (!m.name || m.name.trim() === '') return false;
           if (!m.id || typeof m.id !== 'number') return false;
           // If no mapping provided, fall back to showing all mentals.
@@ -177,18 +195,18 @@ function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalDat
           return mind.mental_sphere_ids.includes(m.id);
         });
         
+        // Always include the 7 universal mental factors (frontend-only)
+        // Combine backend mentals with universal factors
+        const mindMentals = [...UNIVERSAL_MENTAL_FACTORS, ...backendMentals];
+        
         // Debug: Log what mental spheres are being shown for each mind
         if (mindMentals.length > 0) {
-          console.log(`[MindSpheres] Mind ${mind.id} (${mind.name}) showing ${mindMentals.length} mental spheres:`, 
+          console.log(`[MindSpheres] Mind ${mind.id} (${mind.name}) showing ${mindMentals.length} mental spheres (${UNIVERSAL_MENTAL_FACTORS.length} universal + ${backendMentals.length} backend):`, 
             mindMentals.map(m => ({ id: m.id, name: m.name })),
             `mental_sphere_ids: [${mind.mental_sphere_ids?.join(', ')}]`
           );
         }
         
-        // Debug: Log if we're showing mental spheres that shouldn't be there
-        if (mindMentals.length > 0 && (!mind.mental_sphere_ids || mind.mental_sphere_ids.length === 0)) {
-          console.warn(`[MindSpheres] WARNING: Mind ${mind.id} has mental spheres but no mental_sphere_ids array`);
-        }
         return (
           <MindSphere 
             key={mind.id} 

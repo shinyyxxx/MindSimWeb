@@ -130,76 +130,147 @@ export class Mind extends AbstractMind {
     const minDistance = radius1 + radius2
 
     if (distance < minDistance && distance > 0) {
+      const isFrozen1 = mental1.isFrozen()
+      const isFrozen2 = mental2.isFrozen()
+      
       // Collision detected - separate spheres
       const overlap = minDistance - distance
-      const separationX = (dx / distance) * overlap * 0.5
-      const separationY = (dy / distance) * overlap * 0.5
-      const separationZ = (dz / distance) * overlap * 0.5
-
-      // Move spheres apart
-      mental1.setPosition(
-        pos1.x - separationX,
-        pos1.y - separationY,
-        pos1.z - separationZ
-      )
-      mental2.setPosition(
-        pos2.x + separationX,
-        pos2.y + separationY,
-        pos2.z + separationZ
-      )
-
-      // Update mesh positions
-      const mesh1 = mental1.getMesh()
-      const mesh2 = mental2.getMesh()
-      if (mesh1) {
-        mesh1.position.set(
-          pos1.x - separationX,
-          pos1.y - separationY,
-          pos1.z - separationZ
-        )
-      }
-      if (mesh2) {
-        mesh2.position.set(
+      const normalX = dx / distance
+      const normalY = dy / distance
+      const normalZ = dz / distance
+      
+      // If one is frozen, only move the non-frozen one
+      if (isFrozen1 && !isFrozen2) {
+        // Only move mental2 away from frozen mental1
+        const separationX = normalX * overlap
+        const separationY = normalY * overlap
+        const separationZ = normalZ * overlap
+        
+        mental2.setPosition(
           pos2.x + separationX,
           pos2.y + separationY,
           pos2.z + separationZ
         )
-      }
-
-      // Bounce off each other - simple elastic collision
-      const normalX = dx / distance
-      const normalY = dy / distance
-      const normalZ = dz / distance
-
-      // Relative velocity
-      const relVelX = vel2.x - vel1.x
-      const relVelY = vel2.y - vel1.y
-      const relVelZ = vel2.z - vel1.z
-
-      // Dot product of relative velocity and normal
-      const dotProduct = relVelX * normalX + relVelY * normalY + relVelZ * normalZ
-
-      // Only bounce if moving towards each other
-      if (dotProduct < 0) {
-        const bounceStrength = 0.9 // Higher bounce strength
-        // Use proper elastic collision formula: v' = v - (1 + e)(v·n)n
-        const impulse = dotProduct * (1 + bounceStrength)
-
-        // Update velocities
-        const newVel1X = vel1.x + impulse * normalX
-        const newVel1Y = vel1.y + impulse * normalY
-        const newVel1Z = vel1.z + impulse * normalZ
         
-        const newVel2X = vel2.x - impulse * normalX
-        const newVel2Y = vel2.y - impulse * normalY
-        const newVel2Z = vel2.z - impulse * normalZ
+        const mesh2 = mental2.getMesh()
+        if (mesh2) {
+          mesh2.position.set(
+            pos2.x + separationX,
+            pos2.y + separationY,
+            pos2.z + separationZ
+          )
+        }
         
-        mental1.setVelocity(newVel1X, newVel1Y, newVel1Z)
-        mental2.setVelocity(newVel2X, newVel2Y, newVel2Z)
+        // Bounce the non-frozen sphere off the frozen one
+        const dotProduct = vel2.x * normalX + vel2.y * normalY + vel2.z * normalZ
+        if (dotProduct < 0) {
+          const bounceStrength = 0.9
+          const impulse = dotProduct * (1 + bounceStrength)
+          const newVel2X = vel2.x - impulse * normalX
+          const newVel2Y = vel2.y - impulse * normalY
+          const newVel2Z = vel2.z - impulse * normalZ
+          mental2.setVelocity(newVel2X, newVel2Y, newVel2Z)
+          mental2.normalizeVelocityToMotionSpeed()
+        }
+      } else if (isFrozen2 && !isFrozen1) {
+        // Only move mental1 away from frozen mental2
+        const separationX = -normalX * overlap
+        const separationY = -normalY * overlap
+        const separationZ = -normalZ * overlap
+        
+        mental1.setPosition(
+          pos1.x + separationX,
+          pos1.y + separationY,
+          pos1.z + separationZ
+        )
+        
+        const mesh1 = mental1.getMesh()
+        if (mesh1) {
+          mesh1.position.set(
+            pos1.x + separationX,
+            pos1.y + separationY,
+            pos1.z + separationZ
+          )
+        }
+        
+        // Bounce the non-frozen sphere off the frozen one
+        const dotProduct = vel1.x * normalX + vel1.y * normalY + vel1.z * normalZ
+        if (dotProduct > 0) {
+          const bounceStrength = 0.9
+          const impulse = dotProduct * (1 + bounceStrength)
+          const newVel1X = vel1.x - impulse * normalX
+          const newVel1Y = vel1.y - impulse * normalY
+          const newVel1Z = vel1.z - impulse * normalZ
+          mental1.setVelocity(newVel1X, newVel1Y, newVel1Z)
+          mental1.normalizeVelocityToMotionSpeed()
+        }
+      } else {
+        // Both are non-frozen - normal collision handling
+        const separationX = normalX * overlap * 0.5
+        const separationY = normalY * overlap * 0.5
+        const separationZ = normalZ * overlap * 0.5
 
-        // Keep constant slow motion (no boosting/acceleration)
-        mental1.normalizeVelocityToMotionSpeed()
-        mental2.normalizeVelocityToMotionSpeed()
+        // Move spheres apart
+        mental1.setPosition(
+          pos1.x - separationX,
+          pos1.y - separationY,
+          pos1.z - separationZ
+        )
+        mental2.setPosition(
+          pos2.x + separationX,
+          pos2.y + separationY,
+          pos2.z + separationZ
+        )
+
+        // Update mesh positions
+        const mesh1 = mental1.getMesh()
+        const mesh2 = mental2.getMesh()
+        if (mesh1) {
+          mesh1.position.set(
+            pos1.x - separationX,
+            pos1.y - separationY,
+            pos1.z - separationZ
+          )
+        }
+        if (mesh2) {
+          mesh2.position.set(
+            pos2.x + separationX,
+            pos2.y + separationY,
+            pos2.z + separationZ
+          )
+        }
+
+        // Bounce off each other - simple elastic collision
+        // Relative velocity
+        const relVelX = vel2.x - vel1.x
+        const relVelY = vel2.y - vel1.y
+        const relVelZ = vel2.z - vel1.z
+
+        // Dot product of relative velocity and normal
+        const dotProduct = relVelX * normalX + relVelY * normalY + relVelZ * normalZ
+
+        // Only bounce if moving towards each other
+        if (dotProduct < 0) {
+          const bounceStrength = 0.9 // Higher bounce strength
+          // Use proper elastic collision formula: v' = v - (1 + e)(v·n)n
+          const impulse = dotProduct * (1 + bounceStrength)
+
+          // Update velocities
+          const newVel1X = vel1.x + impulse * normalX
+          const newVel1Y = vel1.y + impulse * normalY
+          const newVel1Z = vel1.z + impulse * normalZ
+          
+          const newVel2X = vel2.x - impulse * normalX
+          const newVel2Y = vel2.y - impulse * normalY
+          const newVel2Z = vel2.z - impulse * normalZ
+          
+          mental1.setVelocity(newVel1X, newVel1Y, newVel1Z)
+          mental2.setVelocity(newVel2X, newVel2Y, newVel2Z)
+
+          // Keep constant slow motion (no boosting/acceleration)
+          mental1.normalizeVelocityToMotionSpeed()
+          mental2.normalizeVelocityToMotionSpeed()
+        }
       }
     }
   }
@@ -355,7 +426,9 @@ export class Mind extends AbstractMind {
       for (let j = i + 1; j < this.mentals.length; j++) {
         const a = this.mentals[i]
         const b = this.mentals[j]
-        if (a.isFrozen() || b.isFrozen()) continue
+        // Skip collision check only if BOTH are frozen (universal factors don't collide with each other)
+        // But allow collisions between frozen and non-frozen spheres
+        if (a.isFrozen() && b.isFrozen()) continue
         this.handleCollision(a, b)
       }
     }
