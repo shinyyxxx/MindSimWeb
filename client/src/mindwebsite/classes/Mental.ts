@@ -276,6 +276,163 @@ export class Mental extends AbstractMental {
           const planeScale = options.scale ?? 0.08
           plane.scale.setScalar(planeScale)
 
+          // Rainbow trail (simple line with vertex colors)
+          const maxTrailPoints = 80
+          const trailGeometry = new THREE.BufferGeometry()
+          const trailPositions = new Float32Array(maxTrailPoints * 3)
+          const trailColors = new Float32Array(maxTrailPoints * 3)
+          const positionAttr = new THREE.BufferAttribute(trailPositions, 3)
+          const colorAttr = new THREE.BufferAttribute(trailColors, 3)
+          trailGeometry.setAttribute('position', positionAttr)
+          trailGeometry.setAttribute('color', colorAttr)
+          trailGeometry.setDrawRange(0, 0)
+          const trailMaterial = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          })
+          const trailLine = new THREE.Line(trailGeometry, trailMaterial)
+          trailLine.frustumCulled = false
+          parent.add(trailLine)
+
+          // Wide ribbon (two-triangle quad per segment)
+          const ribbonWidth = 0.05
+          const ribbonGeometry = new THREE.BufferGeometry()
+          const maxRibbonVerts = (maxTrailPoints - 1) * 6 // 2 triangles per segment
+          const ribbonPositions = new Float32Array(maxRibbonVerts * 3)
+          const ribbonColors = new Float32Array(maxRibbonVerts * 3)
+          const ribbonPositionAttr = new THREE.BufferAttribute(ribbonPositions, 3)
+          const ribbonColorAttr = new THREE.BufferAttribute(ribbonColors, 3)
+          ribbonGeometry.setAttribute('position', ribbonPositionAttr)
+          ribbonGeometry.setAttribute('color', ribbonColorAttr)
+          ribbonGeometry.setDrawRange(0, 0)
+          const ribbonMaterial = new THREE.MeshBasicMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          })
+          const ribbonMesh = new THREE.Mesh(ribbonGeometry, ribbonMaterial)
+          ribbonMesh.frustumCulled = false
+          parent.add(ribbonMesh)
+
+          const trailPoints: THREE.Vector3[] = []
+          const rainbowStops = [
+            new THREE.Color('#ff0048'),
+            new THREE.Color('#ff7a00'),
+            new THREE.Color('#ffeb00'),
+            new THREE.Color('#28e300'),
+            new THREE.Color('#00d8ff'),
+            new THREE.Color('#005dff'),
+            new THREE.Color('#b400ff')
+          ]
+          const upVec = new THREE.Vector3(0, 1, 0)
+          const pushTrailPoint = (pt: THREE.Vector3) => {
+            trailPoints.push(pt.clone())
+            if (trailPoints.length > maxTrailPoints) trailPoints.shift()
+
+            // Update positions
+            for (let i = 0; i < trailPoints.length; i++) {
+              const p = trailPoints[i]
+              const idx = i * 3
+              trailPositions[idx] = p.x
+              trailPositions[idx + 1] = p.y
+              trailPositions[idx + 2] = p.z
+            }
+            positionAttr.needsUpdate = true
+            trailGeometry.setDrawRange(0, trailPoints.length)
+
+            // Update rainbow vertex colors along the trail (head->tail)
+            const stopCount = rainbowStops.length - 1
+            for (let i = 0; i < trailPoints.length; i++) {
+              const t = i / Math.max(1, trailPoints.length - 1)
+              const scaled = t * stopCount
+              const base = Math.floor(scaled)
+              const lerpT = scaled - base
+              const c1 = rainbowStops[base]
+              const c2 = rainbowStops[Math.min(base + 1, stopCount)]
+              const r = THREE.MathUtils.lerp(c1.r, c2.r, lerpT)
+              const g = THREE.MathUtils.lerp(c1.g, c2.g, lerpT)
+              const b = THREE.MathUtils.lerp(c1.b, c2.b, lerpT)
+              const ci = i * 3
+              trailColors[ci] = r
+              trailColors[ci + 1] = g
+              trailColors[ci + 2] = b
+            }
+            colorAttr.needsUpdate = true
+
+            // Update ribbon quad vertices for width
+            const segCount = Math.max(0, trailPoints.length - 1)
+            let v = 0
+            for (let i = 0; i < segCount; i++) {
+              const p0 = trailPoints[i]
+              const p1 = trailPoints[i + 1]
+              const dir = p1.clone().sub(p0)
+              const side = dir.lengthSq() < 1e-6
+                ? new THREE.Vector3(1, 0, 0)
+                : dir.clone().cross(upVec).normalize()
+              side.multiplyScalar(ribbonWidth * 0.5)
+
+              const a = p0.clone().add(side)
+              const b = p0.clone().sub(side)
+              const c = p1.clone().add(side)
+              const d = p1.clone().sub(side)
+
+              const t0 = i / Math.max(1, trailPoints.length - 1)
+              const t1 = (i + 1) / Math.max(1, trailPoints.length - 1)
+              const segColor0 = (() => {
+                const scaled = t0 * (rainbowStops.length - 1)
+                const base = Math.floor(scaled)
+                const lerpT = scaled - base
+                const c1 = rainbowStops[base]
+                const c2 = rainbowStops[Math.min(base + 1, rainbowStops.length - 1)]
+                return new THREE.Color(
+                  THREE.MathUtils.lerp(c1.r, c2.r, lerpT),
+                  THREE.MathUtils.lerp(c1.g, c2.g, lerpT),
+                  THREE.MathUtils.lerp(c1.b, c2.b, lerpT)
+                )
+              })()
+              const segColor1 = (() => {
+                const scaled = t1 * (rainbowStops.length - 1)
+                const base = Math.floor(scaled)
+                const lerpT = scaled - base
+                const c1 = rainbowStops[base]
+                const c2 = rainbowStops[Math.min(base + 1, rainbowStops.length - 1)]
+                return new THREE.Color(
+                  THREE.MathUtils.lerp(c1.r, c2.r, lerpT),
+                  THREE.MathUtils.lerp(c1.g, c2.g, lerpT),
+                  THREE.MathUtils.lerp(c1.b, c2.b, lerpT)
+                )
+              })()
+
+              const writeVert = (vec: THREE.Vector3, col: THREE.Color) => {
+                ribbonPositions[v * 3] = vec.x
+                ribbonPositions[v * 3 + 1] = vec.y
+                ribbonPositions[v * 3 + 2] = vec.z
+                ribbonColors[v * 3] = col.r
+                ribbonColors[v * 3 + 1] = col.g
+                ribbonColors[v * 3 + 2] = col.b
+                v++
+              }
+
+              // Triangle 1: a, c, b
+              writeVert(a, segColor0)
+              writeVert(c, segColor1)
+              writeVert(b, segColor0)
+              // Triangle 2: b, c, d
+              writeVert(b, segColor0)
+              writeVert(c, segColor1)
+              writeVert(d, segColor1)
+            }
+            ribbonPositionAttr.needsUpdate = true
+            ribbonColorAttr.needsUpdate = true
+            ribbonGeometry.setDrawRange(0, Math.max(0, (trailPoints.length - 1) * 6))
+          }
+
           const duration = options.durationMs ?? 1400
           const arcHeight = options.arcHeight ?? 0.12
           const tmpEndLocal = new THREE.Vector3()
@@ -288,6 +445,12 @@ export class Mental extends AbstractMental {
             disposed = true
             cancelAnimationFrame(animationFrame)
             parent.remove(plane)
+            if (trailLine.parent) {
+              trailLine.parent.remove(trailLine)
+            }
+            if (ribbonMesh.parent) {
+              ribbonMesh.parent.remove(ribbonMesh)
+            }
             plane.traverse((node) => {
               if ((node as THREE.Mesh).isMesh) {
                 const mesh = node as THREE.Mesh
@@ -299,6 +462,10 @@ export class Mental extends AbstractMental {
                 }
               }
             })
+            trailGeometry.dispose()
+            trailMaterial.dispose()
+            ribbonGeometry.dispose()
+            ribbonMaterial.dispose()
             ktx2Loader.dispose()
             dracoLoader.dispose()
             resolve()
@@ -306,6 +473,7 @@ export class Mental extends AbstractMental {
 
           parent.add(plane)
           plane.position.copy(startLocal)
+          pushTrailPoint(plane.position)
 
           const step = (timestamp: number) => {
             if (!plane.parent) {
@@ -328,12 +496,15 @@ export class Mental extends AbstractMental {
             const pos = startLocal.clone().lerp(tmpEndLocal, t)
             pos.y += Math.sin(Math.PI * t) * arcHeight
             plane.position.copy(pos)
+            pushTrailPoint(plane.position)
 
             // Orient plane along the travel direction
             const nextDir = tmpEndLocal.clone().sub(pos).normalize()
             if (nextDir.lengthSq() > 0) {
-              const lookAtTarget = pos.clone().add(nextDir)
-              plane.lookAt(lookAtTarget)
+              // Align model's -Z (typical GLTF forward) to travel direction
+              const forward = new THREE.Vector3(0, 0, -1)
+              const quat = new THREE.Quaternion().setFromUnitVectors(forward, nextDir)
+              plane.setRotationFromQuaternion(quat)
             }
 
             if (t < 1) {

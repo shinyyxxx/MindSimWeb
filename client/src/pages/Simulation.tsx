@@ -11,10 +11,12 @@ import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
+import { EffectComposer, Outline } from '@react-three/postprocessing';
+import { BlendFunction } from 'postprocessing';
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
-
+  
 type Vec3 = [number, number, number]
 
 type MentalSeed = {
@@ -76,6 +78,8 @@ function MentalsLayer({
   onSelectMental,
   focusTargetRef,
   planeModelPath,
+  sendMode,
+  onSendSelection,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -83,6 +87,8 @@ function MentalsLayer({
   onSelectMental: (info: InspectSelection) => void
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   planeModelPath: string
+  sendMode: boolean
+  onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -142,16 +148,38 @@ function MentalsLayer({
       })
 
       if (found) {
-        const currentSender = senderRef.current
-        if (currentSender && currentSender !== found) {
-          currentSender.sendDataTo(gl, found, {
-            planeModelPath,
-            durationMs: 1400,
-            arcHeight: 0.14,
-            scale: 0.1,
-          }).catch((err) => console.error('Failed to visualize send', err))
+        if (sendMode) {
+          // In send mode: first click picks sender, second click sends to receiver.
+          const currentSender = senderRef.current
+          if (!currentSender) {
+            senderRef.current = found
+            onSendSelection?.({ sender: found.getName(), receiver: null, status: 'Choose receiver' })
+            return
+          }
+          if (currentSender === found) {
+            // Same as sender; ignore to avoid self-send spam.
+            return
+          }
+          const senderName = currentSender.getName()
+          const receiverName = found.getName()
+          onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
+          currentSender
+            .sendDataTo(gl, found, {
+              planeModelPath,
+              durationMs: 1400,
+              arcHeight: 0.14,
+              scale: 0.1,
+            })
+            .then(() => {
+              onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
+            })
+            .catch((err) => {
+              console.error('Failed to visualize send', err)
+              onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
+            })
+          senderRef.current = null
+          return
         }
-        senderRef.current = found
 
         // Stop motion while inspecting
         found.setFrozen(true)
@@ -179,7 +207,7 @@ function MentalsLayer({
     return () => {
       canvas.removeEventListener('pointerdown', handlePointer)
     }
-  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath])
+  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath, sendMode, onSendSelection])
 
   useEffect(() => {
     if (!selectedMentalName) {
@@ -237,12 +265,16 @@ function ThreeScene({
   selectedMentalName,
   onSelectMental,
   onUpdatePanelPosition,
+  sendMode,
+  onSendSelection,
 }: {
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
   onSelectMental: (info: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
+  sendMode: boolean
+  onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
 
@@ -266,7 +298,16 @@ function ThreeScene({
       <pointLight position={[0, 0, 5]} intensity={1.5} distance={15} decay={2} />
       <GroundPlane />
       <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
-      <MentalsLayer mind={mind} mentals={mentals} selectedMentalName={selectedMentalName} onSelectMental={onSelectMental} focusTargetRef={focusTargetRef} planeModelPath={paperPlaneModel} />
+      <MentalsLayer
+        mind={mind}
+        mentals={mentals}
+        selectedMentalName={selectedMentalName}
+        onSelectMental={onSelectMental}
+        focusTargetRef={focusTargetRef}
+        planeModelPath={paperPlaneModel}
+        sendMode={sendMode}
+        onSendSelection={onSendSelection}
+      />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
     </Canvas>
   )
@@ -280,6 +321,10 @@ export function Simulation(): React.ReactElement {
   const [profileMarkers, setProfileMarkers] = useState<Array<{ key: string; value: string; position: { x: number; y: number; z: number } }>>([])
   const [attrKey, setAttrKey] = useState('')
   const [attrValue, setAttrValue] = useState('')
+  const [sendMode, setSendMode] = useState(false)
+  const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
+    status: 'Idle',
+  })
 
   const mind = useMemo(() => {
     return new Mind({
@@ -454,6 +499,48 @@ export function Simulation(): React.ReactElement {
   return (
     <main className="page simulation-page">
       <div className="simulation-full" style={{ position: 'relative' }}>
+        <div
+          className="send-toolbar"
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 10,
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            padding: '8px 12px',
+            background: 'rgba(0,0,0,0.55)',
+            borderRadius: 8,
+            color: 'white',
+            fontSize: 13,
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setSendMode((prev) => !prev)
+              setSendInfo({ status: 'Idle', sender: null, receiver: null })
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: sendMode ? '#22c55e' : '#3b82f6',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {sendMode ? 'Exit Send Mode' : 'Send Paper Plane'}
+          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <span>Sender: {sendInfo.sender ?? '—'}</span>
+            <span>Receiver: {sendInfo.receiver ?? '—'}</span>
+            <span>Status: {sendInfo.status ?? 'Idle'}</span>
+          </div>
+        </div>
         {selected && (
           <InspectPanel
             selection={selected}
@@ -481,6 +568,8 @@ export function Simulation(): React.ReactElement {
           selectedMentalName={selected?.name ?? null}
           onSelectMental={handleSelect}
           onUpdatePanelPosition={setPanelPosition}
+          sendMode={sendMode}
+          onSendSelection={setSendInfo}
         />
       </div>
     </main>
