@@ -12,6 +12,7 @@ export class GoodMental extends Mental {
       opacity: options.opacity ?? 0.5,
       ...options,
     })
+    ;(this as any).side = 'left'
   }
 
   override getType(): string {

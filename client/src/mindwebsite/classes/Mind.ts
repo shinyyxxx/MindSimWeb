@@ -298,9 +298,17 @@ export class Mind extends AbstractMind {
       const maxDistance = mindRadius - mentalRadius - 0.01
 
       // Calculate next position in local space
-      const nextX = position.x + velocity.x * speedMultiplier
+      let nextX = position.x + velocity.x * speedMultiplier
       const nextY = position.y + velocity.y * speedMultiplier
       const nextZ = position.z + velocity.z * speedMultiplier
+
+      // Optional side constraint for certain mentals (e.g., good mentals stay on the left)
+      const side = (mental as any).side as 'left' | 'right' | undefined
+      if (side === 'left') {
+        nextX = Math.min(nextX, -0.05)
+      } else if (side === 'right') {
+        nextX = Math.max(nextX, 0.05)
+      }
 
       // Convert next position to world space for boundary check
       // Since Mental is a child of Mind, world position = local position * Mind scale

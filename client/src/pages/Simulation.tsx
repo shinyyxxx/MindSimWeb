@@ -5,11 +5,15 @@ import * as THREE from 'three'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
+import GoodMental from '../mindwebsite/classes/good/GoodMental'
+import BadMental from '../mindwebsite/classes/bad/BadMental'
+import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
+import paperPlaneModel from '../assets/paper_plane.glb?url'
 
 type Vec3 = [number, number, number]
 
@@ -23,6 +27,7 @@ type MentalSeed = {
   modelTargetWorldSize?: number
   modelOffset?: { x?: number; y?: number; z?: number }
   type?: 'perception'
+  variant?: 'good' | 'bad' | 'neutral' | 'perception'
 }
 
 function MindSphere({
@@ -70,16 +75,19 @@ function MentalsLayer({
   selectedMentalName,
   onSelectMental,
   focusTargetRef,
+  planeModelPath,
 }: {
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
   onSelectMental: (info: InspectSelection) => void
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
+  planeModelPath: string
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
+  const senderRef = useRef<Mental | null>(null)
 
   useEffect(() => {
     mentals.forEach((mental) => mind.addMental(mental))
@@ -134,6 +142,17 @@ function MentalsLayer({
       })
 
       if (found) {
+        const currentSender = senderRef.current
+        if (currentSender && currentSender !== found) {
+          currentSender.sendDataTo(gl, found, {
+            planeModelPath,
+            durationMs: 1400,
+            arcHeight: 0.14,
+            scale: 0.1,
+          }).catch((err) => console.error('Failed to visualize send', err))
+        }
+        senderRef.current = found
+
         // Stop motion while inspecting
         found.setFrozen(true)
         const worldPos = new THREE.Vector3()
@@ -160,7 +179,7 @@ function MentalsLayer({
     return () => {
       canvas.removeEventListener('pointerdown', handlePointer)
     }
-  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef])
+  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath])
 
   useEffect(() => {
     if (!selectedMentalName) {
@@ -247,7 +266,7 @@ function ThreeScene({
       <pointLight position={[0, 0, 5]} intensity={1.5} distance={15} decay={2} />
       <GroundPlane />
       <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
-      <MentalsLayer mind={mind} mentals={mentals} selectedMentalName={selectedMentalName} onSelectMental={onSelectMental} focusTargetRef={focusTargetRef} />
+      <MentalsLayer mind={mind} mentals={mentals} selectedMentalName={selectedMentalName} onSelectMental={onSelectMental} focusTargetRef={focusTargetRef} planeModelPath={paperPlaneModel} />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
     </Canvas>
   )
@@ -279,17 +298,33 @@ export function Simulation(): React.ReactElement {
 
   const mentals = useMemo<Mental[]>(() => {
     const seeds: MentalSeed[] = [
+      // Good mentals (clustered left/front)
+      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.6, 0.2, 0.2], variant: 'good' },
+      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.8, 0.05, 0.1], variant: 'good' },
+      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.7, -0.1, -0.05], variant: 'good' },
+      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, 0.0, -0.2], variant: 'good' },
+
+      // Bad mentals (clustered right/back)
+      { name: 'Bad 1', color: '#ef4444', scale: 0.12, position: [0.6, 0.2, -0.2], variant: 'bad' },
+      { name: 'Bad 2', color: '#ef4444', scale: 0.12, position: [0.8, 0.05, -0.1], variant: 'bad' },
+      { name: 'Bad 3', color: '#ef4444', scale: 0.12, position: [0.7, -0.05, 0.05], variant: 'bad' },
+      { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, 0.1, 0.2], variant: 'bad' },
+
+      // Neutral mentals (spaced center)
       {
-        name: 'Focus',
-        color: '#22c55e',
-        scale: 0.18,
-        position: [0.25, 0.14, 0.18],
-        detail: 'Focus with violin model',
-        modelPath: violinModel,
-        modelTargetWorldSize: 0.33,
-        modelOffset: { x: -0.2, y: 0, z: 0.22 },
+        name: 'Neutral 1',
+        color: '#a1a1aa',
+        scale: 0.14,
+        position: [0.0, 0.12, 0.35],
+        detail: 'Paper plane thought',
+        modelPath: paperPlaneModel,
+        modelTargetWorldSize: 0.08,
+        modelOffset: { x: 0, y: -0.04, z: 0 },
+        variant: 'neutral',
       },
-      { name: 'Curiosity', color: '#ec4899', scale: 0.16, position: [-0.28, 0.1, -0.22] },
+      { name: 'Neutral 2', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.05, -0.35], variant: 'neutral' },
+
+      // Perception (kept)
       {
         name: 'Perception',
         color: '#60a5fa',
@@ -299,11 +334,12 @@ export function Simulation(): React.ReactElement {
         modelPath: perceptionBowlModel,
         modelTargetWorldSize: 0.02,
         modelOffset: { x: 0, y: -0.3, z: 0.5 },
-        type: 'perception',
+        variant: 'perception',
       },
     ]
+
     return seeds.map((m) => {
-      if (m.type === 'perception') {
+      if (m.variant === 'perception') {
         return new PerceptionMental({
           name: m.name,
           detail: m.detail ?? '',
@@ -314,7 +350,49 @@ export function Simulation(): React.ReactElement {
           modelPath: m.modelPath,
           modelTargetWorldSize: m.modelTargetWorldSize,
           modelOffset: m.modelOffset,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
         })
+      }
+      if (m.variant === 'good') {
+        const mental = new GoodMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.002,
+        })
+        return mental
+      }
+      if (m.variant === 'bad') {
+        const mental = new BadMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+        })
+        mental.setFrozen(true)
+        return mental
+      }
+      if (m.variant === 'neutral') {
+        const mental = new NeutralMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          modelPath: m.modelPath,
+          modelTargetWorldSize: m.modelTargetWorldSize,
+          modelOffset: m.modelOffset,
+        })
+        return mental
       }
       return new Mental({
         name: m.name,

@@ -35,6 +35,12 @@
   white-space: nowrap;
 }
 
+/* Allow wrapping for attribute content */
+.jigsaw-content.attribute-content {
+  white-space: normal;
+  text-align: left;
+}
+
 .jigsaw-content-wrapper {
   display: flex;
   align-items: center;
@@ -115,6 +121,11 @@
 
 .starter-jigsaw .jigsaw-content {
   border-radius: 4px 4px 0 0;
+}
+
+/* Ensure connector stays at bottom for taller content */
+.starter-jigsaw .jigsaw-content.attribute-content {
+  padding-bottom: 0;
 }
 
 /* Attribute Jigsaw - can connect in all directions */
