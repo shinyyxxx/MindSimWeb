@@ -5,6 +5,12 @@ import * as THREE from 'three'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
+import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
+import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
+import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
+import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
+import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
+import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
 import GoodMental from '../mindwebsite/classes/good/GoodMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
@@ -29,7 +35,17 @@ type MentalSeed = {
   modelTargetWorldSize?: number
   modelOffset?: { x?: number; y?: number; z?: number }
   type?: 'perception'
-  variant?: 'good' | 'bad' | 'neutral' | 'perception'
+  variant?:
+    | 'good'
+    | 'bad'
+    | 'neutral'
+    | 'perception'
+    | 'contact'
+    | 'feeling'
+    | 'intention'
+    | 'attention'
+    | 'consciousness'
+    | 'awareness'
 }
 
 function MindSphere({
@@ -532,19 +548,12 @@ export function Simulation(): React.ReactElement {
       { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, -0.15, 0.2], variant: 'bad' },
 
       // Neutral mentals (bottom zone, Y < -0.3)
-      {
-        name: 'Neutral 1',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.0, -0.45, 0.1],
-        detail: 'Paper plane thought',
-        modelPath: paperPlaneModel,
-        modelTargetWorldSize: 0.08,
-        modelOffset: { x: 0, y: -0.04, z: 0 },
-        variant: 'neutral',
-      },
-      { name: 'Neutral 2', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'neutral' },
-      { name: 'Neutral 3', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'neutral' },
+      { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Paper plane thought', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
+      { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
+      { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
+      { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
+      { name: 'Consciousness', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'consciousness' },
+      { name: 'Awareness', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'awareness' },
 
       // Perception (kept)
       {
@@ -572,6 +581,81 @@ export function Simulation(): React.ReactElement {
           modelPath: m.modelPath,
           modelTargetWorldSize: m.modelTargetWorldSize,
           modelOffset: m.modelOffset,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'contact') {
+        return new ContactMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          modelPath: m.modelPath,
+          modelTargetWorldSize: m.modelTargetWorldSize,
+          modelOffset: m.modelOffset,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'feeling') {
+        return new FeelingMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'intention') {
+        return new IntentionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'attention') {
+        return new AttentionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'consciousness') {
+        return new ConsciousnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'awareness') {
+        return new AwarenessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
           motionSpeed: 0.0015,
           opacity: 0.5,
         })
