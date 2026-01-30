@@ -11,8 +11,8 @@ import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
-import { EffectComposer, Outline } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { EffectComposer, Outline } from '@react-three/postprocessing'
+import { BlendFunction } from 'postprocessing'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -80,6 +80,7 @@ function MentalsLayer({
   planeModelPath,
   sendMode,
   onSendSelection,
+  onHoverSelection,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -89,11 +90,13 @@ function MentalsLayer({
   planeModelPath: string
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
+  onHoverSelection?: (objects: THREE.Object3D[]) => void
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const senderRef = useRef<Mental | null>(null)
+  const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
 
   useEffect(() => {
     mentals.forEach((mental) => mind.addMental(mental))
@@ -210,6 +213,58 @@ function MentalsLayer({
   }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath, sendMode, onSendSelection])
 
   useEffect(() => {
+    if (!onHoverSelection) return
+    const canvas = gl.domElement
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+      raycaster.setFromCamera(pointer, camera)
+
+      const list = mind.getMentals()
+      const targets: THREE.Object3D[] = []
+      list.forEach((mental) => {
+        const mesh = mental.getMesh()
+        if (mesh) targets.push(mesh)
+      })
+
+      const hits = raycaster.intersectObjects(targets, true)
+      if (!hits.length) {
+        if (hoveredMeshRef.current) {
+          hoveredMeshRef.current = null
+          onHoverSelection([])
+        }
+        return
+      }
+
+      const hit = hits[0].object
+      const foundMesh = targets.find((mesh) => {
+        let node: THREE.Object3D | null = hit
+        while (node) {
+          if (node === mesh) return true
+          node = node.parent
+        }
+        return false
+      })
+
+      if (foundMesh && foundMesh !== hoveredMeshRef.current) {
+        hoveredMeshRef.current = foundMesh
+        onHoverSelection([foundMesh])
+      }
+    }
+
+    canvas.addEventListener('pointermove', handlePointerMove)
+    return () => {
+      canvas.removeEventListener('pointermove', handlePointerMove)
+      if (hoveredMeshRef.current) {
+        hoveredMeshRef.current = null
+      }
+    }
+  }, [camera, gl, mind, onHoverSelection, pointer, raycaster])
+
+  useEffect(() => {
     if (!selectedMentalName) {
       // Unfreeze all when selection is cleared
       mind.getMentals().forEach((m) => m.setFrozen(false))
@@ -277,6 +332,7 @@ function ThreeScene({
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
+  const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
 
   return (
     <Canvas camera={{ position: [0, 0, 5], fov: 75 }} shadows gl={{ antialias: true, toneMappingExposure: 1.2 }}>
@@ -307,8 +363,20 @@ function ThreeScene({
         planeModelPath={paperPlaneModel}
         sendMode={sendMode}
         onSendSelection={onSendSelection}
+        onHoverSelection={setHoverSelection}
       />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
+      <EffectComposer multisampling={2} autoClear={false}>
+        <Outline
+          selection={hoverSelection}
+          blendFunction={BlendFunction.ALPHA}
+          visibleEdgeColor={0xffffff}
+          hiddenEdgeColor={0x190a05}
+          edgeStrength={8}
+          resolutionScale={1}
+          xRay
+        />
+      </EffectComposer>
     </Canvas>
   )
 }
