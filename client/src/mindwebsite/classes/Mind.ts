@@ -373,14 +373,6 @@ export class Mind extends AbstractMind {
       const nextY = position.y + velocity.y * speedMultiplier
       const nextZ = position.z + velocity.z * speedMultiplier
 
-      // Optional side constraint for certain mentals (e.g., good mentals stay on the left)
-      const side = (mental as any).side as 'left' | 'right' | undefined
-      if (side === 'left') {
-        nextX = Math.min(nextX, -0.05)
-      } else if (side === 'right') {
-        nextX = Math.max(nextX, 0.05)
-      }
-
       // Convert next position to world space for boundary check
       // Since Mental is a child of Mind, world position = local position * Mind scale
       const nextWorldX = nextX * this.scale
@@ -406,6 +398,7 @@ export class Mind extends AbstractMind {
           const newVelX = velocity.x - (1 + bounceStrength) * dotProduct * normalX
           const newVelY = velocity.y - (1 + bounceStrength) * dotProduct * normalY
           const newVelZ = velocity.z - (1 + bounceStrength) * dotProduct * normalZ
+          
           mental.setVelocity(newVelX, newVelY, newVelZ)
         }
 

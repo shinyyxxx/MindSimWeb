@@ -81,6 +81,7 @@ function MentalsLayer({
   sendMode,
   onSendSelection,
   onHoverSelection,
+  onSendMeshSelection,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -91,6 +92,7 @@ function MentalsLayer({
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   onHoverSelection?: (objects: THREE.Object3D[]) => void
+  onSendMeshSelection?: (meshes: THREE.Object3D[]) => void
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
@@ -156,6 +158,11 @@ function MentalsLayer({
           const currentSender = senderRef.current
           if (!currentSender) {
             senderRef.current = found
+            const senderMesh = found.getMesh()
+            // Highlight the sender when first selected
+            if (senderMesh && onSendMeshSelection) {
+              onSendMeshSelection([senderMesh])
+            }
             onSendSelection?.({ sender: found.getName(), receiver: null, status: 'Choose receiver' })
             return
           }
@@ -165,6 +172,13 @@ function MentalsLayer({
           }
           const senderName = currentSender.getName()
           const receiverName = found.getName()
+          const receiverMesh = found.getMesh()
+          
+          // Unhighlight sender and highlight only the receiver
+          if (receiverMesh && onSendMeshSelection) {
+            onSendMeshSelection([receiverMesh])
+          }
+          
           onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
           currentSender
             .sendDataTo(gl, found, {
@@ -175,11 +189,14 @@ function MentalsLayer({
             })
             .then(() => {
               onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
+              // Keep receiver highlighted until another one is clicked
             })
             .catch((err) => {
               console.error('Failed to visualize send', err)
               onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
+              // Keep receiver highlighted even on error
             })
+          // Reset sender so next click can pick a new sender
           senderRef.current = null
           return
         }
@@ -214,6 +231,9 @@ function MentalsLayer({
 
   useEffect(() => {
     if (!onHoverSelection) return
+    // Disable hover highlighting when in send mode (send meshes will be highlighted instead)
+    if (sendMode) return
+    
     const canvas = gl.domElement
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -262,7 +282,7 @@ function MentalsLayer({
         hoveredMeshRef.current = null
       }
     }
-  }, [camera, gl, mind, onHoverSelection, pointer, raycaster])
+  }, [camera, gl, mind, onHoverSelection, pointer, raycaster, sendMode])
 
   useEffect(() => {
     if (!selectedMentalName) {
@@ -271,6 +291,14 @@ function MentalsLayer({
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
+
+  // Clear send highlights when send mode is exited
+  useEffect(() => {
+    if (!sendMode && onSendMeshSelection) {
+      onSendMeshSelection([])
+      senderRef.current = null
+    }
+  }, [sendMode, onSendMeshSelection])
 
   return null
 }
@@ -281,6 +309,81 @@ function GroundPlane() {
       <planeGeometry args={[20, 20]} />
       <meshStandardMaterial color={0x808080} metalness={0.1} roughness={0.5} />
     </mesh>
+  )
+}
+
+function MindZoneBoundaries({ mind }: { mind: Mind }) {
+  const mindRadius = mind.getRadius()
+  const mindPosition = mind.position
+  const mindScale = mind.scale
+  
+  // Local space radius (before scaling)
+  const localRadius = mindRadius / mindScale
+  const neutralBoundaryY = -0.3 // Local space boundary for neutral zone
+  
+  // Calculate circle radius at the neutral boundary height
+  const horizontalCircleRadius = Math.sqrt(Math.max(0, localRadius * localRadius - neutralBoundaryY * neutralBoundaryY))
+
+  return (
+    <group position={[mindPosition.x, mindPosition.y, mindPosition.z]}>
+      {/* Vertical plane (YZ plane) separating good (left, X<0) and bad (right, X>0) zones */}
+      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0x00ff00}
+          transparent
+          opacity={0.3}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Vertical plane wireframe for better visibility */}
+      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0x00ff00}
+          transparent
+          opacity={0.8}
+          side={THREE.DoubleSide}
+          wireframe
+        />
+      </mesh>
+      
+      {/* Horizontal plane (XZ plane) separating neutral (below, Y<neutralBoundaryY) from good/bad (above) zones */}
+      <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0xff0000}
+          transparent
+          opacity={0.3}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Horizontal plane wireframe for better visibility */}
+      <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0xff0000}
+          transparent
+          opacity={0.8}
+          side={THREE.DoubleSide}
+          wireframe
+        />
+      </mesh>
+      
+      {/* Great circle on sphere surface for left/right boundary (vertical circle in YZ plane) */}
+      <lineSegments rotation={[Math.PI / 2, 0, 0]}>
+        <edgesGeometry args={[new THREE.CircleGeometry(localRadius, 64)]} />
+        <lineBasicMaterial color={0x00ff00} linewidth={3} />
+      </lineSegments>
+      
+      {/* Horizontal circle on sphere surface for neutral boundary */}
+      {horizontalCircleRadius > 0 && (
+        <lineSegments position={[0, neutralBoundaryY * mindScale, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <edgesGeometry args={[new THREE.CircleGeometry(horizontalCircleRadius, 64)]} />
+          <lineBasicMaterial color={0xff0000} linewidth={3} />
+        </lineSegments>
+      )}
+    </group>
   )
 }
 
@@ -333,6 +436,10 @@ function ThreeScene({
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
+  const [sendMeshSelection, setSendMeshSelection] = useState<THREE.Object3D[]>([])
+
+  // Use send mesh selection when in send mode, otherwise use hover selection
+  const outlineSelection = sendMode && sendMeshSelection.length > 0 ? sendMeshSelection : hoverSelection
 
   return (
     <Canvas camera={{ position: [0, 0, 5], fov: 75 }} shadows gl={{ antialias: true, toneMappingExposure: 1.2 }}>
@@ -364,11 +471,12 @@ function ThreeScene({
         sendMode={sendMode}
         onSendSelection={onSendSelection}
         onHoverSelection={setHoverSelection}
+        onSendMeshSelection={setSendMeshSelection}
       />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       <EffectComposer multisampling={2} autoClear={false}>
         <Outline
-          selection={hoverSelection}
+          selection={outlineSelection}
           blendFunction={BlendFunction.ALPHA}
           visibleEdgeColor={0xffffff}
           hiddenEdgeColor={0x190a05}
@@ -411,31 +519,32 @@ export function Simulation(): React.ReactElement {
 
   const mentals = useMemo<Mental[]>(() => {
     const seeds: MentalSeed[] = [
-      // Good mentals (clustered left/front)
-      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.6, 0.2, 0.2], variant: 'good' },
-      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.8, 0.05, 0.1], variant: 'good' },
-      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.7, -0.1, -0.05], variant: 'good' },
-      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, 0.0, -0.2], variant: 'good' },
+      // Good mentals (left zone, X < 0, Y > -0.3)
+      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'good' },
+      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'good' },
+      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'good' },
+      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'good' },
 
-      // Bad mentals (clustered right/back)
-      { name: 'Bad 1', color: '#ef4444', scale: 0.12, position: [0.6, 0.2, -0.2], variant: 'bad' },
-      { name: 'Bad 2', color: '#ef4444', scale: 0.12, position: [0.8, 0.05, -0.1], variant: 'bad' },
-      { name: 'Bad 3', color: '#ef4444', scale: 0.12, position: [0.7, -0.05, 0.05], variant: 'bad' },
-      { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, 0.1, 0.2], variant: 'bad' },
+      // Bad mentals (right zone, X > 0, Y > -0.3)
+      { name: 'Bad 1', color: '#ef4444', scale: 0.12, position: [0.5, 0.1, -0.1], variant: 'bad' },
+      { name: 'Bad 2', color: '#ef4444', scale: 0.12, position: [0.6, -0.1, 0.1], variant: 'bad' },
+      { name: 'Bad 3', color: '#ef4444', scale: 0.12, position: [0.4, 0.0, -0.2], variant: 'bad' },
+      { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, -0.15, 0.2], variant: 'bad' },
 
-      // Neutral mentals (spaced center)
+      // Neutral mentals (bottom zone, Y < -0.3)
       {
         name: 'Neutral 1',
         color: '#a1a1aa',
         scale: 0.14,
-        position: [0.0, 0.12, 0.35],
+        position: [0.0, -0.45, 0.1],
         detail: 'Paper plane thought',
         modelPath: paperPlaneModel,
         modelTargetWorldSize: 0.08,
         modelOffset: { x: 0, y: -0.04, z: 0 },
         variant: 'neutral',
       },
-      { name: 'Neutral 2', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.05, -0.35], variant: 'neutral' },
+      { name: 'Neutral 2', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'neutral' },
+      { name: 'Neutral 3', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'neutral' },
 
       // Perception (kept)
       {
