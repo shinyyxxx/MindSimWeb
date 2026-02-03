@@ -8,22 +8,9 @@ export interface MentalBaseOptions {
   modelPath?: string
   modelTargetWorldSize?: number
   modelOffset?: { x?: number; y?: number; z?: number }
-  /**
-   * Desired constant movement speed in local-space units per frame at 60fps
-   * (Mind.updatePhysics multiplies by deltaTime*60 to stay stable across FPS)
-   */
   motionSpeed?: number
-  /**
-   * Show a name label above the sphere (camera-facing).
-   */
   labelEnabled?: boolean
-  /**
-   * Approximate label height in world units.
-   */
   labelWorldSize?: number
-  /**
-   * Additional offset above the sphere surface in world units.
-   */
   labelOffset?: number
   metalness?: number
   roughness?: number
@@ -34,10 +21,6 @@ export interface MentalBaseOptions {
   position?: { x?: number; y?: number; z?: number } | [number, number, number]
 }
 
-/**
- * Abstract base class for Mental sphere objects
- * Provides common functionality for spheres that exist inside the Mind
- */
 export class AbstractMental {
   name: string
   detail: string
@@ -62,7 +45,6 @@ export class AbstractMental {
   private labelSprite: THREE.Sprite | null
 
   constructor(options: MentalBaseOptions = {}) {
-    // Configuration
     this.name = options.name || ''
     this.detail = options.detail || ''
     const colorValue = options.color || 0xff6b9d
@@ -178,10 +160,6 @@ export class AbstractMental {
     return this.motionSpeed
   }
 
-  /**
-   * Keeps the mental moving at a constant speed.
-   * If velocity is zero, assigns a random direction.
-   */
   normalizeVelocityToMotionSpeed(): void {
     const { x, y, z } = this.velocity
     const mag = Math.sqrt(x * x + y * y + z * z)
@@ -204,9 +182,13 @@ export class AbstractMental {
   }
 
   private createLabelTexture(text: string): THREE.CanvasTexture {
+    // Render at 2× pixel density so thin strokes stay crisp after downsampling
+    const logicalW = 512
+    const logicalH = 256
+    const dpr = 2
     const canvas = document.createElement('canvas')
-    canvas.width = 512
-    canvas.height = 256
+    canvas.width = logicalW * dpr
+    canvas.height = logicalH * dpr
 
     const ctx = canvas.getContext('2d')
     if (!ctx) {
@@ -215,18 +197,21 @@ export class AbstractMental {
       return fallback
     }
 
+    // All drawing coordinates stay in logical pixels; the scale handles the rest
+    ctx.scale(dpr, dpr)
+
     // Background
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.clearRect(0, 0, logicalW, logicalH)
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
-    ctx.lineWidth = 6
+    ctx.lineWidth = 3 // half the original; dpr keeps it sharp
 
     const pad = 20
     const r = 22
     const x = pad
     const y = pad
-    const w = canvas.width - pad * 2
-    const h = canvas.height - pad * 2
+    const w = logicalW - pad * 2
+    const h = logicalH - pad * 2
 
     ctx.beginPath()
     ctx.moveTo(x + r, y)
@@ -238,22 +223,24 @@ export class AbstractMental {
     ctx.fill()
     ctx.stroke()
 
-    // Text
     const safe = text || ''
-    let fontSize = 84
+    let fontSize = 10
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.98)'
 
-    const maxTextWidth = w - 40
+    const thinFont = (size: number) =>
+      `100 ${size}px "Segoe UI", "Helvetica Neue", "Arial Narrow", Arial, sans-serif`
+
+    const maxTextWidth = w - 100
     while (fontSize > 26) {
-      ctx.font = `700 ${fontSize}px Arial`
-      const metrics = ctx.measureText(safe)
-      if (metrics.width <= maxTextWidth) break
+      ctx.font = thinFont(fontSize)
+      if (ctx.measureText(safe).width <= maxTextWidth) break
       fontSize -= 4
     }
 
-    ctx.fillText(safe, canvas.width / 2, canvas.height / 2)
+    ctx.font = thinFont(fontSize)
+    ctx.fillText(safe, logicalW / 2, logicalH / 2)
 
     const texture = new THREE.CanvasTexture(canvas)
     texture.needsUpdate = true
@@ -422,4 +409,3 @@ export class AbstractMental {
 
 // Export as default alias for backward compatibility
 export default AbstractMental
-

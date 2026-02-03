@@ -166,19 +166,27 @@ function MentalsLayer({
           const senderName = currentSender.getName()
           const receiverName = found.getName()
           onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
-          currentSender
-            .sendDataTo(gl, found, {
-              planeModelPath,
-              durationMs: 1400,
-              arcHeight: 0.14,
-              scale: 0.1,
-            })
+          const sendPromise = currentSender.sendDataTo(gl, found, {
+            planeModelPath,
+            durationMs: 1400,
+            arcHeight: 0.14,
+            scale: 0.1,
+          })
+
+          if (!sendPromise || typeof (sendPromise as Promise<void>).then !== 'function') {
+            onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed (no send promise)' })
+            senderRef.current = null
+            return
+          }
+
+          ;(sendPromise as Promise<void>)
             .then(() => {
               onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
             })
             .catch((err) => {
               console.error('Failed to visualize send', err)
-              onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
+              const message = err instanceof Error ? err.message : 'Failed'
+              onSendSelection?.({ sender: senderName, receiver: receiverName, status: `Failed: ${message}` })
             })
           senderRef.current = null
           return
@@ -372,7 +380,7 @@ function ThreeScene({
           blendFunction={BlendFunction.ALPHA}
           visibleEdgeColor={0xffffff}
           hiddenEdgeColor={0x190a05}
-          edgeStrength={8}
+          edgeStrength={30}
           resolutionScale={1}
           xRay
         />

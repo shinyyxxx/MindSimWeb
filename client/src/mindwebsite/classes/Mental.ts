@@ -137,12 +137,12 @@ export class Mental extends AbstractMental {
     const label = text.trim() || 'MENTAL'
 
     // Auto-shrink font to fit safely in the center (smaller start for subtlety)
-    let fontSize = 80
+    let fontSize = 60
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(255,255,255,1)'
     while (fontSize > 32) {
-      ctx.font = `700 ${fontSize}px Arial`
+      ctx.font = `500 ${fontSize}px "Segoe UI", "Helvetica Neue", "Arial Narrow", Arial, sans-serif`
       const width = ctx.measureText(label).width
       if (width < canvas.width * 0.85) break
       fontSize -= 6
@@ -244,11 +244,17 @@ export class Mental extends AbstractMental {
       dracoPath?: string
     }
   ): Promise<void> {
-    if (!this.mesh || !target.getMesh()) return
+    if (!this.mesh || !target.getMesh()) {
+      return Promise.reject(new Error('Missing sender or target mesh'))
+    }
     const parent = this.mesh.parent
-    if (!parent) return
+    if (!parent) {
+      return Promise.reject(new Error('Sender mesh has no parent to attach plane'))
+    }
     const planePath = options.planeModelPath
-    if (!planePath) return
+    if (!planePath) {
+      return Promise.reject(new Error('Missing plane model path'))
+    }
 
     const loader = new GLTFLoader().setCrossOrigin('anonymous')
     const basisPath = options.basisPath
