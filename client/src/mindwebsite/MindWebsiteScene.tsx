@@ -4,6 +4,13 @@ import { Environment } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import Mind from "./classes/Mind";
 import Mental from "./classes/Mental";
+import ContactMental from "./classes/neutral/ContactMental";
+import FeelingMental from "./classes/neutral/FeelingMental";
+import IntentionMental from "./classes/neutral/IntentionMental";
+import AttentionMental from "./classes/neutral/AttentionMental";
+import ConsciousnessMental from "./classes/neutral/ConsciousnessMental";
+import AwarenessMental from "./classes/neutral/AwarenessMental";
+import PerceptionMental from "./classes/neutral/PerceptionMental";
 import { OrbitControls } from "./components/OrbitControls";
 
 interface MindData {
@@ -21,6 +28,60 @@ interface MentalData {
   color: string;
   scale: number;
   position: [number, number, number];
+}
+
+function createUniversalMental(mentalData: MentalData): Mental {
+  const mentalColorNum = parseInt(mentalData.color.replace('#', ''), 16);
+  const base = {
+    name: mentalData.name,
+    detail: "",
+    position: mentalData.position,
+    scale: mentalData.scale,
+    color: mentalColorNum,
+    motionSpeed: 0,
+  };
+
+  switch (mentalData.id) {
+    case -1:
+      return new ContactMental(base);
+    case -2:
+      return new FeelingMental(base);
+    case -3:
+      // Reuse the existing neutral PerceptionMental class
+      return new PerceptionMental(base);
+    case -4:
+      return new IntentionMental(base);
+    case -5:
+      return new AttentionMental(base);
+    case -6:
+      return new ConsciousnessMental(base);
+    case -7:
+      return new AwarenessMental(base);
+    default:
+      return new Mental(base);
+  }
+}
+
+function getUniversalTypeForId(id: number): string | null {
+  switch (id) {
+    case -1:
+      return 'contact_mental'
+    case -2:
+      return 'feeling_mental'
+    case -3:
+      // PerceptionMental in Simulation uses this type
+      return 'perception_mental'
+    case -4:
+      return 'intention_mental'
+    case -5:
+      return 'attention_mental'
+    case -6:
+      return 'consciousness_mental'
+    case -7:
+      return 'awareness_mental'
+    default:
+      return null
+  }
 }
 
 function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDataList: MentalData[] }) {
@@ -95,18 +156,21 @@ function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDa
         return;
       }
 
+      const isUniversal = mentalData.id < 0; // Universal factors have negative IDs
+      const expectedUniversalType = isUniversal ? getUniversalTypeForId(mentalData.id) : null;
+
       if (!mentalMapRef.current.has(mentalData.id)) {
         // Create new mental sphere
         const mentalColorNum = parseInt(mentalData.color.replace('#', ''), 16);
-        const isUniversal = mentalData.id < 0; // Universal factors have negative IDs
-        const mental = new Mental({
-          name: mentalData.name,
-          detail: "",
-          position: mentalData.position,
-          scale: mentalData.scale,
-          color: mentalColorNum,
-          motionSpeed: isUniversal ? 0 : undefined, // Only freeze universal factors
-        });
+        const mental = isUniversal
+          ? createUniversalMental(mentalData)
+          : new Mental({
+              name: mentalData.name,
+              detail: "",
+              position: mentalData.position,
+              scale: mentalData.scale,
+              color: mentalColorNum,
+            });
         // Freeze universal mental factors (negative IDs) so they stay in place
         if (isUniversal) {
           mental.setFrozen(true);
@@ -117,6 +181,25 @@ function MindSphere({ mindData, mentalDataList }: { mindData: MindData; mentalDa
       } else {
         // Update existing mental sphere properties if needed
         const mental = mentalMapRef.current.get(mentalData.id)!;
+
+        // If this is a universal mental, ensure it uses the correct dedicated class.
+        // (Otherwise, older cached instances will remain as generic Mental/NeutralMental.)
+        if (isUniversal && expectedUniversalType) {
+          const currentType = (mental as any).getType?.() as string | undefined
+          if (currentType !== expectedUniversalType) {
+            mind.removeMental(mental);
+            mental.dispose();
+            mentalMapRef.current.delete(mentalData.id);
+
+            const replacement = createUniversalMental(mentalData);
+            replacement.setFrozen(true);
+            replacement.setVelocity(0, 0, 0);
+            mind.addMental(replacement);
+            mentalMapRef.current.set(mentalData.id, replacement);
+            return;
+          }
+        }
+
         const mentalColorNum = parseInt(mentalData.color.replace('#', ''), 16);
         if (mental.getName() !== mentalData.name) {
           mental.setName(mentalData.name);

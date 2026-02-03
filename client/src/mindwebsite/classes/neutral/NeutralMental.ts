@@ -12,6 +12,7 @@ export class NeutralMental extends Mental {
       opacity: options.opacity ?? 0.5,
       ...options,
     })
+    ;(this as any).zone = 'bottom'
   }
 
   override getType(): string {
