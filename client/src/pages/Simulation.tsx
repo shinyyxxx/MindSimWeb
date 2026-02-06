@@ -13,6 +13,20 @@ import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMen
 import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
 import GoodMental from '../mindwebsite/classes/good/GoodMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
+import GreedMental from '../mindwebsite/classes/bad/GreedMental'
+import HatredMental from '../mindwebsite/classes/bad/HatredMental'
+import DelusionMental from '../mindwebsite/classes/bad/DelusionMental'
+import WrongViewMental from '../mindwebsite/classes/bad/WrongViewMental'
+import ConceitMental from '../mindwebsite/classes/bad/ConceitMental'
+import DoubtMental from '../mindwebsite/classes/bad/DoubtMental'
+import RestlessnessMental from '../mindwebsite/classes/bad/RestlessnessMental'
+import ShamelessnessMental from '../mindwebsite/classes/bad/ShamelessnessMental'
+import RecklessnessMental from '../mindwebsite/classes/bad/RecklessnessMental'
+import SlothMental from '../mindwebsite/classes/bad/SlothMental'
+import TorporMental from '../mindwebsite/classes/bad/TorporMental'
+import WorryMental from '../mindwebsite/classes/bad/WorryMental'
+import EnvyMental from '../mindwebsite/classes/bad/EnvyMental'
+import StinginessMental from '../mindwebsite/classes/bad/StinginessMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
@@ -22,6 +36,7 @@ import { BlendFunction } from 'postprocessing'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
+import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
   
 type Vec3 = [number, number, number]
 
@@ -38,6 +53,20 @@ type MentalSeed = {
   variant?:
     | 'good'
     | 'bad'
+    | 'greed'
+    | 'hatred'
+    | 'delusion'
+    | 'wrong_view'
+    | 'conceit'
+    | 'doubt'
+    | 'restlessness'
+    | 'shamelessness'
+    | 'recklessness'
+    | 'sloth'
+    | 'torpor'
+    | 'worry'
+    | 'envy'
+    | 'stinginess'
     | 'neutral'
     | 'perception'
     | 'contact'
@@ -547,12 +576,37 @@ export function Simulation(): React.ReactElement {
       { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'good' },
       { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'good' },
       { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'good' },
+      
+      { name: 'Good 5', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'good' },
+      { name: 'Good 6', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'good' },
+      { name: 'Good 7', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'good' },
+      { name: 'Good 8', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'good' },
+      { name: 'Good 9', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'good' },
+      { name: 'Good 10', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'good' },
+      { name: 'Good 11', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'good' },
+      { name: 'Good 12', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'good' },
+      { name: 'Good 13', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'good' },
+      { name: 'Good 14', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'good' },
+      { name: 'Good 15', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'good' },
+      { name: 'Good 16', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'good' },
+      { name: 'Good 17', color: '#22c55e', scale: 0.12, position: [-0.64, -0.24, -0.24], variant: 'good' },
 
-      // Bad mentals (right zone, X > 0, Y > -0.3)
-      { name: 'Bad 1', color: '#ef4444', scale: 0.12, position: [0.5, 0.1, -0.1], variant: 'bad' },
-      { name: 'Bad 2', color: '#ef4444', scale: 0.12, position: [0.6, -0.1, 0.1], variant: 'bad' },
-      { name: 'Bad 3', color: '#ef4444', scale: 0.12, position: [0.4, 0.0, -0.2], variant: 'bad' },
-      { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, -0.15, 0.2], variant: 'bad' },
+
+      // Bad mentals (right zone, X > 0, Y > -0.3) — using anger emoji model for all, for now
+      { name: 'Greed', color: '#ef4444', scale: 0.12, position: [0.48, 0.12, -0.10], variant: 'greed' },
+      { name: 'Hatred', color: '#ef4444', scale: 0.12, position: [0.60, 0.10, 0.05], variant: 'hatred' },
+      { name: 'Delusion', color: '#ef4444', scale: 0.12, position: [0.42, 0.06, -0.22], variant: 'delusion' },
+      { name: 'Wrong View', color: '#ef4444', scale: 0.12, position: [0.54, 0.04, 0.22], variant: 'wrong_view' },
+      { name: 'Conceit', color: '#ef4444', scale: 0.12, position: [0.66, 0.02, -0.06], variant: 'conceit' },
+      { name: 'Doubt', color: '#ef4444', scale: 0.12, position: [0.46, -0.02, 0.12], variant: 'doubt' },
+      { name: 'Restlessness', color: '#ef4444', scale: 0.12, position: [0.58, -0.04, -0.18], variant: 'restlessness' },
+      { name: 'Shamelessness', color: '#ef4444', scale: 0.12, position: [0.40, -0.06, 0.02], variant: 'shamelessness' },
+      { name: 'Recklessness', color: '#ef4444', scale: 0.12, position: [0.52, -0.08, -0.02], variant: 'recklessness' },
+      { name: 'Sloth', color: '#ef4444', scale: 0.12, position: [0.64, -0.10, 0.14], variant: 'sloth' },
+      { name: 'Torpor', color: '#ef4444', scale: 0.12, position: [0.44, -0.12, -0.12], variant: 'torpor' },
+      { name: 'Worry', color: '#ef4444', scale: 0.12, position: [0.56, -0.14, 0.00], variant: 'worry' },
+      { name: 'Envy', color: '#ef4444', scale: 0.12, position: [0.68, -0.16, -0.16], variant: 'envy' },
+      { name: 'Stinginess', color: '#ef4444', scale: 0.12, position: [0.50, -0.18, 0.18], variant: 'stinginess' },
 
       // Neutral mentals (bottom zone, Y < -0.3)
       { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Paper plane thought', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
@@ -561,8 +615,6 @@ export function Simulation(): React.ReactElement {
       { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
       { name: 'Consciousness', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'consciousness' },
       { name: 'Awareness', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'awareness' },
-
-      // Perception (kept)
       {
         name: 'Perception',
         color: '#60a5fa',
@@ -679,6 +731,202 @@ export function Simulation(): React.ReactElement {
         })
         return mental
       }
+      if (m.variant === 'greed') {
+        return new GreedMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'hatred') {
+        return new HatredMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'delusion') {
+        return new DelusionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'wrong_view') {
+        return new WrongViewMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'conceit') {
+        return new ConceitMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'doubt') {
+        return new DoubtMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'restlessness') {
+        return new RestlessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'shamelessness') {
+        return new ShamelessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'recklessness') {
+        return new RecklessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'sloth') {
+        return new SlothMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'torpor') {
+        return new TorporMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'worry') {
+        return new WorryMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'envy') {
+        return new EnvyMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'stinginess') {
+        return new StinginessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
       if (m.variant === 'bad') {
         const mental = new BadMental({
           name: m.name,
@@ -688,6 +936,9 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
         mental.setFrozen(true)
         return mental
