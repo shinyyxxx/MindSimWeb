@@ -1,8 +1,13 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { DhammaObject } from '../mindwebsite/classes/DhammaObject'
 import violinModel from '../assets/violin.glb?url'
+import heartModel from '../assets/crystal_heart.glb?url'
+import paperPlaneModel from '../assets/paper_plane.glb?url'
+import paperPlaneAssetModel from '../assets/paper_plane_asset.glb?url'
+import brainModel from '../assets/brain_3d.glb?url'
+import ghostModel from '../assets/ghost_of_tsushiito.glb?url'
 
 type Topic = {
   id: string
@@ -26,9 +31,10 @@ const mainTopic: Topic = {
 const aggregates: DhammaObject[] = [
   new DhammaObject({
     id: 'rupa',
-    title: 'Rūpa — Form',
+    title: 'Rūpa',
     modelLabel: 'Physical Form Model',
-    description: 'ส่วนที่เป็นรูปธรรม ว่าด้วยเรื่องของร่างกายและอวัยวะทั้งหมดของมนุษย์ ไม่ว่าจะเป็นเนื้อ ไขมัน เส้นประสาท หัวใจ แขน ขา หรือแม้แต่สมอง',
+    modelPath: '/assets/humanMind/human.gltf',
+    description: 'ส่วนที่เป็นรูปธรรมว่า ด้วยเรื่องของร่างกาย และอวัยวะทั้งหมดของมนุษย์ ไม่ว่าจะเป็นเนื้อ ไขมัน เส้นประสาท หัวใจ แขน ขา หรือแม้แต่สมอง',
     highlights: [
       'Covers both the body and external material objects.',
       'Impermament and dependent on causes (nutrition, temperature, etc.).',
@@ -37,8 +43,9 @@ const aggregates: DhammaObject[] = [
   }),
   new DhammaObject({
     id: 'vedana',
-    title: 'Vedanā — Feeling (Sensation)',
+    title: 'Vedanā',
     modelLabel: 'Feeling Tone Model',
+    modelPath: heartModel,
     description: 'เวทนาขันธ์ส่วนที่เป็นนามธรรม หมายถึง ความรู้สึกที่เกิดขึ้น มีทั้งหมด 3 รูปแบบ คือ สุขเวทนา รู้สึกสุขสบาย, ทุกขเวทนา รู้สึกทุกข์ และอทุกขมสุขเวทนา รู้สึกไม่สุขไม่ทุกข์',
     highlights: [
       'Acts as the “color” of experience before stories start.',
@@ -48,8 +55,9 @@ const aggregates: DhammaObject[] = [
   }),
   new DhammaObject({
     id: 'samjna',
-    title: 'Saṃjñā — Perception',
+    title: 'Saṃjñā',
     modelLabel: 'Perceptual Label Model',
+    modelPath: brainModel,
     description: 'ส่วนที่เป็นนามธรรม คือ ความจำได้หมายรู้ในสิ่งที่ได้พบเจอ ไม่ว่าจะเป็นรู้รส รู้รูป รู้เสียง รู้ใจหรืออารมณ์ที่เกิดขึ้น เช่น รู้ว่าน้ำสีขาว ไม่มีรสชาติ คือ น้ำเปล่า รู้ว่าเมื่อแดดออกอากาศจะร้อน',
     highlights: [
       'Creates categories and names; fast and automatic.',
@@ -59,9 +67,10 @@ const aggregates: DhammaObject[] = [
   }),
   new DhammaObject({
     id: 'samskara',
-    title: 'Saṃskāra — Mental Formations',
+    title: 'Saṃskāra',
     modelLabel: 'Habit & Intention Model',
-    description: 'Intentions, habits, emotions, impulses, and the forces that incline us to act.',
+    modelPath: paperPlaneModel,
+    description: 'สวัสดีครับ วันนี้ผมมีเรื่องจะมาเล่าให้ท่านฟังครับ',
     highlights: [
       'Conditioned by past actions; they also set future conditioning.',
       'Include wholesome, unwholesome, and neutral tendencies.',
@@ -70,8 +79,9 @@ const aggregates: DhammaObject[] = [
   }),
   new DhammaObject({
     id: 'vijnana',
-    title: 'Vijñāna — Consciousness',
+    title: 'Vijñāna',
     modelLabel: 'Sense Consciousness Model',
+    modelPath: ghostModel,
     description: 'The knowing aspect that lights up an object (seeing, hearing, tasting, etc.).',
     highlights: [
       'Six sense consciousnesses: eye, ear, nose, tongue, body, mind.',
@@ -81,29 +91,70 @@ const aggregates: DhammaObject[] = [
   }),
 ]
 
-function ViolinAggregateModel(): React.ReactElement {
-  const { scene } = useGLTF(violinModel)
+function AggregateModel({
+  modelPath,
+  scale,
+  position,
+}: {
+  modelPath: string
+  scale: number
+  position: [number, number, number]
+}): React.ReactElement {
+  useEffect(() => {
+    useGLTF.preload(modelPath)
+  }, [modelPath])
+
+  const { scene } = useGLTF(modelPath)
   const clonedScene = useMemo(() => scene.clone(), [scene])
 
   return (
     <Canvas
       className="mindstudy-model-canvas"
       style={{ width: '100%', height: 320 }}
-      camera={{ position: [0, 20, 6], fov: 30 }}
+      camera={{ position: [0, 4, 6], fov: 30 }}
     >
       <ambientLight intensity={0.85} />
       <directionalLight position={[4, 6, 4]} intensity={1.25} />
-      <primitive object={clonedScene} position={[-2, -1, 1]} scale={14} />
+      <primitive object={clonedScene} position={position} scale={scale} />
       <OrbitControls enablePan={false} enableZoom={false} />
     </Canvas>
   )
 }
 
-useGLTF.preload(violinModel)
-
 export function MindStudy(): React.ReactElement {
   const [navOpen, setNavOpen] = useState<boolean>(true)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [modelTransforms, setModelTransforms] = useState<
+    Record<string, { scale: number; pos: { x: number; y: number; z: number } }>
+  >(() =>
+    Object.fromEntries(
+      aggregates.map((agg) => [
+        agg.id,
+        {
+          scale:
+            agg.id === 'samjna'
+              ? 2.6
+              : agg.id === 'vedana'
+                ? 2
+                : agg.id === 'samskara'
+                  ? 1
+                : agg.id === 'vijnana'
+                  ? 1
+                  : 14,
+          pos:
+            agg.id === 'samjna'
+              ? { x: 0, y: -0.5, z: 0 }
+              : agg.id === 'vedana'
+                ? { x: 0, y: -1.5, z: 0 }
+                : agg.id === 'samskara'
+                  ? { x: 0, y: 0, z: 0 }
+                : agg.id === 'vijnana'
+                  ? { x: 0, y: 0, z: 0.25 }
+                  : { x: 0, y: 0, z: 0 },
+        },
+      ]),
+    ),
+  )
 
   return (
     <main className="page">
@@ -177,6 +228,7 @@ export function MindStudy(): React.ReactElement {
           <div className="mindstudy-grid">
             {aggregates.map((topic) => {
               const isOpen = expandedIds.has(topic.id)
+              const transform = modelTransforms[topic.id] ?? { scale: 14, pos: { x: 0, y: 0, z: 0 } }
               return (
                 <article key={topic.id} className={`mindstudy-card ${isOpen ? 'open' : ''}`} id={topic.id}>
                   <button
@@ -197,12 +249,19 @@ export function MindStudy(): React.ReactElement {
                     aria-controls={`${topic.id}-body`}
                     aria-label={topic.title}
                   >
-                    <div className="mindstudy-model-only">
-                      <ViolinAggregateModel />
+                    <div className="mindstudy-card-top">
+                      <h3 className="mindstudy-card-title">{topic.title}</h3>
+                      <span className={`mindstudy-caret ${isOpen ? 'open' : ''}`} aria-hidden>
+                        ▼
+                      </span>
                     </div>
-                    <span className={`mindstudy-caret ${isOpen ? 'open' : ''}`} aria-hidden>
-                      ▼
-                    </span>
+                    <div className="mindstudy-model-only">
+                      <AggregateModel
+                        modelPath={topic.modelPath}
+                        scale={transform.scale}
+                        position={[transform.pos.x, transform.pos.y, transform.pos.z]}
+                      />
+                    </div>
                   </button>
                   <div id={`${topic.id}-body`} className={`mindstudy-card-body ${isOpen ? 'open' : ''}`}>
                     {isOpen && (
@@ -228,6 +287,97 @@ export function MindStudy(): React.ReactElement {
                             <li key={point}>{point}</li>
                           ))}
                         </ul>
+                        <div className="mindstudy-controls">
+                          <h4>Model Controls</h4>
+                          <div className="mindstudy-control-row">
+                            <label>
+                              Scale
+                              <input
+                                type="range"
+                                min="1"
+                                max="40"
+                                step="1"
+                                value={transform.scale}
+                                onChange={(e) =>
+                                  setModelTransforms((prev) => ({
+                                    ...prev,
+                                    [topic.id]: { ...transform, scale: Number(e.target.value) },
+                                  }))
+                                }
+                              />
+                              <input
+                                type="number"
+                                min="1"
+                                max="40"
+                                step="1"
+                                value={transform.scale}
+                                onChange={(e) =>
+                                  setModelTransforms((prev) => ({
+                                    ...prev,
+                                    [topic.id]: { ...transform, scale: Number(e.target.value) },
+                                  }))
+                                }
+                                style={{ width: '4rem', marginLeft: '0.5rem' }}
+                              />
+                            </label>
+                          </div>
+                          <div className="mindstudy-control-row">
+                            <label>
+                              Position X
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={transform.pos.x}
+                                onChange={(e) =>
+                                  setModelTransforms((prev) => ({
+                                    ...prev,
+                                    [topic.id]: {
+                                      ...transform,
+                                      pos: { ...transform.pos, x: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                style={{ width: '4rem', marginLeft: '0.5rem' }}
+                              />
+                            </label>
+                            <label style={{ marginLeft: '1rem' }}>
+                              Y
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={transform.pos.y}
+                                onChange={(e) =>
+                                  setModelTransforms((prev) => ({
+                                    ...prev,
+                                    [topic.id]: {
+                                      ...transform,
+                                      pos: { ...transform.pos, y: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                style={{ width: '4rem', marginLeft: '0.5rem' }}
+                              />
+                            </label>
+                            <label style={{ marginLeft: '1rem' }}>
+                              Z
+                              <input
+                                type="number"
+                                step="0.5"
+                                value={transform.pos.z}
+                                onChange={(e) =>
+                                  setModelTransforms((prev) => ({
+                                    ...prev,
+                                    [topic.id]: {
+                                      ...transform,
+                                      pos: { ...transform.pos, z: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                style={{ width: '4rem', marginLeft: '0.5rem' }}
+                              />
+                            </label>
+                          </div>
+                        </div>
                       </>
                     )}
                   </div>

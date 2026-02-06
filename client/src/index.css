@@ -639,13 +639,25 @@ body {
   margin: 0;
   text-align: left;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
   cursor: pointer;
 }
 .mindstudy-card-trigger:hover h3 {
   color: #1d4ed8;
+}
+.mindstudy-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mindstudy-card-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
 }
 .mindstudy-card-body {
   overflow: hidden;

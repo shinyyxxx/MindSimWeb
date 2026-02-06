@@ -4,6 +4,7 @@ export type DhammaObjectProps = {
   description: string
   highlights: string[]
   modelLabel: string
+  modelPath: string
 }
 
 export class DhammaObject {
@@ -12,13 +13,15 @@ export class DhammaObject {
   description: string
   highlights: string[]
   modelLabel: string
+  modelPath: string
 
-  constructor({ id, title, description, highlights, modelLabel }: DhammaObjectProps) {
+  constructor({ id, title, description, highlights, modelLabel, modelPath }: DhammaObjectProps) {
     this.id = id
     this.title = title
     this.description = description
     this.highlights = highlights
     this.modelLabel = modelLabel
+    this.modelPath = modelPath
   }
 
   getPreview(): string {
@@ -33,7 +36,7 @@ export class DhammaObject {
       return
     }
 
-    const { text = this.description, lang = 'th-TH', rate = 0.95, pitch = 1 } = opts
+    const { text = this.description, lang = 'th-TH', rate = 1.2, pitch = 1 } = opts
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang
     utterance.rate = rate
