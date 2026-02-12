@@ -44,6 +44,32 @@ type Vec3 = [number, number, number]
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
 
+function XRStatusBridge({
+  onRendererReady,
+  onPresentingChange,
+}: {
+  onRendererReady?: (gl: THREE.WebGLRenderer) => void
+  onPresentingChange?: (presenting: boolean) => void
+}) {
+  const { gl } = useThree()
+  const lastPresentingRef = useRef<boolean | null>(null)
+
+  useEffect(() => {
+    gl.xr.enabled = true
+    onRendererReady?.(gl)
+  }, [gl, onRendererReady])
+
+  useFrame(() => {
+    const presenting = gl.xr.isPresenting
+    if (lastPresentingRef.current !== presenting) {
+      lastPresentingRef.current = presenting
+      onPresentingChange?.(presenting)
+    }
+  })
+
+  return null
+}
+
 type MentalSeed = {
   name: string
   color: string
@@ -578,6 +604,8 @@ function ThreeScene({
   showHumanModel,
   defaultMindPosition,
   defaultMindScale,
+  onRendererReady,
+  onVrPresentingChange,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -589,11 +617,14 @@ function ThreeScene({
   showHumanModel: boolean
   defaultMindPosition: Vec3
   defaultMindScale: number
+  onRendererReady?: (gl: THREE.WebGLRenderer) => void
+  onVrPresentingChange?: (presenting: boolean) => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
   const [sendMeshSelection, setSendMeshSelection] = useState<THREE.Object3D[]>([])
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
+  const [isVrPresenting, setIsVrPresenting] = useState(false)
 
   // Use send mesh selection when in send mode, otherwise use hover selection
   const outlineSelection = sendMode && sendMeshSelection.length > 0 ? sendMeshSelection : hoverSelection
@@ -613,15 +644,23 @@ function ThreeScene({
 
   return (
     <Canvas camera={{ position: [0, 0, 10], fov: 75 }} shadows gl={{ antialias: true, toneMappingExposure: 0.6 }}>
+      <XRStatusBridge
+        onRendererReady={onRendererReady}
+        onPresentingChange={(presenting) => {
+          setIsVrPresenting(presenting)
+          onVrPresentingChange?.(presenting)
+        }}
+      />
       {/* Bring back HDRI background, but keep it dim */}
       <Environment preset="dawn" background blur={1} backgroundIntensity={0.35} environmentIntensity={0.6} />
       <OrbitControls
         ref={controlsRef}
+        enabled={!isVrPresenting}
         enableDamping={!selectedMentalName}
         dampingFactor={selectedMentalName ? 0 : 0.05}
         enableZoom
-        enablePan={!selectedMentalName}
-        enableRotate={!selectedMentalName}
+        enablePan={!selectedMentalName && !isVrPresenting}
+        enableRotate={!selectedMentalName && !isVrPresenting}
         minDistance={2}
         maxDistance={24}
         target={[mind.position.x, mind.position.y, mind.position.z]}
@@ -676,6 +715,10 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(true)
+  const [vrPresenting, setVrPresenting] = useState(false)
+  const [vrSupport, setVrSupport] = useState<'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'>('checking')
+  const [vrMessage, setVrMessage] = useState<string | null>(null)
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
   })
@@ -1098,6 +1141,39 @@ export function Simulation(): React.ReactElement {
     })
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      // WebXR requires a secure context (https or localhost).
+      if (!window.isSecureContext) {
+        if (!cancelled) setVrSupport('not_secure')
+        return
+      }
+
+      const xr = (navigator as unknown as { xr?: { isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
+      if (!xr) {
+        if (!cancelled) setVrSupport('no_webxr')
+        return
+      }
+
+      if (typeof xr.isSessionSupported === 'function') {
+        try {
+          const ok = await xr.isSessionSupported('immersive-vr')
+          if (!cancelled) setVrSupport(ok ? 'supported' : 'unsupported')
+        } catch {
+          if (!cancelled) setVrSupport('unsupported')
+        }
+      } else {
+        // Some browsers may not expose isSessionSupported; allow the user to try.
+        if (!cancelled) setVrSupport('supported')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleSelect = (info: InspectSelection) => {
     setSelected(info)
     setPanelPosition(info.screenPosition ?? null)
@@ -1138,6 +1214,72 @@ export function Simulation(): React.ReactElement {
       setProfileMarkers(mental.getAttributeMarkers())
       setAttrKey('')
       setAttrValue('')
+    }
+  }
+
+  const vrButtonDisabled = (() => {
+    if (vrPresenting) return false
+    if (!rendererRef.current) return true
+    return vrSupport !== 'supported'
+  })()
+
+  const vrButtonTitle = (() => {
+    if (!rendererRef.current) return '3D renderer is still loading...'
+    if (vrPresenting) return 'Exit VR session'
+    if (vrSupport === 'checking') return 'Checking VR support...'
+    if (vrSupport === 'not_secure') return 'WebXR requires HTTPS or localhost'
+    if (vrSupport === 'no_webxr') return 'WebXR not available in this browser/device'
+    if (vrSupport === 'unsupported') return 'immersive-vr is not supported (no headset / not enabled)'
+    return 'Enter VR'
+  })()
+
+  const handleToggleVr = async () => {
+    const gl = rendererRef.current
+    if (!gl) {
+      setVrMessage('VR not ready yet (renderer still loading)')
+      return
+    }
+
+    if (!window.isSecureContext) {
+      setVrMessage('VR requires HTTPS or localhost')
+      return
+    }
+
+    const xr = (navigator as unknown as { xr?: { requestSession: Function; isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
+    if (!xr) {
+      setVrMessage('WebXR not supported in this browser/device')
+      return
+    }
+
+    // Exit VR if already presenting
+    if (gl.xr.isPresenting) {
+      await gl.xr.getSession()?.end()
+      return
+    }
+
+    try {
+      if (typeof xr.isSessionSupported === 'function') {
+        const ok = await xr.isSessionSupported('immersive-vr')
+        if (!ok) {
+          setVrMessage('immersive-vr not supported (connect a headset / enable WebXR)')
+          setVrSupport('unsupported')
+          return
+        }
+      }
+
+      const session = await (xr.requestSession as any)('immersive-vr', {
+        optionalFeatures: ['local-floor', 'bounded-floor'],
+      })
+
+      session.addEventListener('end', () => setVrPresenting(false), { once: true })
+      gl.xr.setReferenceSpaceType('local-floor')
+      await gl.xr.setSession(session)
+      setVrPresenting(true)
+      setVrMessage(null)
+    } catch (err) {
+      console.error('Failed to enter VR', err)
+      setVrMessage('Failed to enter VR (see console)')
+      setVrPresenting(false)
     }
   }
 
@@ -1195,10 +1337,30 @@ export function Simulation(): React.ReactElement {
           >
             Switch Model
           </button>
+          <button
+            type="button"
+            onClick={handleToggleVr}
+            disabled={vrButtonDisabled}
+            title={vrButtonTitle}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: vrButtonDisabled ? '#334155' : vrPresenting ? '#ef4444' : '#0ea5e9',
+              color: 'white',
+              cursor: vrButtonDisabled ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              opacity: vrButtonDisabled ? 0.8 : 1,
+            }}
+          >
+            {vrPresenting ? 'Exit VR' : 'VR Mode'}
+          </button>
           <div style={{ display: 'flex', gap: 10 }}>
             <span>Sender: {sendInfo.sender ?? '—'}</span>
             <span>Receiver: {sendInfo.receiver ?? '—'}</span>
             <span>Status: {sendInfo.status ?? 'Idle'}</span>
+            <span>VR: {vrPresenting ? 'On' : vrSupport === 'supported' ? 'Ready' : vrSupport === 'checking' ? 'Checking' : 'Unavailable'}</span>
+            {vrMessage && <span style={{ color: '#fbbf24' }}>{vrMessage}</span>}
           </div>
         </div>
         {selected && (
@@ -1233,6 +1395,13 @@ export function Simulation(): React.ReactElement {
           showHumanModel={showHumanModel}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
+          onRendererReady={(gl) => {
+            rendererRef.current = gl
+          }}
+          onVrPresentingChange={(presenting) => {
+            setVrPresenting(presenting)
+            if (presenting) setVrMessage(null)
+          }}
         />
       </div>
     </main>
