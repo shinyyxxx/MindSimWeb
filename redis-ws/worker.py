@@ -166,6 +166,31 @@ async def process_task(task: dict, http_client: httpx.AsyncClient) -> dict:
                     "error": result.get("detail", "Unknown error")
                 }
         
+        elif action == "process_experience":
+            response = await http_client.post(
+                f"{BACKEND_URL}/api/process_experience",
+                json=data,
+                timeout=30.0
+            )
+            result = response.json()
+            
+            if response.status_code == 200:
+                kamma_produced = result['experience']['javana_result']['kamma_produced']
+                print(f"  {result.get('message')} → {kamma_produced} (exp_id: {result['experience']['experience_id']})")
+                return {
+                    "status": "success",
+                    "action": action,
+                    "request_id": request_id,
+                    "data": result
+                }
+            else:
+                return {
+                    "status": "error",
+                    "action": action,
+                    "request_id": request_id,
+                    "error": result.get("detail", "Unknown error")
+                }
+        
         else:
             return {
                 "status": "error",

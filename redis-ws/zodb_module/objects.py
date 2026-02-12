@@ -83,3 +83,32 @@ class MindObject(persistent.Persistent):
     def remove_mental_sphere(self, sphere_id):
         if sphere_id in self.mental_sphere_ids:
             self.mental_sphere_ids.remove(sphere_id)
+
+
+class ExperienceObject(persistent.Persistent):
+    """Represents a cognitive experience processed through Abhidhamma stages"""
+    def __init__(self, id, mind_id, sense_door, object_experienced, feeling_potential,
+                 mental_context, non_kammic_stage, javana_result, created_at):
+        self.id = id
+        self.mind_id = mind_id
+        self.sense_door = sense_door
+        self.object_experienced = object_experienced
+        self.feeling_potential = feeling_potential
+        self.mental_context = mental_context  # dict
+        self.non_kammic_stage = non_kammic_stage  # dict
+        self.javana_result = javana_result  # dict
+        self.created_at = created_at
+    
+    def get_id(self): return self.id
+    def get_mind_id(self): return self.mind_id
+    def get_sense_door(self): return self.sense_door
+    def get_object_experienced(self): return self.object_experienced
+    def get_feeling_potential(self): return self.feeling_potential
+    def get_mental_context(self): return self.mental_context
+    def get_non_kammic_stage(self): return self.non_kammic_stage
+    def get_javana_result(self): return self.javana_result
+    def get_created_at(self): return self.created_at
+    
+    def get_kamma_produced(self):
+        """Quick accessor for kamma result"""
+        return self.javana_result.get('kamma_produced')
