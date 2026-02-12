@@ -66,6 +66,8 @@ export class Mental extends AbstractMental {
       side: THREE.DoubleSide
     })
     bubbleMaterial.toneMapped = false
+    // Explicitly disable environment map to prevent reflections
+    bubbleMaterial.envMap = null
 
     if (this.name.trim().length > 0) {
       const nameTexture = this.createNameTexture(this.name)

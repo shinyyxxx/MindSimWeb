@@ -7,6 +7,7 @@ import { SimplePage } from './pages/SimplePage'
 import { Playground } from './pages/Playground'
 import { Simulation } from './pages/Simulation'
 import { MindStudy } from './pages/MindStudy'
+import { MindStudyInspect } from './pages/MindStudyInspect'
 
 function App(): React.ReactElement {
   return (
@@ -15,6 +16,7 @@ function App(): React.ReactElement {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/mind-study" element={<MindStudy />} />
+        <Route path="/mind-study/:mindId" element={<MindStudyInspect />} />
         <Route path="/simulation" element={<Simulation />} />
         <Route path="/playground" element={<Playground />} />
         <Route path="/login" element={<SimplePage title="Login" />} />

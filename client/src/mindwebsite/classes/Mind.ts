@@ -20,24 +20,22 @@ export class Mind extends AbstractMind {
   }
 
   createMaterial(): void {
-    const baseOpacity = Math.min(this.opacity, 0.6)
+    const baseOpacity = Math.min(this.opacity, 1)
     this.material = new THREE.MeshPhysicalMaterial({
       color: this.color,
-      transmission: 0.55,
+      transmission: 1,
       thickness: 1.0,
-      roughness: 0.15,
-      metalness: 0.05,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.1,
-      envMapIntensity: 0.8,
+      roughness: 0.2, // Maximum roughness = matte surface with no reflections
+      metalness: 0,
       transparent: true,
       opacity: baseOpacity,
-      ior: 1.2,
-      attenuationColor: '#ffffff',
-      attenuationDistance: 1.4,
+      ior: 2,
       side: THREE.DoubleSide,
       depthWrite: false,
+      envMapIntensity: 0,
     })
+    // Set envMap to null initially
+    this.material.envMap = null
   }
 
   createMesh(): void {
@@ -345,6 +343,11 @@ export class Mind extends AbstractMind {
    * Call this every frame in the animation loop
    */
   updatePhysics(deltaTime: number = 0.016): void {
+    // Continuously reset envMap to null to prevent Environment from applying reflections
+    if (this.material) {
+      this.material.envMap = null
+    }
+    
     const mindRadius = this.getRadius()
     const speedMultiplier = deltaTime * 60
     const mindMesh = this.getMesh()

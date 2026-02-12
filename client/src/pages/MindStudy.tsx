@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
+import { useNavigate } from 'react-router-dom'
 import { DhammaObject } from '../mindwebsite/classes/DhammaObject'
 import violinModel from '../assets/violin.glb?url'
 import heartModel from '../assets/crystal_heart.glb?url'
@@ -17,76 +18,64 @@ type Topic = {
 }
 
 const mainTopic: Topic = {
-  id: 'five-aggregates',
-  title: 'The Five Aggregates (Skandhas)',
+  id: 'mind-types',
+  title: 'Four Types of Mind to Practice',
   description:
-    'A classical Buddhist framework describing what we call a “person.” Seeing how each aggregate works (and changes) helps loosen rigid views of self.',
+    'Switching between mind states is like swapping game modes. Studying four core modes—Calm, Focused, Curious, and Compassionate—helps you pick the right stance for the moment.',
   highlights: [
-    'They arise together to create experience; none alone is a “self.”',
-    'Each aggregate is conditioned: shaped by causes, changing moment to moment.',
-    'Studying them clarifies how contact, feeling, and perception feed our reactions.',
+    'Each mode is trainable: you can skill up any of them with reps.',
+    'Knowing your current mode makes reactions predictable (and shiftable).',
+    'Balancing the four keeps you resilient instead of rigid.',
   ],
 }
 
 const aggregates: DhammaObject[] = [
   new DhammaObject({
-    id: 'rupa',
-    title: 'Rūpa',
-    modelLabel: 'Physical Form Model',
-    modelPath: '/assets/humanMind/human.gltf',
-    description: 'ส่วนที่เป็นรูปธรรมว่า ด้วยเรื่องของร่างกาย และอวัยวะทั้งหมดของมนุษย์ ไม่ว่าจะเป็นเนื้อ ไขมัน เส้นประสาท หัวใจ แขน ขา หรือแม้แต่สมอง',
-    highlights: [
-      'Covers both the body and external material objects.',
-      'Impermament and dependent on causes (nutrition, temperature, etc.).',
-      'Gives the stage on which sensations appear.',
-    ],
-  }),
-  new DhammaObject({
-    id: 'vedana',
-    title: 'Vedanā',
-    modelLabel: 'Feeling Tone Model',
-    modelPath: heartModel,
-    description: 'เวทนาขันธ์ส่วนที่เป็นนามธรรม หมายถึง ความรู้สึกที่เกิดขึ้น มีทั้งหมด 3 รูปแบบ คือ สุขเวทนา รู้สึกสุขสบาย, ทุกขเวทนา รู้สึกทุกข์ และอทุกขมสุขเวทนา รู้สึกไม่สุขไม่ทุกข์',
-    highlights: [
-      'Acts as the “color” of experience before stories start.',
-      'Drives craving or aversion if not noticed clearly.',
-      'Not the same as emotion; it is simpler and more immediate.',
-    ],
-  }),
-  new DhammaObject({
-    id: 'samjna',
-    title: 'Saṃjñā',
-    modelLabel: 'Perceptual Label Model',
-    modelPath: brainModel,
-    description: 'ส่วนที่เป็นนามธรรม คือ ความจำได้หมายรู้ในสิ่งที่ได้พบเจอ ไม่ว่าจะเป็นรู้รส รู้รูป รู้เสียง รู้ใจหรืออารมณ์ที่เกิดขึ้น เช่น รู้ว่าน้ำสีขาว ไม่มีรสชาติ คือ น้ำเปล่า รู้ว่าเมื่อแดดออกอากาศจะร้อน',
-    highlights: [
-      'Creates categories and names; fast and automatic.',
-      'Can mislabel, leading to bias or misperception.',
-      'Essential for learning but can also freeze fluid experience.',
-    ],
-  }),
-  new DhammaObject({
-    id: 'samskara',
-    title: 'Saṃskāra',
-    modelLabel: 'Habit & Intention Model',
-    modelPath: paperPlaneModel,
-    description: 'สวัสดีครับ วันนี้ผมมีเรื่องจะมาเล่าให้ท่านฟังครับ',
-    highlights: [
-      'Conditioned by past actions; they also set future conditioning.',
-      'Include wholesome, unwholesome, and neutral tendencies.',
-      'Watching formations reveals where freedom of response is possible.',
-    ],
-  }),
-  new DhammaObject({
-    id: 'vijnana',
-    title: 'Vijñāna',
-    modelLabel: 'Sense Consciousness Model',
+    id: 'calm',
+    title: 'Calm & Balanced',
+    modelLabel: 'Soft Presence Model',
     modelPath: ghostModel,
-    description: 'The knowing aspect that lights up an object (seeing, hearing, tasting, etc.).',
+    description: 'A mind that is steady and non-reactive—breath is smooth, body is light, and attention holds without force.',
     highlights: [
-      'Six sense consciousnesses: eye, ear, nose, tongue, body, mind.',
-      'Momentary; arises with its object and fades.',
-      'Not a fixed observer—just the event of knowing.',
+      'Breath and posture feel even; signals safety to the nervous system.',
+      'Helps you respond instead of react when things spike.',
+      'Best built with gentle, continuous practice (not straining).',
+    ],
+  }),
+  new DhammaObject({
+    id: 'focused',
+    title: 'Focused & Collected',
+    modelLabel: 'Attention Beam Model',
+    modelPath: brainModel,
+    description: 'A mind that locks onto one task with clarity—distractions fade to the edges while the target stays crisp.',
+    highlights: [
+      'Narrow spotlight; great for deep work or precise listening.',
+      'Over-tight focus can tire quickly—pair with Calm to stay sustainable.',
+      'Strengthens by setting clear intentions and reducing noise.',
+    ],
+  }),
+  new DhammaObject({
+    id: 'curious',
+    title: 'Curious & Investigative',
+    modelLabel: 'Scout Model',
+    modelPath: paperPlaneAssetModel,
+    description: 'A mind that explores and maps—open to patterns, asking “what is this?” instead of “do I like this?”',
+    highlights: [
+      'Wide, playful attention; spots anomalies and new angles.',
+      'Reduces defensiveness by staying in question-mode.',
+      'Pairs well with Focused: scout widely, then zoom in.',
+    ],
+  }),
+  new DhammaObject({
+    id: 'compassionate',
+    title: 'Warm & Compassionate',
+    modelLabel: 'Heartfield Model',
+    modelPath: heartModel,
+    description: 'A mind that includes others with warmth—soft eyes, generous assumptions, and care for shared wellbeing.',
+    highlights: [
+      'Turns threat responses down, easing social tension.',
+      'Builds trust and cooperation in teams and relationships.',
+      'Grows through small acts: wishing well, listening fully.',
     ],
   }),
 ]
@@ -122,38 +111,41 @@ function AggregateModel({
 }
 
 export function MindStudy(): React.ReactElement {
-  const [navOpen, setNavOpen] = useState<boolean>(true)
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [modelTransforms, setModelTransforms] = useState<
-    Record<string, { scale: number; pos: { x: number; y: number; z: number } }>
-  >(() =>
-    Object.fromEntries(
-      aggregates.map((agg) => [
-        agg.id,
-        {
-          scale:
-            agg.id === 'samjna'
-              ? 2.6
-              : agg.id === 'vedana'
-                ? 2
-                : agg.id === 'samskara'
-                  ? 1
-                : agg.id === 'vijnana'
-                  ? 1
-                  : 14,
-          pos:
-            agg.id === 'samjna'
-              ? { x: 0, y: -0.5, z: 0 }
-              : agg.id === 'vedana'
-                ? { x: 0, y: -1.5, z: 0 }
-                : agg.id === 'samskara'
-                  ? { x: 0, y: 0, z: 0 }
-                : agg.id === 'vijnana'
-                  ? { x: 0, y: 0, z: 0.25 }
-                  : { x: 0, y: 0, z: 0 },
-        },
-      ]),
-    ),
+  const navigate = useNavigate()
+  const [navOpen, setNavOpen] = React.useState<boolean>(true)
+  const [modalOpen, setModalOpen] = useState<boolean>(false)
+  const [selectedMind, setSelectedMind] = useState<DhammaObject | null>(null)
+
+  const modelTransforms = useMemo(
+    () =>
+      Object.fromEntries(
+        aggregates.map((agg) => [
+          agg.id,
+          {
+            scale:
+              agg.id === 'focused'
+                ? 2.4
+                : agg.id === 'compassionate'
+                  ? 2
+                  : agg.id === 'curious'
+                    ? 1
+                  : agg.id === 'calm'
+                    ? 1
+                    : 14,
+            pos:
+              agg.id === 'focused'
+                ? { x: -0.25, y: -0.5, z: 0 }
+                : agg.id === 'compassionate'
+                  ? { x: -0.3, y: -1.5, z: 0 }
+                  : agg.id === 'curious'
+                    ? { x: -0.25, y: 0, z: 0 }
+                  : agg.id === 'calm'
+                    ? { x: 0, y: 0, z: 0.25 }
+                    : { x: 0, y: 0, z: 0 },
+          },
+        ]),
+      ),
+    [],
   )
 
   return (
@@ -196,13 +188,6 @@ export function MindStudy(): React.ReactElement {
                   key={topic.id}
                   className="mindstudy-nav-item sub"
                   href={`#${topic.id}`}
-                  onClick={() =>
-                    setExpandedIds((prev) => {
-                      const next = new Set(prev)
-                      next.add(topic.id)
-                      return next
-                    })
-                  }
                 >
                   {topic.getPreview()}
                 </a>
@@ -225,168 +210,97 @@ export function MindStudy(): React.ReactElement {
             </ul>
           </article>
 
-          <div className="mindstudy-grid">
-            {aggregates.map((topic) => {
-              const isOpen = expandedIds.has(topic.id)
-              const transform = modelTransforms[topic.id] ?? { scale: 14, pos: { x: 0, y: 0, z: 0 } }
-              return (
-                <article key={topic.id} className={`mindstudy-card ${isOpen ? 'open' : ''}`} id={topic.id}>
-                  <button
-                    type="button"
-                    className="mindstudy-card-trigger"
-                    onClick={() =>
-                      setExpandedIds((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(topic.id)) {
-                          next.delete(topic.id)
-                        } else {
-                          next.add(topic.id)
-                        }
-                        return next
-                      })
-                    }
-                    aria-expanded={isOpen}
-                    aria-controls={`${topic.id}-body`}
-                    aria-label={topic.title}
-                  >
-                    <div className="mindstudy-card-top">
-                      <h3 className="mindstudy-card-title">{topic.title}</h3>
-                      <span className={`mindstudy-caret ${isOpen ? 'open' : ''}`} aria-hidden>
-                        ▼
-                      </span>
-                    </div>
-                    <div className="mindstudy-model-only">
-                      <AggregateModel
-                        modelPath={topic.modelPath}
-                        scale={transform.scale}
-                        position={[transform.pos.x, transform.pos.y, transform.pos.z]}
-                      />
-                    </div>
-                  </button>
-                  <div id={`${topic.id}-body`} className={`mindstudy-card-body ${isOpen ? 'open' : ''}`}>
-                    {isOpen && (
-                      <>
-                        <div className="mindstudy-card-header">
-                          <span className="mindstudy-badge light">Aggregate</span>
-                          <h3>{topic.title}</h3>
-                          <p className="mindstudy-model">Model: {topic.modelLabel}</p>
-                          <div className="mindstudy-card-actions">
-                            <button
-                              type="button"
-                              className="mindstudy-speak"
-                              onClick={() => topic.speakDescription()}
-                              aria-label={`Speak ${topic.title} description in Thai`}
-                            >
-                              🔊 Thai
-                            </button>
-                          </div>
-                          <p className="mindstudy-section-desc">{topic.description}</p>
+          <div className="mindstudy-grid-surface">
+            <p className="mindstudy-grid-hint">Select a level tile to open the model and study notes.</p>
+            <div className="mindstudy-grid">
+              {aggregates.map((topic, index) => {
+                const levelNumber = index + 1
+                const levelLabel = levelNumber.toString().padStart(2, '0')
+                const transform = modelTransforms[topic.id] ?? { scale: 14, pos: { x: 0, y: 0, z: 0 } }
+                return (
+                  <article key={topic.id} className="mindstudy-card" id={topic.id}>
+                    <button
+                      type="button"
+                      className="mindstudy-card-trigger"
+                      onClick={() => {
+                        setSelectedMind(topic)
+                        setModalOpen(true)
+                      }}
+                      aria-label={topic.title}
+                    >
+                      <div className="mindstudy-card-topline">
+                        <span className="mindstudy-level-pill">Level {levelLabel}</span>
+                        <span className="mindstudy-mode-hint">Tap to inspect</span>
+                      </div>
+                      <div className="mindstudy-card-top">
+                        <div className="mindstudy-card-text">
+                          <h3 className="mindstudy-card-title">{topic.title}</h3>
+                          <p className="mindstudy-card-sub">{topic.modelLabel}</p>
                         </div>
-                        <ul className="mindstudy-list">
-                          {topic.highlights.map((point) => (
-                            <li key={point}>{point}</li>
-                          ))}
-                        </ul>
-                        <div className="mindstudy-controls">
-                          <h4>Model Controls</h4>
-                          <div className="mindstudy-control-row">
-                            <label>
-                              Scale
-                              <input
-                                type="range"
-                                min="1"
-                                max="40"
-                                step="1"
-                                value={transform.scale}
-                                onChange={(e) =>
-                                  setModelTransforms((prev) => ({
-                                    ...prev,
-                                    [topic.id]: { ...transform, scale: Number(e.target.value) },
-                                  }))
-                                }
-                              />
-                              <input
-                                type="number"
-                                min="1"
-                                max="40"
-                                step="1"
-                                value={transform.scale}
-                                onChange={(e) =>
-                                  setModelTransforms((prev) => ({
-                                    ...prev,
-                                    [topic.id]: { ...transform, scale: Number(e.target.value) },
-                                  }))
-                                }
-                                style={{ width: '4rem', marginLeft: '0.5rem' }}
-                              />
-                            </label>
-                          </div>
-                          <div className="mindstudy-control-row">
-                            <label>
-                              Position X
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={transform.pos.x}
-                                onChange={(e) =>
-                                  setModelTransforms((prev) => ({
-                                    ...prev,
-                                    [topic.id]: {
-                                      ...transform,
-                                      pos: { ...transform.pos, x: Number(e.target.value) },
-                                    },
-                                  }))
-                                }
-                                style={{ width: '4rem', marginLeft: '0.5rem' }}
-                              />
-                            </label>
-                            <label style={{ marginLeft: '1rem' }}>
-                              Y
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={transform.pos.y}
-                                onChange={(e) =>
-                                  setModelTransforms((prev) => ({
-                                    ...prev,
-                                    [topic.id]: {
-                                      ...transform,
-                                      pos: { ...transform.pos, y: Number(e.target.value) },
-                                    },
-                                  }))
-                                }
-                                style={{ width: '4rem', marginLeft: '0.5rem' }}
-                              />
-                            </label>
-                            <label style={{ marginLeft: '1rem' }}>
-                              Z
-                              <input
-                                type="number"
-                                step="0.5"
-                                value={transform.pos.z}
-                                onChange={(e) =>
-                                  setModelTransforms((prev) => ({
-                                    ...prev,
-                                    [topic.id]: {
-                                      ...transform,
-                                      pos: { ...transform.pos, z: Number(e.target.value) },
-                                    },
-                                  }))
-                                }
-                                style={{ width: '4rem', marginLeft: '0.5rem' }}
-                              />
-                            </label>
-                          </div>
+                        <span className="mindstudy-caret" aria-hidden>
+                          →
+                        </span>
+                      </div>
+                      <div className="mindstudy-card-preview">
+                        <div className="mindstudy-model-only">
+                          <AggregateModel
+                            modelPath={topic.modelPath}
+                            scale={transform.scale}
+                            position={[transform.pos.x, transform.pos.y, transform.pos.z]}
+                          />
                         </div>
-                      </>
-                    )}
-                  </div>
-                </article>
-              )
-            })}
+                      </div>
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
           </div>
         </section>
       </div>
+      {modalOpen && selectedMind && (
+        <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setModalOpen(false)}>
+          <div
+            className="mindstudy-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Inspect ${selectedMind.title}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mindstudy-modal-glow" aria-hidden />
+            <div className="mindstudy-modal-header">
+              <span className="mindstudy-level-pill small">Inspect</span>
+              <button className="mindstudy-modal-close" onClick={() => setModalOpen(false)} aria-label="Close dialog">
+                ✕
+              </button>
+            </div>
+            <div className="mindstudy-modal-body">
+              <h3>{selectedMind.title}</h3>
+              <p className="mindstudy-modal-sub">{selectedMind.modelLabel}</p>
+              <p className="mindstudy-section-desc">{selectedMind.description}</p>
+              <ul className="mindstudy-list modal-list">
+                {selectedMind.highlights.slice(0, 3).map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mindstudy-modal-actions">
+              <button className="mindstudy-btn ghost" onClick={() => setModalOpen(false)}>
+                Maybe later
+              </button>
+              <button
+                className="mindstudy-btn primary"
+                onClick={() => {
+                  setModalOpen(false)
+                  navigate(`/mind-study/${selectedMind.id}`)
+                }}
+              >
+                Inspect this mind →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
