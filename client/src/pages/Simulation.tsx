@@ -41,6 +41,9 @@ import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
   
 type Vec3 = [number, number, number]
 
+const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
+const DEFAULT_MIND_SCALE = 1.6
+
 type MentalSeed = {
   name: string
   color: string
@@ -572,6 +575,9 @@ function ThreeScene({
   onUpdatePanelPosition,
   sendMode,
   onSendSelection,
+  showHumanModel,
+  defaultMindPosition,
+  defaultMindScale,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -580,6 +586,9 @@ function ThreeScene({
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
+  showHumanModel: boolean
+  defaultMindPosition: Vec3
+  defaultMindScale: number
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -588,6 +597,19 @@ function ThreeScene({
 
   // Use send mesh selection when in send mode, otherwise use hover selection
   const outlineSelection = sendMode && sendMeshSelection.length > 0 ? sendMeshSelection : hoverSelection
+
+  // When hiding the human model, put the mind back to its default position/scale.
+  useLayoutEffect(() => {
+    if (showHumanModel) return
+    mind.setScale(defaultMindScale)
+    mind.setPosition(defaultMindPosition)
+
+    const ctl = controlsRef.current
+    if (ctl) {
+      ctl.target.set(defaultMindPosition[0], defaultMindPosition[1], defaultMindPosition[2])
+      ctl.update()
+    }
+  }, [defaultMindPosition, defaultMindScale, mind, showHumanModel])
 
   return (
     <Canvas camera={{ position: [0, 0, 10], fov: 75 }} shadows gl={{ antialias: true, toneMappingExposure: 0.6 }}>
@@ -610,9 +632,11 @@ function ThreeScene({
       <pointLight position={[0, 6, 0]} intensity={0.8} distance={15} decay={2} />
       <pointLight position={[0, 0, 5]} intensity={0.6} distance={15} decay={2} />
       <GroundPlane />
-      <React.Suspense fallback={null}>
-        <HumanBody mind={mind} controlsRef={controlsRef} />
-      </React.Suspense>
+      {showHumanModel && (
+        <React.Suspense fallback={null}>
+          <HumanBody mind={mind} controlsRef={controlsRef} />
+        </React.Suspense>
+      )}
       <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
       <MentalsLayer
         mind={mind}
@@ -651,6 +675,7 @@ export function Simulation(): React.ReactElement {
   const [attrKey, setAttrKey] = useState('')
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
+  const [showHumanModel, setShowHumanModel] = useState(true)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
   })
@@ -659,8 +684,8 @@ export function Simulation(): React.ReactElement {
     return new Mind({
       name: 'Mind',
       detail: 'Static demo mind',
-      position: [0, -0.4, 0],
-      scale: 1.6,
+      position: DEFAULT_MIND_POSITION,
+      scale: DEFAULT_MIND_SCALE,
       transparent: true,
       opacity: 0.15,
       color: parseInt('3b82f6', 16),
@@ -1155,6 +1180,21 @@ export function Simulation(): React.ReactElement {
           >
             {sendMode ? 'Exit Send Mode' : 'Send Paper Plane'}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowHumanModel((prev) => !prev)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: showHumanModel ? '#8b5cf6' : '#64748b',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Switch Model
+          </button>
           <div style={{ display: 'flex', gap: 10 }}>
             <span>Sender: {sendInfo.sender ?? '—'}</span>
             <span>Receiver: {sendInfo.receiver ?? '—'}</span>
@@ -1190,6 +1230,9 @@ export function Simulation(): React.ReactElement {
           onUpdatePanelPosition={setPanelPosition}
           sendMode={sendMode}
           onSendSelection={setSendInfo}
+          showHumanModel={showHumanModel}
+          defaultMindPosition={DEFAULT_MIND_POSITION}
+          defaultMindScale={DEFAULT_MIND_SCALE}
         />
       </div>
     </main>
