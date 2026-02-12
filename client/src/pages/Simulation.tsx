@@ -718,6 +718,8 @@ export function Simulation(): React.ReactElement {
   const [vrPresenting, setVrPresenting] = useState(false)
   const [vrSupport, setVrSupport] = useState<'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'>('checking')
   const [vrMessage, setVrMessage] = useState<string | null>(null)
+  const [vrDomOverlay, setVrDomOverlay] = useState(false)
+  const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
@@ -1267,15 +1269,44 @@ export function Simulation(): React.ReactElement {
         }
       }
 
-      const session = await (xr.requestSession as any)('immersive-vr', {
+      const baseInit: any = {
         optionalFeatures: ['local-floor', 'bounded-floor'],
-      })
+      }
 
-      session.addEventListener('end', () => setVrPresenting(false), { once: true })
+      // Try to enable DOM Overlay so the HTML toolbar stays visible in VR.
+      // If not supported, we fall back to regular VR (UI will disappear).
+      let session: any
+      try {
+        session = await (xr.requestSession as any)('immersive-vr', {
+          ...baseInit,
+          optionalFeatures: [...baseInit.optionalFeatures, 'dom-overlay'],
+          domOverlay: { root: overlayRootRef.current ?? document.body },
+        })
+        setVrDomOverlay(true)
+      } catch (overlayErr) {
+        console.warn('DOM Overlay not available, falling back', overlayErr)
+        session = await (xr.requestSession as any)('immersive-vr', baseInit)
+        setVrDomOverlay(false)
+        setVrMessage('Entered VR without DOM overlay (toolbar will be hidden). Press Esc to exit.')
+      }
+
+      session.addEventListener(
+        'end',
+        () => {
+          setVrPresenting(false)
+          setVrDomOverlay(false)
+        },
+        { once: true }
+      )
       gl.xr.setReferenceSpaceType('local-floor')
       await gl.xr.setSession(session)
       setVrPresenting(true)
-      setVrMessage(null)
+      // If we have DOM overlay, clear messages; otherwise keep the hint.
+      if (session?.domOverlayState?.type) {
+        // If browser reports an overlay type, assume overlay is active.
+        setVrDomOverlay(true)
+        setVrMessage(null)
+      }
     } catch (err) {
       console.error('Failed to enter VR', err)
       setVrMessage('Failed to enter VR (see console)')
@@ -1285,7 +1316,7 @@ export function Simulation(): React.ReactElement {
 
   return (
     <main className="page simulation-page">
-      <div className="simulation-full" style={{ position: 'relative' }}>
+      <div ref={overlayRootRef} className="simulation-full" style={{ position: 'relative' }}>
         <div
           className="send-toolbar"
           style={{
@@ -1359,7 +1390,18 @@ export function Simulation(): React.ReactElement {
             <span>Sender: {sendInfo.sender ?? '—'}</span>
             <span>Receiver: {sendInfo.receiver ?? '—'}</span>
             <span>Status: {sendInfo.status ?? 'Idle'}</span>
-            <span>VR: {vrPresenting ? 'On' : vrSupport === 'supported' ? 'Ready' : vrSupport === 'checking' ? 'Checking' : 'Unavailable'}</span>
+            <span>
+              VR:{' '}
+              {vrPresenting
+                ? vrDomOverlay
+                  ? 'On (Overlay)'
+                  : 'On'
+                : vrSupport === 'supported'
+                  ? 'Ready'
+                  : vrSupport === 'checking'
+                    ? 'Checking'
+                    : 'Unavailable'}
+            </span>
             {vrMessage && <span style={{ color: '#fbbf24' }}>{vrMessage}</span>}
           </div>
         </div>
@@ -1400,7 +1442,11 @@ export function Simulation(): React.ReactElement {
           }}
           onVrPresentingChange={(presenting) => {
             setVrPresenting(presenting)
-            if (presenting) setVrMessage(null)
+            if (presenting) {
+              setVrMessage(null)
+            } else {
+              setVrDomOverlay(false)
+            }
           }}
         />
       </div>
