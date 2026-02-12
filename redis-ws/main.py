@@ -14,12 +14,18 @@ from app.config import REDIS_URL, CHANNEL_MIND_UPDATES, CHANNEL_TASKS, CHANNEL_T
 from app.schemas import (
     MindUpsert, GetMindRequest, GetMindResponse, 
     UpsertMindResponse, MindResponse, MentalSphereRequest, MentalSphereResponse,
-    MentalSphereUpsert, UpsertMentalSphereResponse, MentalSphereResponseData
+    MentalSphereUpsert, UpsertMentalSphereResponse, MentalSphereResponseData,
+    ExperienceInput, ExperienceResult, ProcessExperienceResponse, NonKammicStage, JavanaResult
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
     add_mental_spheres_to_mind, delete_mental_spheres_from_mind,
     create_mental_sphere_zodb, update_mental_sphere_zodb, get_mental_sphere_zodb
+)
+from app.experience_helpers import (
+    process_non_kammic_stages, process_javana_stage,
+    create_experience_zodb, get_experience_zodb, list_experiences_by_mind,
+    get_kamma_statistics
 )
 from zodb_module.zodb_management import get_connection, init_zodb, close_zodb
 from app.database import init_database
@@ -153,7 +159,7 @@ async def redis_result_subscriber():
                                 else:
                                     print(f"[MAIN] WARNING: No user_id found for request_id: {request_id}")
                                 
-                                if data.get("action") in ["upsert_mind", "upsert_mental", "append_mental", "remove_mental"] and data.get("status") == "success":
+                                if data.get("action") in ["upsert_mind", "upsert_mental", "append_mental", "remove_mental", "process_experience"] and data.get("status") == "success":
                                     await manager.broadcast({
                                         "type": "update",
                                         "action": data.get("action"),
@@ -281,6 +287,21 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                     "action": action,
                     "status": "saving",
                     "data": {"mental_sphere": preview_mental}
+                })
+            elif action == "process_experience":
+                preview_experience = {
+                    "mind_id": data.get("mind_id"),
+                    "sense_door": data.get("sense_door", ""),
+                    "obj": data.get("obj", ""),
+                    "feeling_potential": data.get("feeling_potential", "neutral"),
+                    "_status": "processing"
+                }
+                await websocket.send_json({
+                    "type": "preview",
+                    "request_id": request_id,
+                    "action": action,
+                    "status": "processing",
+                    "data": {"experience": preview_experience}
                 })
             else:
                 await websocket.send_json({
@@ -447,6 +468,109 @@ async def upsert_mental_endpoint(request: MentalSphereUpsert):
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/process_experience", response_model=ProcessExperienceResponse)
+async def process_experience_endpoint(request: ExperienceInput):
+    try:
+        _, root = get_connection()
+        
+        mind = get_mind_zodb(root, request.mind_id)
+        if not mind:
+            raise HTTPException(status_code=404, detail=f"Mind with ID {request.mind_id} not found")
+        
+        non_kammic_stage = process_non_kammic_stages(
+            request.sense_door,
+            request.obj,
+            request.feeling_potential
+        )
+        
+        javana_result = process_javana_stage(
+            request.mental_context.model_dump(),
+            request.feeling_potential,
+            request.sense_door
+        )
+        
+        experience_data = {
+            'mind_id': request.mind_id,
+            'sense_door': request.sense_door,
+            'object_experienced': request.obj,
+            'feeling_potential': request.feeling_potential,
+            'mental_context': request.mental_context.model_dump(),
+            'non_kammic_stage': non_kammic_stage,
+            'javana_result': javana_result
+        }
+        
+        experience_id = create_experience_zodb(root, experience_data)
+        experience = get_experience_zodb(root, experience_id)
+        
+        # Publish to Redis for real-time updates
+        redis_client = redis.from_url(REDIS_URL)
+        await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(experience))
+        await redis_client.aclose()
+        
+        return ProcessExperienceResponse(
+            message=f"Experience processed: {javana_result['kamma_produced']}",
+            experience=ExperienceResult(
+                experience_id=experience['experience_id'],
+                mind_id=experience['mind_id'],
+                sense_door=experience['sense_door'],
+                object_experienced=experience['object'],
+                feeling_potential=experience['feeling_potential'],
+                non_kammic_stage=NonKammicStage(**experience['non_kammic_stage']),
+                javana_result=JavanaResult(**experience['javana_result']),
+                created_at=experience['created_at']
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/experiences/{mind_id}")
+async def list_experiences_endpoint(mind_id: int):
+    """List all experiences for a specific mind"""
+    try:
+        _, root = get_connection()
+        
+        # Verify mind exists
+        mind = get_mind_zodb(root, mind_id)
+        if not mind:
+            raise HTTPException(status_code=404, detail=f"Mind with ID {mind_id} not found")
+        
+        experiences = list_experiences_by_mind(root, mind_id)
+        return {
+            "mind_id": mind_id,
+            "experiences": experiences,
+            "count": len(experiences)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/kamma_statistics/{mind_id}")
+async def kamma_statistics_endpoint(mind_id: int):
+    """Get kamma statistics for a mind"""
+    try:
+        _, root = get_connection()
+        
+        # Verify mind exists
+        mind = get_mind_zodb(root, mind_id)
+        if not mind:
+            raise HTTPException(status_code=404, detail=f"Mind with ID {mind_id} not found")
+        
+        stats = get_kamma_statistics(root, mind_id)
+        return {
+            "mind_id": mind_id,
+            "statistics": stats
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
