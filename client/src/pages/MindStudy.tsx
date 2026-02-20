@@ -9,6 +9,7 @@ import paperPlaneModel from '../assets/paper_plane.glb?url'
 import paperPlaneAssetModel from '../assets/paper_plane_asset.glb?url'
 import brainModel from '../assets/brain_3d.glb?url'
 import ghostModel from '../assets/ghost_of_tsushiito.glb?url'
+import { loadMentalTableRows } from '../utils/mentalTable'
 
 type Topic = {
   id: string
@@ -29,7 +30,7 @@ const mainTopic: Topic = {
   ],
 }
 
-const aggregates: DhammaObject[] = [
+const defaultAggregates: DhammaObject[] = [
   new DhammaObject({
     id: 'calm',
     title: 'Calm & Balanced',
@@ -44,7 +45,7 @@ const aggregates: DhammaObject[] = [
   }),
   new DhammaObject({
     id: 'focused',
-    title: 'Focused & Collected',
+    title: 'Focused & Collected😎',
     modelLabel: 'Attention Beam Model',
     modelPath: brainModel,
     description: 'A mind that locks onto one task with clarity—distractions fade to the edges while the target stays crisp.',
@@ -112,9 +113,59 @@ function AggregateModel({
 
 export function MindStudy(): React.ReactElement {
   const navigate = useNavigate()
+  const [aggregates, setAggregates] = useState<DhammaObject[]>(defaultAggregates)
   const [navOpen, setNavOpen] = React.useState<boolean>(true)
   const [modalOpen, setModalOpen] = useState<boolean>(false)
   const [selectedMind, setSelectedMind] = useState<DhammaObject | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const modelPaths = [ghostModel, brainModel, paperPlaneAssetModel, heartModel, violinModel]
+
+    const loadFromExcel = async () => {
+      setLoading(true)
+      try {
+        const rows = await loadMentalTableRows()
+        if (cancelled) return
+
+        if (!rows.length) {
+          setLoadError('MentalTable.xlsx is empty; showing defaults.')
+          setAggregates(defaultAggregates)
+          return
+        }
+
+        const mapped = rows.map(
+          (row, index) =>
+            new DhammaObject({
+              id: row.id,
+              title: row.name,
+              description: row.description,
+              highlights: row.highlights,
+              modelLabel: row.group || 'Mental type',
+              modelPath: modelPaths[index % modelPaths.length],
+            }),
+        )
+
+        setAggregates(mapped)
+        setLoadError(null)
+      } catch (err) {
+        console.error('Failed to load MentalTable.xlsx', err)
+        if (!cancelled) {
+          setAggregates(defaultAggregates)
+          setLoadError('Unable to read MentalTable.xlsx; showing defaults.')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadFromExcel()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const modelTransforms = useMemo(
     () =>
@@ -131,7 +182,7 @@ export function MindStudy(): React.ReactElement {
                     ? 1
                   : agg.id === 'calm'
                     ? 1
-                    : 14,
+                    : 1.6,
             pos:
               agg.id === 'focused'
                 ? { x: -0.25, y: -0.5, z: 0 }
@@ -145,7 +196,7 @@ export function MindStudy(): React.ReactElement {
           },
         ]),
       ),
-    [],
+    [aggregates],
   )
 
   return (
@@ -211,12 +262,16 @@ export function MindStudy(): React.ReactElement {
           </article>
 
           <div className="mindstudy-grid-surface">
-            <p className="mindstudy-grid-hint">Select a level tile to open the model and study notes.</p>
+            <p className="mindstudy-grid-hint">
+              Select a level tile to open the model and study notes.
+              {loading ? ' Loading minds from MentalTable.xlsx…' : ''}
+              {!loading && loadError ? ` ${loadError}` : ''}
+            </p>
             <div className="mindstudy-grid">
               {aggregates.map((topic, index) => {
                 const levelNumber = index + 1
                 const levelLabel = levelNumber.toString().padStart(2, '0')
-                const transform = modelTransforms[topic.id] ?? { scale: 14, pos: { x: 0, y: 0, z: 0 } }
+                const transform = modelTransforms[topic.id] ?? { scale: 1.6, pos: { x: 0, y: 0, z: 0 } }
                 return (
                   <article key={topic.id} className="mindstudy-card" id={topic.id}>
                     <button

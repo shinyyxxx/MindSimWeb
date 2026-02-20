@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useLayoutEffect, useMemo, useRef } from 'react'
 import type { InspectSelection } from '../types/InspectSelection'
 
 type InspectPanelProps = {
@@ -6,6 +6,7 @@ type InspectPanelProps = {
   panelPosition?: { x: number; y: number } | null
   onClose: () => void
   onShowProfile?: (selection: InspectSelection) => void
+  onMeasure?: (rect: DOMRect | null) => void
 }
 
 function computePanelStyle(selection: InspectSelection, panelPosition?: { x: number; y: number } | null) {
@@ -29,11 +30,28 @@ function computePanelStyle(selection: InspectSelection, panelPosition?: { x: num
   return { left, top, width: panelWidth }
 }
 
-export function InspectPanel({ selection, panelPosition, onClose, onShowProfile }: InspectPanelProps) {
+export function InspectPanel({ selection, panelPosition, onClose, onShowProfile, onMeasure }: InspectPanelProps) {
   const panelStyle = useMemo(() => computePanelStyle(selection, panelPosition), [selection, panelPosition])
+  const panelRef = useRef<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    if (!panelRef.current) return
+    const measure = () => {
+      const rect = panelRef.current ? panelRef.current.getBoundingClientRect() : null
+      onMeasure?.(rect)
+    }
+
+    measure()
+    window.addEventListener('resize', measure)
+    window.addEventListener('scroll', measure, true)
+    return () => {
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('scroll', measure, true)
+    }
+  }, [panelStyle, onMeasure])
 
   return (
-    <div className="inspect-panel" style={panelStyle ?? { top: 16, right: 16 }}>
+    <div ref={panelRef} className="inspect-panel" style={panelStyle ?? { top: 16, right: 16 }}>
       <div className="inspect-panel__bar" />
       <div className="inspect-panel__header">
         <div>

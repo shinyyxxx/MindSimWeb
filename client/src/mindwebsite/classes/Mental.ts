@@ -5,11 +5,6 @@ import { AbstractMental } from './AbstractMental'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import type { MentalBaseOptions } from './AbstractMental'
 
-/**
- * Mental class extends AbstractMental
- * Provides a concrete implementation for Mental sphere objects inside the Mind
- * with optional glTF model attachment.
- */
 export class Mental extends AbstractMental {
   modelPath?: string
   modelTargetWorldSize: number
@@ -37,7 +32,6 @@ export class Mental extends AbstractMental {
     this.attachedModel = null
     this.frozen = false
     
-    // Initialize a slow, constant, non-stop drift inside the Mind sphere
     this.normalizeVelocityToMotionSpeed()
   }
 
@@ -230,10 +224,6 @@ export class Mental extends AbstractMental {
     })
   }
 
-  /**
-   * Visualize sending data from this mental to another using a paper plane model.
-   * The plane starts at the sender, travels toward the receiver, and disposes on arrival.
-   */
   async sendDataTo(
     renderer: THREE.WebGLRenderer,
     target: Mental,
@@ -555,6 +545,25 @@ export class Mental extends AbstractMental {
 
   getModelPath(): string | undefined {
     return this.modelPath
+  }
+
+  getWorldPosition(): THREE.Vector3 | null {
+    const mesh = this.getMesh()
+    if (!mesh) return null
+    const pos = new THREE.Vector3()
+    mesh.getWorldPosition(pos)
+    return pos
+  }
+
+  getScreenPosition(camera: THREE.Camera, renderer: THREE.WebGLRenderer): { x: number; y: number } | null {
+    const worldPos = this.getWorldPosition()
+    if (!worldPos) return null
+    const ndc = worldPos.clone().project(camera)
+    const rect = renderer.domElement.getBoundingClientRect()
+    return {
+      x: rect.left + (ndc.x + 1) * 0.5 * rect.width + window.scrollX,
+      y: rect.top + (1 - (ndc.y + 1) * 0.5) * rect.height + window.scrollY
+    }
   }
 
   setFrozen(value: boolean): void {

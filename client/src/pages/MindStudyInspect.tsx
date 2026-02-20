@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { useNavigate, useParams } from 'react-router-dom'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
+import type { MentalBaseOptions } from '../mindwebsite/classes/AbstractMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
 import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
@@ -13,11 +14,22 @@ import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
 import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
 import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
+import GoodMental from '../mindwebsite/classes/good/GoodMental'
+import BadMental from '../mindwebsite/classes/bad/BadMental'
+import GreedMental from '../mindwebsite/classes/bad/GreedMental'
+import WrongViewMental from '../mindwebsite/classes/bad/WrongViewMental'
+import ConceitMental from '../mindwebsite/classes/bad/ConceitMental'
+import HatredMental from '../mindwebsite/classes/bad/HatredMental'
+import SlothMental from '../mindwebsite/classes/bad/SlothMental'
+import TorporMental from '../mindwebsite/classes/bad/TorporMental'
+import DoubtMental from '../mindwebsite/classes/bad/DoubtMental'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import type { InspectSelection } from '../types/InspectSelection'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
+import InspectPanel from '../components/InspectPanel'
+import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 
 const apiKey = import.meta.env.VITE_GOOGLE_TTS_KEY
 
@@ -50,13 +62,240 @@ type NeutralSeed = {
   modelOffset?: { x?: number; y?: number; z?: number }
 }
 
+const neutralSeeds: NeutralSeed[] = [
+  {
+    name: 'Neutral Ground',
+    color: '#9ca3af',
+    scale: 0.14,
+    position: [-0.08, -0.46, -0.12],
+    variant: 'neutral',
+    detail: 'Baseline neutral mental factor',
+  },
+  {
+    name: 'Contact',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [0.0, -0.45, 0.1],
+    variant: 'contact',
+    detail: 'Meeting of sense base and object',
+    modelPath: paperPlaneModel,
+    modelTargetWorldSize: 0.08,
+    modelOffset: { x: 0, y: -0.04, z: 0 },
+  },
+  {
+    name: 'Attention',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [-0.18, -0.48, 0.06],
+    variant: 'attention',
+    detail: 'Directing the mind toward an object',
+  },
+  {
+    name: 'Feeling',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [0.16, -0.44, -0.06],
+    variant: 'feeling',
+    detail: 'Tone of pleasant, unpleasant, or neutral',
+  },
+  {
+    name: 'Intention',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [0.05, -0.52, 0.05],
+    variant: 'intention',
+    detail: 'The shaping force behind actions',
+  },
+  {
+    name: 'Consciousness',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [-0.22, -0.42, -0.02],
+    variant: 'consciousness',
+    detail: 'Knowing of the object',
+  },
+  {
+    name: 'Awareness',
+    color: '#a1a1aa',
+    scale: 0.14,
+    position: [0.22, -0.5, 0.12],
+    variant: 'awareness',
+    detail: 'Monitoring quality of mind',
+  },
+  {
+    name: 'Perception',
+    color: '#60a5fa',
+    scale: 0.18,
+    position: [-0.14, 0.08, 0.18],
+    variant: 'perception',
+    detail:
+      'เจตสิกจำอารมณ์ทุกอย่างที่ปรากฏสืบต่อเป็นเรื่องราว สัตว์ บุคคล ต่างๆ สัญญาเจตสิก จำความรู้สึกสุขทุกข์ ดีใจ เสียใจ เฉยๆ ในอารมณ์ทุกอย่าง สัญญาเจตสิก เป็นปัจจัยที่สำคัญที่ส่งเสริมความผูกพันยึดมั่นในชีวิต เช่นเดียวกับเวทนาเจตสิกซึ่งเมื่อรู้สึกสุขหรือดีใจ เป็นต้น ก็ย่อมสำคัญยึดมั่นผูกพันต้องการความรู้สึกนั้นๆ เรื่อยๆ ไป',
+    modelPath: perceptionBowlModel,
+    modelTargetWorldSize: 0.022,
+    modelOffset: { x: 0, y: -0.28, z: 0.42 },
+  },
+]
+
+const buildDefaultNeutralMentals = (): Mental[] =>
+  neutralSeeds.map((seed) => {
+    const baseOptions = {
+      name: seed.name,
+      detail: seed.detail ?? '',
+      color: seed.color,
+      scale: seed.scale,
+      position: seed.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      modelPath: seed.modelPath,
+      modelTargetWorldSize: seed.modelTargetWorldSize,
+      modelOffset: seed.modelOffset,
+      opacity: 0.5,
+    }
+
+    switch (seed.variant) {
+      case 'contact':
+        return new ContactMental(baseOptions)
+      case 'attention':
+        return new AttentionMental(baseOptions)
+      case 'feeling':
+        return new FeelingMental(baseOptions)
+      case 'intention':
+        return new IntentionMental(baseOptions)
+      case 'consciousness':
+        return new ConsciousnessMental(baseOptions)
+      case 'awareness':
+        return new AwarenessMental(baseOptions)
+      case 'perception':
+        return new PerceptionMental(baseOptions)
+      case 'neutral':
+      default:
+        return new NeutralMental(baseOptions)
+    }
+  })
+
+const randomPosition = (): [number, number, number] => [
+  (Math.random() - 0.5) * 0.8,
+  (Math.random() - 0.5) * 0.8,
+  (Math.random() - 0.5) * 0.8,
+]
+
+const pickMentalFactory = (label: string): ((opts: MentalBaseOptions) => Mental) => {
+  const key = label.toLowerCase()
+
+  if (key.includes('universal') && key.includes('common')) return (opts) => new NeutralMental(opts)
+  if (key.includes('universal unwholesome')) return (opts) => new BadMental({ color: '#f87171', ...opts })
+
+  if (key.includes('greed')) return (opts) => new GreedMental(opts)
+  if (key.includes('wrong view')) return (opts) => new WrongViewMental(opts)
+  if (key.includes('conceit')) return (opts) => new ConceitMental(opts)
+  if (key.includes('hatred')) return (opts) => new HatredMental(opts)
+  if (key.includes('sloth')) return (opts) => new SlothMental(opts)
+  if (key.includes('torpor')) return (opts) => new TorporMental(opts)
+  if (key.includes('doubt')) return (opts) => new DoubtMental(opts)
+
+  if (key.includes('beautiful') || key.includes('abstinences') || key.includes('illimitables') || key.includes('wisdom'))
+    return (opts) => new GoodMental(opts)
+  if (key.includes('energy')) return (opts) => new GoodMental({ color: '#22c55e', ...opts })
+  if (key.includes('joy')) return (opts) => new GoodMental({ color: '#38bdf8', ...opts })
+  if (key.includes('desire')) return (opts) => new Mental({ color: '#f59e0b', ...opts })
+
+  if (key.includes('initial application')) return (opts) => new AttentionMental(opts)
+  if (key.includes('sustained application')) return (opts) => new AwarenessMental(opts)
+  if (key.includes('decision')) return (opts) => new IntentionMental(opts)
+
+  // Default to a neutral mental factor bubble if no specialized class exists
+  return (opts) => new NeutralMental(opts)
+}
+
+const buildMentalsFromRow = (row: MindElementRow): Mental[] => {
+  const mentals: Mental[] = []
+  Object.entries(row.counts).forEach(([label, count]) => {
+    if (!count || Number.isNaN(count)) return
+
+    // Special handling: "Universal" factors should render the canonical seven
+    // mental factors instead of a pile of identical neutral bubbles.
+    const key = label.toLowerCase()
+    if (key.includes('universal') && !key.includes('unwholesome')) {
+      const amount = Math.max(1, Math.min(20, Math.round(count)))
+      const scale = Math.min(0.26, 0.12 + Math.log1p(amount) * 0.05)
+      const detail =
+        `${label} — universal set (Attention, Awareness, Consciousness, Contact, ` +
+        `Feeling, Intention, Perception) — ${count} factor${count > 1 ? 's' : ''} (MindElement.xlsx)`
+
+      const universalMentals: Array<{ name: string; factory: (opts: MentalBaseOptions) => Mental }> = [
+        { name: 'Attention', factory: (opts) => new AttentionMental(opts) },
+        { name: 'Awareness', factory: (opts) => new AwarenessMental(opts) },
+        { name: 'Consciousness', factory: (opts) => new ConsciousnessMental(opts) },
+        { name: 'Contact', factory: (opts) => new ContactMental(opts) },
+        { name: 'Feeling', factory: (opts) => new FeelingMental(opts) },
+        { name: 'Intention', factory: (opts) => new IntentionMental(opts) },
+        { name: 'Perception', factory: (opts) => new PerceptionMental(opts) },
+      ]
+
+      universalMentals.forEach(({ name, factory }) => {
+        mentals.push(
+          factory({
+            name,
+            detail,
+            position: randomPosition(),
+            motionSpeed: 0.0012 + Math.random() * 0.0007,
+            scale,
+            labelEnabled: false,
+            opacity: 0.52,
+          }),
+        )
+      })
+      return
+    }
+
+    const amount = Math.max(1, Math.min(20, Math.round(count)))
+    const factory = pickMentalFactory(label)
+    const scale = Math.min(0.26, 0.12 + Math.log1p(amount) * 0.05)
+    const detail = `${label} — ${count} factor${count > 1 ? 's' : ''} (MindElement.xlsx)`
+
+    for (let i = 0; i < amount; i += 1) {
+      const name = amount > 1 ? `${label} #${i + 1}` : label
+      mentals.push(
+        factory({
+          name,
+          detail,
+          position: randomPosition(),
+          motionSpeed: 0.0012 + Math.random() * 0.0007,
+          scale,
+          labelEnabled: false,
+          opacity: 0.52,
+        }),
+      )
+    }
+  })
+
+  if (!mentals.length) {
+    return buildDefaultNeutralMentals()
+  }
+
+  return mentals
+}
+
+const formatMindName = (id?: string): string => {
+  const mindKey = id ?? 'mind'
+  const names: Record<string, string> = {
+    calm: 'Calm & Balanced',
+    focused: 'Focused & Collected',
+    curious: 'Curious & Investigative',
+    compassionate: 'Warm & Compassionate',
+  }
+  if (names[mindKey]) return names[mindKey]
+  const plain = mindKey.replace(/[-_]/g, ' ')
+  return plain.length ? plain.charAt(0).toUpperCase() + plain.slice(1) : 'Mind'
+}
+
 function NeutralMindContents({ mind, mentals }: { mind: Mind; mentals: Mental[] }) {
   const { gl } = useThree()
 
   useEffect(() => {
     mentals.forEach((mental) => mind.addMental(mental))
     return () => {
-      mind.dispose()
+      mind.clearMentals()
     }
   }, [mind, mentals])
 
@@ -211,13 +450,13 @@ function NeutralMentalsLayer({
 
       if (found) {
         found.setFrozen(true)
-        const worldPos = new THREE.Vector3()
-        found.getMesh()?.getWorldPosition(worldPos)
+        const worldPos = found.getWorldPosition()
         focusTargetRef.current = worldPos
-        const screenPos = {
-          x: event.clientX + window.scrollX,
-          y: event.clientY + window.scrollY,
-        }
+        const screenPos =
+          found.getScreenPosition(camera, gl) ?? {
+            x: event.clientX + window.scrollX,
+            y: event.clientY + window.scrollY,
+          }
 
         const idx = list.indexOf(found)
         onSelectMental({
@@ -305,12 +544,14 @@ function OptionMenu({
   onClose,
   onVoice,
   voiceLoading,
+  onViewDetail,
 }: {
   selection: InspectSelection
   panelPosition: { x: number; y: number } | null
   onClose: () => void
   onVoice: (selection: InspectSelection) => void
   voiceLoading: boolean
+  onViewDetail: (selection: InspectSelection) => void
 }) {
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
@@ -406,10 +647,79 @@ function OptionMenu({
         </button>
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
-      {renderOption('View Detail', 'Inspect this sphere closely', () => {})}
+      {renderOption('View Detail', 'Inspect this sphere closely', () => onViewDetail(selection))}
       {renderOption('Voice', 'Hear a narrated explanation', () => onVoice(selection), voiceLoading)}
       {renderOption('How it works?', 'Learn the mechanics in-game', () => {})}
       </div>
+    </div>
+  )
+}
+
+function InspectConnector({
+  panelRect,
+  target,
+}: {
+  panelRect: DOMRect | null
+  target: { x: number; y: number } | null
+}) {
+  if (!panelRect || !target) return null
+
+  const start = { x: panelRect.left + panelRect.width / 2, y: panelRect.top + panelRect.height / 2 }
+  const padding = 24
+  const left = Math.min(start.x, target.x) - padding
+  const top = Math.min(start.y, target.y) - padding
+  const width = Math.abs(start.x - target.x) + padding * 2
+  const height = Math.abs(start.y - target.y) + padding * 2
+
+  const from = { x: start.x - left, y: start.y - top }
+  const to = { x: target.x - left, y: target.y - top }
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left,
+        top,
+        width,
+        height,
+        pointerEvents: 'none',
+        zIndex: 18,
+      }}
+    >
+      <svg width={width} height={height} style={{ overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="inspect-connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="50%" stopColor="#a78bfa" />
+            <stop offset="100%" stopColor="#38bdf8" />
+          </linearGradient>
+          <marker
+            id="inspect-arrow"
+            markerWidth="10"
+            markerHeight="10"
+            refX="8"
+            refY="5"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L10,5 L0,10 z" fill="#7dd3fc" />
+          </marker>
+        </defs>
+        <line
+          x1={from.x}
+          y1={from.y}
+          x2={to.x}
+          y2={to.y}
+          stroke="url(#inspect-connector-gradient)"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          markerEnd="url(#inspect-arrow)"
+          style={{ filter: 'drop-shadow(0 0 6px rgba(125,211,252,0.6))' }}
+        />
+        <circle cx={to.x} cy={to.y} r={6} fill="#38bdf8" opacity={0.9} />
+        <circle cx={to.x} cy={to.y} r={11} fill="none" stroke="#38bdf8" strokeOpacity={0.3} strokeWidth={2} />
+      </svg>
     </div>
   )
 }
@@ -489,24 +799,79 @@ export function MindStudyInspect(): React.ReactElement {
   const [highlightSelection, setHighlightSelection] = useState<THREE.Object3D[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
   const [voiceLoading, setVoiceLoading] = useState(false)
+  const [inspectOpen, setInspectOpen] = useState(false)
+  const [panelRect, setPanelRect] = useState<DOMRect | null>(null)
+  const [mentals, setMentals] = useState<Mental[]>(() => buildDefaultNeutralMentals())
+  const [mindLabel, setMindLabel] = useState<string>(() => formatMindName(mindId))
+  const [mindDetail, setMindDetail] = useState<string>('Neutral mentals playground')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
 
-  const readableMindName = useMemo(() => {
-    const names: Record<string, string> = {
-      calm: 'Calm & Balanced',
-      focused: 'Focused & Collected',
-      curious: 'Curious & Investigative',
-      compassionate: 'Warm & Compassionate',
+  useEffect(() => {
+    if (!selected) {
+      setInspectOpen(false)
+      setPanelRect(null)
     }
-    if (names[mindId]) return names[mindId]
-    const plain = mindId.replace(/[-_]/g, ' ')
-    return plain.length ? plain.charAt(0).toUpperCase() + plain.slice(1) : 'Mind'
-  }, [mindId])
+  }, [selected])
+
+  const readableMindName = useMemo(() => formatMindName(mindId), [mindId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const hydrateFromSheet = async () => {
+      setLoading(true)
+      try {
+        const rows = await loadMindElementRows()
+        if (cancelled) return
+
+        if (!rows.length) {
+          setLoadError('MindElement.xlsx is empty; showing neutral factors.')
+          setMindLabel(readableMindName)
+          setMindDetail('Neutral mentals playground')
+          setMentals((prev) => {
+            prev.forEach((m) => m.dispose())
+            return buildDefaultNeutralMentals()
+          })
+          return
+        }
+
+        const targetId = (mindId ?? 'mind').toLowerCase()
+        const targetRow = rows.find((row) => row.id === targetId) ?? rows[0]
+        setMindLabel(targetRow.name)
+        setMindDetail(targetRow.group || 'MindElement.xlsx')
+        setMentals((prev) => {
+          prev.forEach((m) => m.dispose())
+          return buildMentalsFromRow(targetRow)
+        })
+        setLoadError(null)
+      } catch (err) {
+        console.error('Failed to load MindElement.xlsx', err)
+        if (!cancelled) {
+          setLoadError('Unable to read MindElement.xlsx; showing neutral factors.')
+          setMindLabel(readableMindName)
+          setMindDetail('Neutral mentals playground')
+          setMentals((prev) => {
+            prev.forEach((m) => m.dispose())
+            return buildDefaultNeutralMentals()
+          })
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    hydrateFromSheet()
+    return () => {
+      cancelled = true
+    }
+  }, [mindId, readableMindName])
 
   const mind = useMemo(
     () =>
       new Mind({
-        name: readableMindName,
-        detail: 'Neutral mentals playground',
+        name: mindLabel,
+        detail: mindDetail,
         position: [0, -0.25, 0],
         scale: 1.6,
         transparent: true,
@@ -516,121 +881,19 @@ export function MindStudyInspect(): React.ReactElement {
         labelWorldSize: 0.6,
         labelOffset: 0.28,
       }),
-    [readableMindName],
+    [mindLabel, mindDetail],
   )
 
-  const neutralMentals = useMemo<Mental[]>(() => {
-    const seeds: NeutralSeed[] = [
-      {
-        name: 'Neutral Ground',
-        color: '#9ca3af',
-        scale: 0.14,
-        position: [-0.08, -0.46, -0.12],
-        variant: 'neutral',
-        detail: 'Baseline neutral mental factor',
-      },
-      {
-        name: 'Contact',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.0, -0.45, 0.1],
-        variant: 'contact',
-        detail: 'Meeting of sense base and object',
-        modelPath: paperPlaneModel,
-        modelTargetWorldSize: 0.08,
-        modelOffset: { x: 0, y: -0.04, z: 0 },
-      },
-      {
-        name: 'Attention',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [-0.18, -0.48, 0.06],
-        variant: 'attention',
-        detail: 'Directing the mind toward an object',
-      },
-      {
-        name: 'Feeling',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.16, -0.44, -0.06],
-        variant: 'feeling',
-        detail: 'Tone of pleasant, unpleasant, or neutral',
-      },
-      {
-        name: 'Intention',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.05, -0.52, 0.05],
-        variant: 'intention',
-        detail: 'The shaping force behind actions',
-      },
-      {
-        name: 'Consciousness',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [-0.22, -0.42, -0.02],
-        variant: 'consciousness',
-        detail: 'Knowing of the object',
-      },
-      {
-        name: 'Awareness',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.22, -0.50, 0.12],
-        variant: 'awareness',
-        detail: 'Monitoring quality of mind',
-      },
-      {
-        name: 'Perception',
-        color: '#60a5fa',
-        scale: 0.18,
-        position: [-0.14, 0.08, 0.18],
-        variant: 'perception',
-        detail: 'เจตสิกจำอารมณ์ทุกอย่างที่ปรากฏสืบต่อเป็นเรื่องราว สัตว์ บุคคล ต่างๆ สัญญาเจตสิก จำความรู้สึกสุขทุกข์ ดีใจ เสียใจ เฉยๆ ในอารมณ์ทุกอย่าง สัญญาเจตสิก เป็นปัจจัยที่สำคัญที่ส่งเสริมความผูกพันยึดมั่นในชีวิต เช่นเดียวกับเวทนาเจตสิกซึ่งเมื่อรู้สึกสุขหรือดีใจ เป็นต้น ก็ย่อมสำคัญยึดมั่นผูกพันต้องการความรู้สึกนั้นๆ เรื่อยๆ ไป',
-        modelPath: perceptionBowlModel,
-        modelTargetWorldSize: 0.022,
-        modelOffset: { x: 0, y: -0.28, z: 0.42 },
-      },
-    ]
+  useEffect(() => () => mind.dispose(), [mind])
 
-    return seeds.map((seed) => {
-      const baseOptions = {
-        name: seed.name,
-        detail: seed.detail ?? '',
-        color: seed.color,
-        scale: seed.scale,
-        position: seed.position,
-        labelEnabled: false,
-        motionSpeed: 0.0015,
-        modelPath: seed.modelPath,
-        modelTargetWorldSize: seed.modelTargetWorldSize,
-        modelOffset: seed.modelOffset,
-        opacity: 0.5,
-      }
+  const mentalNames = useMemo(() => mentals.map((m) => m.getName()), [mentals])
 
-      switch (seed.variant) {
-        case 'contact':
-          return new ContactMental(baseOptions)
-        case 'attention':
-          return new AttentionMental(baseOptions)
-        case 'feeling':
-          return new FeelingMental(baseOptions)
-        case 'intention':
-          return new IntentionMental(baseOptions)
-        case 'consciousness':
-          return new ConsciousnessMental(baseOptions)
-        case 'awareness':
-          return new AwarenessMental(baseOptions)
-        case 'perception':
-          return new PerceptionMental(baseOptions)
-        case 'neutral':
-        default:
-          return new NeutralMental(baseOptions)
-      }
-    })
-  }, [])
-
-  const mentalNames = useMemo(() => neutralMentals.map((m) => m.getName()), [neutralMentals])
+  useEffect(
+    () => () => {
+      mentals.forEach((m) => m.dispose())
+    },
+    [mentals],
+  )
 
   const handleSelect = (info: InspectSelection) => {
     setSelected(info)
@@ -640,6 +903,10 @@ export function MindStudyInspect(): React.ReactElement {
   const handleClose = () => {
     setSelected(null)
     setPanelPosition(null)
+    setInspectOpen(false)
+    setPanelRect(null)
+    // Clear any search highlight once the option menu is dismissed
+    setHighlightSelection([])
   }
 
   const handleSearch = () => {
@@ -663,6 +930,12 @@ export function MindStudyInspect(): React.ReactElement {
     })
 
     setHighlightSelection(matches)
+  }
+
+  const handleViewDetail = (info: InspectSelection) => {
+    setSelected(info)
+    setInspectOpen(true)
+    setPanelRect(null)
   }
 
   const handleVoice = async (selection: InspectSelection) => {
@@ -729,7 +1002,7 @@ export function MindStudyInspect(): React.ReactElement {
       </div>
 
       <div className="simulation-full" style={{ position: 'relative', minHeight: '70vh', borderRadius: 16, overflow: 'hidden' }}>
-        <div style={mindBadgeStyle}>{readableMindName}</div>
+        <div style={mindBadgeStyle}>{mindLabel}</div>
         <div
           style={{
             position: 'absolute',
@@ -843,19 +1116,45 @@ export function MindStudyInspect(): React.ReactElement {
               🔍
             </button>
           )}
+          <div
+            style={{
+              fontSize: 12,
+              color: loadError ? '#fca5a5' : '#bfdbfe',
+              background: 'rgba(17, 24, 39, 0.75)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 10,
+              padding: '6px 10px',
+              boxShadow: '0 8px 18px rgba(0,0,0,0.3)',
+              maxWidth: 260,
+            }}
+          >
+            {loading ? 'Loading MindElement.xlsx…' : loadError ?? mindDetail}
+          </div>
         </div>
-        {selected && (
+        {selected && !inspectOpen && (
           <OptionMenu
             selection={selected}
             panelPosition={panelPosition}
             onClose={handleClose}
             onVoice={handleVoice}
             voiceLoading={voiceLoading}
+            onViewDetail={handleViewDetail}
           />
+        )}
+        {selected && inspectOpen && (
+          <>
+            <InspectPanel
+              selection={selected}
+              panelPosition={panelPosition}
+              onClose={handleClose}
+              onMeasure={setPanelRect}
+            />
+            <InspectConnector panelRect={panelRect} target={panelPosition} />
+          </>
         )}
         <NeutralMindScene
           mind={mind}
-          mentals={neutralMentals}
+          mentals={mentals}
           selectedMentalName={selected?.name ?? null}
           onSelectMental={handleSelect}
           onUpdatePanelPosition={setPanelPosition}
