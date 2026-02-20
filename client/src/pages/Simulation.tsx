@@ -111,11 +111,14 @@ function HumanBody({
   mind,
   controlsRef,
   url = '/assets/humanMind/human.gltf',
-  targetHeight = 18,
-  groundY = -2,
+  targetHeight = 1.7,
+  groundY = 0,
   bodyOpacity = 0.12,
-  mindYOffsetWorld = 0.9,
-  humanZOffsetWorld = 0.5,
+  mindWorldScale = 0.1,
+  mindFollowsHumanOffset = true,
+  mindYOffsetWorld = 0.02,
+  mindZOffsetWorld = -0.03,
+  humanZOffsetWorld = -1.2,
 }: {
   mind: Mind
   controlsRef?: React.RefObject<OrbitControlsImpl | null>
@@ -123,7 +126,10 @@ function HumanBody({
   targetHeight?: number
   groundY?: number
   bodyOpacity?: number
+  mindWorldScale?: number
+  mindFollowsHumanOffset?: boolean
   mindYOffsetWorld?: number
+  mindZOffsetWorld?: number
   humanZOffsetWorld?: number
 }) {
   const gltf = useGLTF(url) as unknown as { scene: THREE.Group }
@@ -141,7 +147,7 @@ function HumanBody({
 
     // Center the model in X/Z and put its lowest point on the ground plane.
     const posX = -center.x * s
-    // Base Z used for the "true" chest anchor (mind stays here).
+    // Base Z used for the "true" chest anchor (desktop keeps the mind fixed).
     const posZBase = -center.z * s
     // Visual-only Z offset: moves the human mesh without dragging the mind along.
     // Positive Z moves the model toward the camera (forward).
@@ -150,27 +156,28 @@ function HumanBody({
 
     // Chest anchor: higher in the torso so the mind sits more naturally in the chest.
     const chestLocal = new THREE.Vector3(center.x, bbox.min.y + size.y * 0.68, center.z + size.z * 0.06)
-    const chestW = new THREE.Vector3(posX, posY, posZBase).add(chestLocal.multiplyScalar(s))
+    const chestAnchorZ = mindFollowsHumanOffset ? posZ : posZBase
+    const chestW = new THREE.Vector3(posX, posY, chestAnchorZ).add(chestLocal.multiplyScalar(s))
 
     return {
       scaleFactor: s,
       humanPosition: new THREE.Vector3(posX, posY, posZ),
       chestWorld: chestW,
     }
-  }, [groundY, humanScene, humanZOffsetWorld, targetHeight])
+  }, [groundY, humanScene, humanZOffsetWorld, mindFollowsHumanOffset, targetHeight])
 
   useLayoutEffect(() => {
     // Fit the mind comfortably inside the torso, then place it in the chest.
-    mind.setScale(1.0)
-    mind.setPosition(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z)
+    mind.setScale(mindWorldScale)
+    mind.setPosition(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z + mindZOffsetWorld)
 
     // Keep orbit pivot aligned with the mind/chest without relying on a React re-render.
     const ctl = controlsRef?.current
     if (ctl) {
-      ctl.target.set(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z)
+      ctl.target.set(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z + mindZOffsetWorld)
       ctl.update()
     }
-  }, [chestWorld.x, chestWorld.y, chestWorld.z, mind, mindYOffsetWorld])
+  }, [chestWorld.x, chestWorld.y, chestWorld.z, mind, mindWorldScale, mindYOffsetWorld, mindZOffsetWorld])
 
   useMemo(() => {
     // Make the body easy to see through so the mind is visible "inside".
@@ -673,7 +680,7 @@ function ThreeScene({
         enableZoom
         enablePan={!selectedMentalName && !isVrPresenting}
         enableRotate={!selectedMentalName && !isVrPresenting}
-        minDistance={2}
+        minDistance={0.35}
         maxDistance={24}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
@@ -685,7 +692,10 @@ function ThreeScene({
       {!isArMode && <GroundPlane />}
       {showHumanInScene && (
         <React.Suspense fallback={null}>
-          <HumanBody mind={mind} controlsRef={controlsRef} />
+          <HumanBody
+            mind={mind}
+            controlsRef={controlsRef}
+          />
         </React.Suspense>
       )}
       <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
@@ -769,11 +779,15 @@ export function Simulation(): React.ReactElement {
       transparent: true,
       opacity: 0.15,
       color: parseInt('3b82f6', 16),
-      labelEnabled: true,
+      labelEnabled: false,
       labelWorldSize: 0.6,
       labelOffset: 0.25,
     })
   }, [])
+
+  useEffect(() => {
+    mind.setLabelEnabled(!showHumanModel)
+  }, [mind, showHumanModel])
 
   const mentals = useMemo<Mental[]>(() => {
     const seeds: MentalSeed[] = [
@@ -1449,7 +1463,9 @@ export function Simulation(): React.ReactElement {
       }
 
       const baseInit: any = {
-        optionalFeatures: ['local'],
+        // Prefer floor-aligned reference space so models aren't "floating".
+        // Fall back handled below if not supported.
+        optionalFeatures: ['local-floor'],
       }
 
       let session: any
@@ -1478,7 +1494,11 @@ export function Simulation(): React.ReactElement {
         { once: true }
       )
 
-      gl.xr.setReferenceSpaceType('local')
+      try {
+        gl.xr.setReferenceSpaceType('local-floor')
+      } catch {
+        gl.xr.setReferenceSpaceType('local')
+      }
       await gl.xr.setSession(session)
       setArPresenting(true)
       setVrPresenting(false)

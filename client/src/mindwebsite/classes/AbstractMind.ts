@@ -206,6 +206,11 @@ export class AbstractMind {
     this.updateLabel()
   }
 
+  setLabelEnabled(enabled: boolean): void {
+    this.labelEnabled = enabled
+    this.updateLabel()
+  }
+
   getName(): string {
     return this.name
   }
