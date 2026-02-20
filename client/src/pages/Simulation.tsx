@@ -602,6 +602,7 @@ function ThreeScene({
   sendMode,
   onSendSelection,
   showHumanModel,
+  xrMode,
   defaultMindPosition,
   defaultMindScale,
   onRendererReady,
@@ -615,6 +616,7 @@ function ThreeScene({
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   showHumanModel: boolean
+  xrMode: 'vr' | 'ar' | null
   defaultMindPosition: Vec3
   defaultMindScale: number
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
@@ -625,6 +627,9 @@ function ThreeScene({
   const [sendMeshSelection, setSendMeshSelection] = useState<THREE.Object3D[]>([])
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const [isVrPresenting, setIsVrPresenting] = useState(false)
+  const isArMode = xrMode === 'ar'
+  const showMentalsLayer = !isArMode || sendMode
+  const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
   // Use send mesh selection when in send mode, otherwise use hover selection
   const outlineSelection = sendMode && sendMeshSelection.length > 0 ? sendMeshSelection : hoverSelection
@@ -643,7 +648,14 @@ function ThreeScene({
   }, [defaultMindPosition, defaultMindScale, mind, showHumanModel])
 
   return (
-    <Canvas camera={{ position: [0, 0, 10], fov: 75 }} shadows gl={{ antialias: true, toneMappingExposure: 0.6 }}>
+    <Canvas
+      camera={{ position: [0, 0, 10], fov: 75 }}
+      shadows={!isArMode}
+      gl={{ antialias: true, toneMappingExposure: 0.6, alpha: isArMode }}
+      onCreated={({ gl }) => {
+        if (isArMode) gl.setClearColor(0x000000, 0)
+      }}
+    >
       <XRStatusBridge
         onRendererReady={onRendererReady}
         onPresentingChange={(presenting) => {
@@ -651,8 +663,8 @@ function ThreeScene({
           onVrPresentingChange?.(presenting)
         }}
       />
-      {/* Bring back HDRI background, but keep it dim */}
-      <Environment preset="dawn" background blur={1} backgroundIntensity={0.35} environmentIntensity={0.6} />
+      {/* In AR, avoid overriding the camera passthrough with an HDR background */}
+      {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.35} environmentIntensity={0.6} />}
       <OrbitControls
         ref={controlsRef}
         enabled={!isVrPresenting}
@@ -670,37 +682,41 @@ function ThreeScene({
       <directionalLight position={[-5, 3, -5]} intensity={0.45} />
       <pointLight position={[0, 6, 0]} intensity={0.8} distance={15} decay={2} />
       <pointLight position={[0, 0, 5]} intensity={0.6} distance={15} decay={2} />
-      <GroundPlane />
-      {showHumanModel && (
+      {!isArMode && <GroundPlane />}
+      {showHumanInScene && (
         <React.Suspense fallback={null}>
           <HumanBody mind={mind} controlsRef={controlsRef} />
         </React.Suspense>
       )}
       <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
-      <MentalsLayer
-        mind={mind}
-        mentals={mentals}
-        selectedMentalName={selectedMentalName}
-        onSelectMental={onSelectMental}
-        focusTargetRef={focusTargetRef}
-        planeModelPath={paperPlaneModel}
-        sendMode={sendMode}
-        onSendSelection={onSendSelection}
-        onHoverSelection={setHoverSelection}
-        onSendMeshSelection={setSendMeshSelection}
-      />
-      <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
-      <EffectComposer multisampling={2} autoClear={false}>
-        <Outline
-          selection={outlineSelection}
-          blendFunction={BlendFunction.ALPHA}
-          visibleEdgeColor={0xffffff}
-          hiddenEdgeColor={0x190a05}
-          edgeStrength={30}
-          resolutionScale={1}
-          xRay
+      {showMentalsLayer && (
+        <MentalsLayer
+          mind={mind}
+          mentals={mentals}
+          selectedMentalName={selectedMentalName}
+          onSelectMental={onSelectMental}
+          focusTargetRef={focusTargetRef}
+          planeModelPath={paperPlaneModel}
+          sendMode={sendMode}
+          onSendSelection={onSendSelection}
+          onHoverSelection={setHoverSelection}
+          onSendMeshSelection={setSendMeshSelection}
         />
-      </EffectComposer>
+      )}
+      <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
+      {showMentalsLayer && (
+        <EffectComposer multisampling={2} autoClear={false}>
+          <Outline
+            selection={outlineSelection}
+            blendFunction={BlendFunction.ALPHA}
+            visibleEdgeColor={0xffffff}
+            hiddenEdgeColor={0x190a05}
+            edgeStrength={30}
+            resolutionScale={1}
+            xRay
+          />
+        </EffectComposer>
+      )}
     </Canvas>
   )
 }
@@ -715,15 +731,34 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(true)
+
+  type XrSupport = 'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'
+  const [activeXrMode, setActiveXrMode] = useState<'vr' | 'ar' | null>(null)
+
   const [vrPresenting, setVrPresenting] = useState(false)
-  const [vrSupport, setVrSupport] = useState<'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'>('checking')
+  const [vrSupport, setVrSupport] = useState<XrSupport>('checking')
   const [vrMessage, setVrMessage] = useState<string | null>(null)
   const [vrDomOverlay, setVrDomOverlay] = useState(false)
+
+  const [arPresenting, setArPresenting] = useState(false)
+  const [arSupport, setArSupport] = useState<XrSupport>('checking')
+  const [arMessage, setArMessage] = useState<string | null>(null)
+  const [arDomOverlay, setArDomOverlay] = useState(false)
+
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const requestedXrModeRef = useRef<'vr' | 'ar' | null>(null)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
   })
+
+  useEffect(() => {
+    if (activeXrMode !== 'ar') return
+    setShowHumanModel(true)
+    setSendMode(false)
+    setSelected(null)
+    setProfile(null)
+  }, [activeXrMode])
 
   const mind = useMemo(() => {
     return new Mind({
@@ -1176,6 +1211,37 @@ export function Simulation(): React.ReactElement {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!window.isSecureContext) {
+        if (!cancelled) setArSupport('not_secure')
+        return
+      }
+
+      const xr = (navigator as unknown as { xr?: { isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
+      if (!xr) {
+        if (!cancelled) setArSupport('no_webxr')
+        return
+      }
+
+      if (typeof xr.isSessionSupported === 'function') {
+        try {
+          const ok = await xr.isSessionSupported('immersive-ar')
+          if (!cancelled) setArSupport(ok ? 'supported' : 'unsupported')
+        } catch {
+          if (!cancelled) setArSupport('unsupported')
+        }
+      } else {
+        if (!cancelled) setArSupport('supported')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleSelect = (info: InspectSelection) => {
     setSelected(info)
     setPanelPosition(info.screenPosition ?? null)
@@ -1220,14 +1286,14 @@ export function Simulation(): React.ReactElement {
   }
 
   const vrButtonDisabled = (() => {
-    if (vrPresenting) return false
+    if (activeXrMode === 'vr') return false
     if (!rendererRef.current) return true
     return vrSupport !== 'supported'
   })()
 
   const vrButtonTitle = (() => {
     if (!rendererRef.current) return '3D renderer is still loading...'
-    if (vrPresenting) return 'Exit VR session'
+    if (activeXrMode === 'vr') return 'Exit VR session'
     if (vrSupport === 'checking') return 'Checking VR support...'
     if (vrSupport === 'not_secure') return 'WebXR requires HTTPS or localhost'
     if (vrSupport === 'no_webxr') return 'WebXR not available in this browser/device'
@@ -1253,10 +1319,16 @@ export function Simulation(): React.ReactElement {
       return
     }
 
-    // Exit VR if already presenting
+    requestedXrModeRef.current = 'vr'
+
+    // Toggle / switch: if something is presenting, end it first.
     if (gl.xr.isPresenting) {
+      const sameMode = activeXrMode === 'vr'
       await gl.xr.getSession()?.end()
-      return
+      if (sameMode) {
+        requestedXrModeRef.current = null
+        return
+      }
     }
 
     try {
@@ -1295,12 +1367,17 @@ export function Simulation(): React.ReactElement {
         () => {
           setVrPresenting(false)
           setVrDomOverlay(false)
+          if (activeXrMode === 'vr') setActiveXrMode(null)
+          requestedXrModeRef.current = null
         },
         { once: true }
       )
       gl.xr.setReferenceSpaceType('local-floor')
       await gl.xr.setSession(session)
       setVrPresenting(true)
+      setArPresenting(false)
+      setActiveXrMode('vr')
+      requestedXrModeRef.current = 'vr'
       // If we have DOM overlay, clear messages; otherwise keep the hint.
       if (session?.domOverlayState?.type) {
         // If browser reports an overlay type, assume overlay is active.
@@ -1311,6 +1388,112 @@ export function Simulation(): React.ReactElement {
       console.error('Failed to enter VR', err)
       setVrMessage('Failed to enter VR (see console)')
       setVrPresenting(false)
+      requestedXrModeRef.current = null
+    }
+  }
+
+  const arButtonDisabled = (() => {
+    if (activeXrMode === 'ar') return false
+    if (!rendererRef.current) return true
+    return arSupport !== 'supported'
+  })()
+
+  const arButtonTitle = (() => {
+    if (!rendererRef.current) return '3D renderer is still loading...'
+    if (activeXrMode === 'ar') return 'Exit AR session'
+    if (arSupport === 'checking') return 'Checking AR support...'
+    if (arSupport === 'not_secure') return 'WebXR requires HTTPS or localhost'
+    if (arSupport === 'no_webxr') return 'WebXR not available in this browser/device'
+    if (arSupport === 'unsupported') return 'immersive-ar is not supported on this device/browser'
+    return 'Enter AR'
+  })()
+
+  const handleToggleAr = async () => {
+    const gl = rendererRef.current
+    if (!gl) {
+      setArMessage('AR not ready yet (renderer still loading)')
+      return
+    }
+
+    if (!window.isSecureContext) {
+      setArMessage('AR requires HTTPS or localhost')
+      return
+    }
+
+    const xr = (navigator as unknown as { xr?: { requestSession: Function; isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
+    if (!xr) {
+      setArMessage('WebXR not supported in this browser/device')
+      return
+    }
+
+    requestedXrModeRef.current = 'ar'
+
+    // Toggle / switch: if something is presenting, end it first.
+    if (gl.xr.isPresenting) {
+      const sameMode = activeXrMode === 'ar'
+      await gl.xr.getSession()?.end()
+      if (sameMode) {
+        requestedXrModeRef.current = null
+        return
+      }
+    }
+
+    try {
+      if (typeof xr.isSessionSupported === 'function') {
+        const ok = await xr.isSessionSupported('immersive-ar')
+        if (!ok) {
+          setArMessage('immersive-ar not supported (use a phone/tablet with AR support)')
+          setArSupport('unsupported')
+          return
+        }
+      }
+
+      const baseInit: any = {
+        optionalFeatures: ['local'],
+      }
+
+      let session: any
+      try {
+        session = await (xr.requestSession as any)('immersive-ar', {
+          ...baseInit,
+          optionalFeatures: [...baseInit.optionalFeatures, 'dom-overlay'],
+          domOverlay: { root: overlayRootRef.current ?? document.body },
+        })
+        setArDomOverlay(true)
+      } catch (overlayErr) {
+        console.warn('DOM Overlay not available, falling back', overlayErr)
+        session = await (xr.requestSession as any)('immersive-ar', baseInit)
+        setArDomOverlay(false)
+        setArMessage('Entered AR without DOM overlay. Tap to exit if UI is hidden.')
+      }
+
+      session.addEventListener(
+        'end',
+        () => {
+          setArPresenting(false)
+          setArDomOverlay(false)
+          if (activeXrMode === 'ar') setActiveXrMode(null)
+          requestedXrModeRef.current = null
+        },
+        { once: true }
+      )
+
+      gl.xr.setReferenceSpaceType('local')
+      await gl.xr.setSession(session)
+      setArPresenting(true)
+      setVrPresenting(false)
+      setActiveXrMode('ar')
+      requestedXrModeRef.current = 'ar'
+
+      if (session?.domOverlayState?.type) {
+        setArDomOverlay(true)
+        setArMessage(null)
+      }
+    } catch (err) {
+      console.error('Failed to enter AR', err)
+      setArMessage('Failed to enter AR (see console)')
+      setArPresenting(false)
+      requestedXrModeRef.current = null
     }
   }
 
@@ -1338,7 +1521,11 @@ export function Simulation(): React.ReactElement {
           <button
             type="button"
             onClick={() => {
-              setSendMode((prev) => !prev)
+              setSendMode((prev) => {
+                const next = !prev
+                if (activeXrMode === 'ar') setShowHumanModel(!next)
+                return next
+              })
               setSendInfo({ status: 'Idle', sender: null, receiver: null })
             }}
             style={{
@@ -1355,7 +1542,13 @@ export function Simulation(): React.ReactElement {
           </button>
           <button
             type="button"
-            onClick={() => setShowHumanModel((prev) => !prev)}
+            onClick={() => {
+              setShowHumanModel((prev) => {
+                const next = !prev
+                if (activeXrMode === 'ar' && next) setSendMode(false)
+                return next
+              })
+            }}
             style={{
               padding: '6px 10px',
               borderRadius: 6,
@@ -1377,14 +1570,32 @@ export function Simulation(): React.ReactElement {
               padding: '6px 10px',
               borderRadius: 6,
               border: 'none',
-              background: vrButtonDisabled ? '#334155' : vrPresenting ? '#ef4444' : '#0ea5e9',
+              background: vrButtonDisabled ? '#334155' : activeXrMode === 'vr' ? '#ef4444' : '#0ea5e9',
               color: 'white',
               cursor: vrButtonDisabled ? 'not-allowed' : 'pointer',
               fontWeight: 600,
               opacity: vrButtonDisabled ? 0.8 : 1,
             }}
           >
-            {vrPresenting ? 'Exit VR' : 'VR Mode'}
+            {activeXrMode === 'vr' ? 'Exit VR' : 'VR Mode'}
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleAr}
+            disabled={arButtonDisabled}
+            title={arButtonTitle}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: arButtonDisabled ? '#334155' : activeXrMode === 'ar' ? '#ef4444' : '#f97316',
+              color: 'white',
+              cursor: arButtonDisabled ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              opacity: arButtonDisabled ? 0.8 : 1,
+            }}
+          >
+            {activeXrMode === 'ar' ? 'Exit AR' : 'AR Mode'}
           </button>
           <div style={{ display: 'flex', gap: 10 }}>
             <span>Sender: {sendInfo.sender ?? '—'}</span>
@@ -1392,7 +1603,7 @@ export function Simulation(): React.ReactElement {
             <span>Status: {sendInfo.status ?? 'Idle'}</span>
             <span>
               VR:{' '}
-              {vrPresenting
+              {activeXrMode === 'vr'
                 ? vrDomOverlay
                   ? 'On (Overlay)'
                   : 'On'
@@ -1402,7 +1613,20 @@ export function Simulation(): React.ReactElement {
                     ? 'Checking'
                     : 'Unavailable'}
             </span>
+            <span>
+              AR:{' '}
+              {activeXrMode === 'ar'
+                ? arDomOverlay
+                  ? 'On (Overlay)'
+                  : 'On'
+                : arSupport === 'supported'
+                  ? 'Ready'
+                  : arSupport === 'checking'
+                    ? 'Checking'
+                    : 'Unavailable'}
+            </span>
             {vrMessage && <span style={{ color: '#fbbf24' }}>{vrMessage}</span>}
+            {arMessage && <span style={{ color: '#fbbf24' }}>{arMessage}</span>}
           </div>
         </div>
         {selected && (
@@ -1435,17 +1659,39 @@ export function Simulation(): React.ReactElement {
           sendMode={sendMode}
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}
+          xrMode={activeXrMode}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
           onRendererReady={(gl) => {
             rendererRef.current = gl
           }}
           onVrPresentingChange={(presenting) => {
-            setVrPresenting(presenting)
             if (presenting) {
-              setVrMessage(null)
+              const session: any = rendererRef.current?.xr.getSession?.()
+              const blendMode = session?.environmentBlendMode as string | undefined
+              const inferredMode: 'vr' | 'ar' | null =
+                requestedXrModeRef.current ??
+                activeXrMode ??
+                (blendMode === 'alpha-blend' ? 'ar' : blendMode ? 'vr' : null)
+
+              if (inferredMode === 'ar') {
+                setActiveXrMode('ar')
+                setArPresenting(true)
+                setVrPresenting(false)
+                setArMessage(null)
+              } else {
+                setActiveXrMode('vr')
+                setVrPresenting(true)
+                setArPresenting(false)
+                setVrMessage(null)
+              }
             } else {
+              setVrPresenting(false)
+              setArPresenting(false)
               setVrDomOverlay(false)
+              setArDomOverlay(false)
+              setActiveXrMode(null)
+              requestedXrModeRef.current = null
             }
           }}
         />
