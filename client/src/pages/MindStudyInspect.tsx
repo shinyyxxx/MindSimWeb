@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
@@ -396,6 +396,101 @@ function PanelPositionSync({
   return null
 }
 
+function FlyToCameraEffect({
+  mind,
+  targetName,
+  onDone,
+}: {
+  mind: Mind
+  targetName: string | null
+  onDone?: () => void
+}) {
+  const { camera } = useThree()
+  const animRef = useRef<{
+    mental: Mental
+    start: THREE.Vector3
+    target: THREE.Vector3
+    progress: number
+    phase: 'forward' | 'hold' | 'back'
+    timer: number
+    wasFrozen: boolean
+  } | null>(null)
+
+  const resetActive = useCallback(() => {
+    const anim = animRef.current
+    if (anim) {
+      anim.mental.setPosition(anim.start.x, anim.start.y, anim.start.z)
+      anim.mental.setFrozen(anim.wasFrozen)
+    }
+    animRef.current = null
+  }, [])
+
+  useEffect(() => {
+    resetActive()
+    if (!targetName) return
+
+    const mental = mind
+      .getMentals()
+      .find((m) => m.getName().toLowerCase() === targetName.toLowerCase())
+    const mindMesh = mind.getMesh()
+    if (!mental || !mindMesh) {
+      onDone?.()
+      return
+    }
+
+    const startPos = mental.getPosition()
+    const start = new THREE.Vector3(startPos.x, startPos.y, startPos.z)
+
+    const mindWorld = new THREE.Vector3()
+    mindMesh.getWorldPosition(mindWorld)
+
+    const dir = camera.position.clone().sub(mindWorld)
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1)
+    dir.normalize()
+
+    const worldTarget = mindWorld.clone().add(dir.multiplyScalar(1.4))
+    const targetLocal = mindMesh.worldToLocal(worldTarget)
+
+    const wasFrozen = mental.isFrozen()
+    mental.setFrozen(true)
+
+    animRef.current = {
+      mental,
+      start,
+      target: targetLocal,
+      progress: 0,
+      phase: 'forward',
+      timer: 0,
+      wasFrozen,
+    }
+  }, [camera, mind, onDone, resetActive, targetName])
+
+  useFrame((_, delta) => {
+    const anim = animRef.current
+    if (!anim) return
+
+    const speed = 2 // seconds^-1; higher = faster
+    const ease = (t: number) => t * t * (3 - 2 * t) // smoothstep
+
+    if (anim.phase === 'forward') {
+      anim.progress = Math.min(1, anim.progress + delta * speed)
+      const t = ease(anim.progress)
+      const pos = anim.start.clone().lerp(anim.target, t)
+      anim.mental.setPosition(pos.x, pos.y, pos.z)
+      if (anim.progress >= 1) {
+        anim.phase = 'hold'
+        anim.timer = 0
+      }
+      return
+    }
+
+    // Hold phase: keep the mental in front of the camera until a new search or clear.
+    // The actual reset happens when targetName changes (resetActive()).
+  })
+
+  return null
+}
+
 function NeutralMentalsLayer({
   mind,
   mentals,
@@ -731,6 +826,8 @@ function NeutralMindScene({
   onSelectMental,
   onUpdatePanelPosition,
   highlightSelection,
+  flyTargetName,
+  onFlyComplete,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -738,6 +835,8 @@ function NeutralMindScene({
   onSelectMental: (info: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   highlightSelection?: THREE.Object3D[]
+  flyTargetName?: string | null
+  onFlyComplete?: () => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -774,6 +873,7 @@ function NeutralMindScene({
         focusTargetRef={focusTargetRef}
         onHoverSelection={setHoverSelection}
       />
+      <FlyToCameraEffect mind={mind} targetName={flyTargetName ?? null} onDone={onFlyComplete} />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       <EffectComposer multisampling={2} autoClear={false}>
         <Outline
@@ -798,6 +898,7 @@ export function MindStudyInspect(): React.ReactElement {
   const [searchTerm, setSearchTerm] = useState('')
   const [highlightSelection, setHighlightSelection] = useState<THREE.Object3D[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
+  const [flyTargetName, setFlyTargetName] = useState<string | null>(null)
   const [voiceLoading, setVoiceLoading] = useState(false)
   const [inspectOpen, setInspectOpen] = useState(false)
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null)
@@ -887,6 +988,12 @@ export function MindStudyInspect(): React.ReactElement {
   useEffect(() => () => mind.dispose(), [mind])
 
   const mentalNames = useMemo(() => mentals.map((m) => m.getName()), [mentals])
+  const suggestionItems = useMemo(() => [mindLabel, ...mentalNames], [mindLabel, mentalNames])
+  const filteredSuggestions = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return suggestionItems
+    return suggestionItems.filter((item) => item.toLowerCase().includes(term))
+  }, [searchTerm, suggestionItems])
 
   useEffect(
     () => () => {
@@ -896,6 +1003,7 @@ export function MindStudyInspect(): React.ReactElement {
   )
 
   const handleSelect = (info: InspectSelection) => {
+    setFlyTargetName(null) // release any fly-in when a mental is clicked
     setSelected(info)
     setPanelPosition(info.screenPosition ?? null)
   }
@@ -909,10 +1017,15 @@ export function MindStudyInspect(): React.ReactElement {
     setHighlightSelection([])
   }
 
-  const handleSearch = () => {
-    const term = searchTerm.trim().toLowerCase()
+  const handleSearch = (value?: string) => {
+    const incomingTerm = value ?? searchTerm
+    const term = incomingTerm.trim().toLowerCase()
+    if (value !== undefined) {
+      setSearchTerm(value)
+    }
     if (!term) {
       setHighlightSelection([])
+      setFlyTargetName(null)
       return
     }
 
@@ -922,14 +1035,21 @@ export function MindStudyInspect(): React.ReactElement {
       matches.push(mindMesh)
     }
 
+    let firstMentalName: string | null = null
     mind.getMentals().forEach((mental) => {
       if (mental.getName().toLowerCase().includes(term)) {
         const mesh = mental.getMesh()
         if (mesh) matches.push(mesh)
+        if (!firstMentalName) firstMentalName = mental.getName()
       }
     })
 
     setHighlightSelection(matches)
+    setFlyTargetName(firstMentalName)
+  }
+
+  const handlePickSuggestion = (value: string) => {
+    handleSearch(value)
   }
 
   const handleViewDetail = (info: InspectSelection) => {
@@ -1053,7 +1173,7 @@ export function MindStudyInspect(): React.ReactElement {
                 <button
                   className="mindstudy-btn primary"
                   type="button"
-                  onClick={handleSearch}
+                  onClick={() => handleSearch()}
                   style={{ padding: '10px 12px', height: 44, display: 'flex', alignItems: 'center', gap: 6, fontSize: 18 }}
                 >
                   🔍
@@ -1083,12 +1203,51 @@ export function MindStudyInspect(): React.ReactElement {
                 }}
               >
                 <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 6 }}>Mind</div>
-                <div style={{ marginBottom: 10 }}>{mind.getName()}</div>
+                <div style={{ marginBottom: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => handlePickSuggestion(mind.getName())}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      background: 'rgba(30,41,59,0.65)',
+                      color: '#e5e7eb',
+                      border: '1px solid rgba(148, 163, 184, 0.6)',
+                      borderRadius: 10,
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {mind.getName()}
+                  </button>
+                </div>
                 <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 4 }}>Mentals</div>
-                <ul style={{ margin: 0, paddingLeft: 16, display: 'grid', gap: 4 }}>
-                  {mentalNames.map((m) => (
-                    <li key={m} style={{ lineHeight: 1.2 }}>{m}</li>
-                  ))}
+                <ul style={{ margin: 0, paddingLeft: 0, display: 'grid', gap: 6, listStyle: 'none' }}>
+                  {filteredSuggestions
+                    .filter((name) => name !== mind.getName())
+                    .map((m) => (
+                      <li key={m}>
+                        <button
+                          type="button"
+                          onClick={() => handlePickSuggestion(m)}
+                          style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            background: 'rgba(30,41,59,0.65)',
+                            color: '#e5e7eb',
+                            border: '1px solid rgba(148, 163, 184, 0.6)',
+                            borderRadius: 10,
+                            padding: '8px 10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {m}
+                        </button>
+                      </li>
+                    ))}
+                  {!filteredSuggestions.filter((name) => name !== mind.getName()).length ? (
+                    <li style={{ color: '#9ca3af', fontSize: 12 }}>No matches</li>
+                  ) : null}
                 </ul>
               </div>
             </>
@@ -1159,6 +1318,8 @@ export function MindStudyInspect(): React.ReactElement {
           onSelectMental={handleSelect}
           onUpdatePanelPosition={setPanelPosition}
           highlightSelection={highlightSelection}
+          flyTargetName={flyTargetName}
+          onFlyComplete={() => setFlyTargetName(null)}
         />
       </div>
     </main>
