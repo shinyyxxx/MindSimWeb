@@ -1,21 +1,43 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls } from '@react-three/drei'
+import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
+import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
+import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
+import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
+import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
+import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
+import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
 import GoodMental from '../mindwebsite/classes/good/GoodMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
+import GreedMental from '../mindwebsite/classes/bad/GreedMental'
+import HatredMental from '../mindwebsite/classes/bad/HatredMental'
+import DelusionMental from '../mindwebsite/classes/bad/DelusionMental'
+import WrongViewMental from '../mindwebsite/classes/bad/WrongViewMental'
+import ConceitMental from '../mindwebsite/classes/bad/ConceitMental'
+import DoubtMental from '../mindwebsite/classes/bad/DoubtMental'
+import RestlessnessMental from '../mindwebsite/classes/bad/RestlessnessMental'
+import ShamelessnessMental from '../mindwebsite/classes/bad/ShamelessnessMental'
+import RecklessnessMental from '../mindwebsite/classes/bad/RecklessnessMental'
+import SlothMental from '../mindwebsite/classes/bad/SlothMental'
+import TorporMental from '../mindwebsite/classes/bad/TorporMental'
+import WorryMental from '../mindwebsite/classes/bad/WorryMental'
+import EnvyMental from '../mindwebsite/classes/bad/EnvyMental'
+import StinginessMental from '../mindwebsite/classes/bad/StinginessMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
-import { EffectComposer, Outline } from '@react-three/postprocessing';
-import { BlendFunction } from 'postprocessing';
+import { EffectComposer, Outline } from '@react-three/postprocessing'
+import { BlendFunction } from 'postprocessing'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
+import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
   
 type Vec3 = [number, number, number]
 
@@ -58,7 +80,125 @@ type MentalSeed = {
   modelTargetWorldSize?: number
   modelOffset?: { x?: number; y?: number; z?: number }
   type?: 'perception'
-  variant?: 'good' | 'bad' | 'neutral' | 'perception'
+  variant?:
+    | 'good'
+    | 'bad'
+    | 'greed'
+    | 'hatred'
+    | 'delusion'
+    | 'wrong_view'
+    | 'conceit'
+    | 'doubt'
+    | 'restlessness'
+    | 'shamelessness'
+    | 'recklessness'
+    | 'sloth'
+    | 'torpor'
+    | 'worry'
+    | 'envy'
+    | 'stinginess'
+    | 'neutral'
+    | 'perception'
+    | 'contact'
+    | 'feeling'
+    | 'intention'
+    | 'attention'
+    | 'consciousness'
+    | 'awareness'
+}
+
+function HumanBody({
+  mind,
+  controlsRef,
+  url = '/assets/humanMind/human.gltf',
+  targetHeight = 18,
+  groundY = -2,
+  bodyOpacity = 0.12,
+  mindYOffsetWorld = 0.9,
+  humanZOffsetWorld = 0.5,
+}: {
+  mind: Mind
+  controlsRef?: React.RefObject<OrbitControlsImpl | null>
+  url?: string
+  targetHeight?: number
+  groundY?: number
+  bodyOpacity?: number
+  mindYOffsetWorld?: number
+  humanZOffsetWorld?: number
+}) {
+  const gltf = useGLTF(url) as unknown as { scene: THREE.Group }
+
+  // Clone so we can safely tweak materials without affecting Drei's GLTF cache.
+  const humanScene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
+
+  const { scaleFactor, humanPosition, chestWorld } = useMemo(() => {
+    const bbox = new THREE.Box3().setFromObject(humanScene)
+    const size = bbox.getSize(new THREE.Vector3())
+    const center = bbox.getCenter(new THREE.Vector3())
+
+    const safeHeight = Math.max(0.00001, size.y)
+    const s = targetHeight / safeHeight
+
+    // Center the model in X/Z and put its lowest point on the ground plane.
+    const posX = -center.x * s
+    // Base Z used for the "true" chest anchor (mind stays here).
+    const posZBase = -center.z * s
+    // Visual-only Z offset: moves the human mesh without dragging the mind along.
+    // Positive Z moves the model toward the camera (forward).
+    const posZ = posZBase + humanZOffsetWorld
+    const posY = groundY - bbox.min.y * s
+
+    // Chest anchor: higher in the torso so the mind sits more naturally in the chest.
+    const chestLocal = new THREE.Vector3(center.x, bbox.min.y + size.y * 0.68, center.z + size.z * 0.06)
+    const chestW = new THREE.Vector3(posX, posY, posZBase).add(chestLocal.multiplyScalar(s))
+
+    return {
+      scaleFactor: s,
+      humanPosition: new THREE.Vector3(posX, posY, posZ),
+      chestWorld: chestW,
+    }
+  }, [groundY, humanScene, humanZOffsetWorld, targetHeight])
+
+  useLayoutEffect(() => {
+    // Fit the mind comfortably inside the torso, then place it in the chest.
+    mind.setScale(1.0)
+    mind.setPosition(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z)
+
+    // Keep orbit pivot aligned with the mind/chest without relying on a React re-render.
+    const ctl = controlsRef?.current
+    if (ctl) {
+      ctl.target.set(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z)
+      ctl.update()
+    }
+  }, [chestWorld.x, chestWorld.y, chestWorld.z, mind, mindYOffsetWorld])
+
+  useMemo(() => {
+    // Make the body easy to see through so the mind is visible "inside".
+    humanScene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      const mat = mesh.material
+      const apply = (m: THREE.Material) => {
+        const pm = m as THREE.MeshStandardMaterial
+        pm.transparent = true
+        // Explicit opacity so the body is more visible (user-requested).
+        pm.opacity = THREE.MathUtils.clamp(bodyOpacity, 0, 1)
+        pm.depthWrite = false
+        pm.needsUpdate = true
+      }
+      if (Array.isArray(mat)) mat.forEach(apply)
+      else if (mat) apply(mat)
+    })
+    return humanScene
+  }, [bodyOpacity, humanScene])
+
+  return (
+    <group position={[humanPosition.x, humanPosition.y, humanPosition.z]} scale={scaleFactor}>
+      <primitive object={humanScene} />
+    </group>
+  )
 }
 
 function MindSphere({
@@ -109,6 +249,8 @@ function MentalsLayer({
   planeModelPath,
   sendMode,
   onSendSelection,
+  onHoverSelection,
+  onSendMeshSelection,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -118,11 +260,14 @@ function MentalsLayer({
   planeModelPath: string
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
+  onHoverSelection?: (objects: THREE.Object3D[]) => void
+  onSendMeshSelection?: (meshes: THREE.Object3D[]) => void
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const senderRef = useRef<Mental | null>(null)
+  const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
 
   useEffect(() => {
     mentals.forEach((mental) => mind.addMental(mental))
@@ -182,6 +327,11 @@ function MentalsLayer({
           const currentSender = senderRef.current
           if (!currentSender) {
             senderRef.current = found
+            const senderMesh = found.getMesh()
+            // Highlight the sender when first selected
+            if (senderMesh && onSendMeshSelection) {
+              onSendMeshSelection([senderMesh])
+            }
             onSendSelection?.({ sender: found.getName(), receiver: null, status: 'Choose receiver' })
             return
           }
@@ -191,21 +341,38 @@ function MentalsLayer({
           }
           const senderName = currentSender.getName()
           const receiverName = found.getName()
+          const receiverMesh = found.getMesh()
+          
+          // Unhighlight sender and highlight only the receiver
+          if (receiverMesh && onSendMeshSelection) {
+            onSendMeshSelection([receiverMesh])
+          }
+          
           onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
-          currentSender
-            .sendDataTo(gl, found, {
-              planeModelPath,
-              durationMs: 1400,
-              arcHeight: 0.14,
-              scale: 0.1,
-            })
+          const sendPromise = currentSender.sendDataTo(gl, found, {
+            planeModelPath,
+            durationMs: 1400,
+            arcHeight: 0.14,
+            scale: 0.1,
+          })
+
+          if (!sendPromise || typeof (sendPromise as Promise<void>).then !== 'function') {
+            onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed (no send promise)' })
+            senderRef.current = null
+            return
+          }
+
+          ;(sendPromise as Promise<void>)
             .then(() => {
               onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
+              // Keep receiver highlighted until another one is clicked
             })
             .catch((err) => {
               console.error('Failed to visualize send', err)
               onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
+              // Keep receiver highlighted even on error
             })
+          // Reset sender so next click can pick a new sender
           senderRef.current = null
           return
         }
@@ -239,12 +406,75 @@ function MentalsLayer({
   }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath, sendMode, onSendSelection])
 
   useEffect(() => {
+    if (!onHoverSelection) return
+    // Disable hover highlighting when in send mode (send meshes will be highlighted instead)
+    if (sendMode) return
+    
+    const canvas = gl.domElement
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+
+      raycaster.setFromCamera(pointer, camera)
+
+      const list = mind.getMentals()
+      const targets: THREE.Object3D[] = []
+      list.forEach((mental) => {
+        const mesh = mental.getMesh()
+        if (mesh) targets.push(mesh)
+      })
+
+      const hits = raycaster.intersectObjects(targets, true)
+      if (!hits.length) {
+        if (hoveredMeshRef.current) {
+          hoveredMeshRef.current = null
+          onHoverSelection([])
+        }
+        return
+      }
+
+      const hit = hits[0].object
+      const foundMesh = targets.find((mesh) => {
+        let node: THREE.Object3D | null = hit
+        while (node) {
+          if (node === mesh) return true
+          node = node.parent
+        }
+        return false
+      })
+
+      if (foundMesh && foundMesh !== hoveredMeshRef.current) {
+        hoveredMeshRef.current = foundMesh
+        onHoverSelection([foundMesh])
+      }
+    }
+
+    canvas.addEventListener('pointermove', handlePointerMove)
+    return () => {
+      canvas.removeEventListener('pointermove', handlePointerMove)
+      if (hoveredMeshRef.current) {
+        hoveredMeshRef.current = null
+      }
+    }
+  }, [camera, gl, mind, onHoverSelection, pointer, raycaster, sendMode])
+
+  useEffect(() => {
     if (!selectedMentalName) {
       // Unfreeze all when selection is cleared
       mind.getMentals().forEach((m) => m.setFrozen(false))
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
+
+  // Clear send highlights when send mode is exited
+  useEffect(() => {
+    if (!sendMode && onSendMeshSelection) {
+      onSendMeshSelection([])
+      senderRef.current = null
+    }
+  }, [sendMode, onSendMeshSelection])
 
   return null
 }
@@ -255,6 +485,81 @@ function GroundPlane() {
       <planeGeometry args={[20, 20]} />
       <meshStandardMaterial color={0x808080} metalness={0.1} roughness={0.5} />
     </mesh>
+  )
+}
+
+function MindZoneBoundaries({ mind }: { mind: Mind }) {
+  const mindRadius = mind.getRadius()
+  const mindPosition = mind.position
+  const mindScale = mind.scale
+  
+  // Local space radius (before scaling)
+  const localRadius = mindRadius / mindScale
+  const neutralBoundaryY = -0.3 // Local space boundary for neutral zone
+  
+  // Calculate circle radius at the neutral boundary height
+  const horizontalCircleRadius = Math.sqrt(Math.max(0, localRadius * localRadius - neutralBoundaryY * neutralBoundaryY))
+
+  return (
+    <group position={[mindPosition.x, mindPosition.y, mindPosition.z]}>
+      {/* Vertical plane (YZ plane) separating good (left, X<0) and bad (right, X>0) zones */}
+      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0x00ff00}
+          transparent
+          opacity={0.3}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Vertical plane wireframe for better visibility */}
+      <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0x00ff00}
+          transparent
+          opacity={0.8}
+          side={THREE.DoubleSide}
+          wireframe
+        />
+      </mesh>
+      
+      {/* Horizontal plane (XZ plane) separating neutral (below, Y<neutralBoundaryY) from good/bad (above) zones */}
+      <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0xff0000}
+          transparent
+          opacity={0.3}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Horizontal plane wireframe for better visibility */}
+      <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
+        <meshBasicMaterial
+          color={0xff0000}
+          transparent
+          opacity={0.8}
+          side={THREE.DoubleSide}
+          wireframe
+        />
+      </mesh>
+      
+      {/* Great circle on sphere surface for left/right boundary (vertical circle in YZ plane) */}
+      <lineSegments rotation={[Math.PI / 2, 0, 0]}>
+        <edgesGeometry args={[new THREE.CircleGeometry(localRadius, 64)]} />
+        <lineBasicMaterial color={0x00ff00} linewidth={3} />
+      </lineSegments>
+      
+      {/* Horizontal circle on sphere surface for neutral boundary */}
+      {horizontalCircleRadius > 0 && (
+        <lineSegments position={[0, neutralBoundaryY * mindScale, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <edgesGeometry args={[new THREE.CircleGeometry(horizontalCircleRadius, 64)]} />
+          <lineBasicMaterial color={0xff0000} linewidth={3} />
+        </lineSegments>
+      )}
+    </group>
   )
 }
 
@@ -357,14 +662,14 @@ function ThreeScene({
         enablePan={!selectedMentalName && !isVrPresenting}
         enableRotate={!selectedMentalName && !isVrPresenting}
         minDistance={2}
-        maxDistance={10}
-        target={[0, 0, 0]}
+        maxDistance={24}
+        target={[mind.position.x, mind.position.y, mind.position.z]}
       />
-      <ambientLight intensity={1.0} />
-      <directionalLight position={[5, 8, 5]} intensity={2.0} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-far={50} shadow-camera-left={-10} shadow-camera-right={10} shadow-camera-top={10} shadow-camera-bottom={-10} />
-      <directionalLight position={[-5, 3, -5]} intensity={1.5} />
-      <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
-      <pointLight position={[0, 0, 5]} intensity={1.5} distance={15} decay={2} />
+      <ambientLight intensity={0.25} />
+      <directionalLight position={[5, 8, 5]} intensity={0.9} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-far={50} shadow-camera-left={-10} shadow-camera-right={10} shadow-camera-top={10} shadow-camera-bottom={-10} />
+      <directionalLight position={[-5, 3, -5]} intensity={0.45} />
+      <pointLight position={[0, 6, 0]} intensity={0.8} distance={15} decay={2} />
+      <pointLight position={[0, 0, 5]} intensity={0.6} distance={15} decay={2} />
       <GroundPlane />
       {showHumanModel && (
         <React.Suspense fallback={null}>
@@ -381,8 +686,21 @@ function ThreeScene({
         planeModelPath={paperPlaneModel}
         sendMode={sendMode}
         onSendSelection={onSendSelection}
+        onHoverSelection={setHoverSelection}
+        onSendMeshSelection={setSendMeshSelection}
       />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
+      <EffectComposer multisampling={2} autoClear={false}>
+        <Outline
+          selection={outlineSelection}
+          blendFunction={BlendFunction.ALPHA}
+          visibleEdgeColor={0xffffff}
+          hiddenEdgeColor={0x190a05}
+          edgeStrength={30}
+          resolutionScale={1}
+          xRay
+        />
+      </EffectComposer>
     </Canvas>
   )
 }
@@ -424,33 +742,50 @@ export function Simulation(): React.ReactElement {
 
   const mentals = useMemo<Mental[]>(() => {
     const seeds: MentalSeed[] = [
-      // Good mentals (clustered left/front)
-      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.6, 0.2, 0.2], variant: 'good' },
-      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.8, 0.05, 0.1], variant: 'good' },
-      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.7, -0.1, -0.05], variant: 'good' },
-      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, 0.0, -0.2], variant: 'good' },
+      // Good mentals (left zone, X < 0, Y > -0.3)
+      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'good' },
+      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'good' },
+      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'good' },
+      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'good' },
+      
+      { name: 'Good 5', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'good' },
+      { name: 'Good 6', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'good' },
+      { name: 'Good 7', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'good' },
+      { name: 'Good 8', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'good' },
+      { name: 'Good 9', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'good' },
+      { name: 'Good 10', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'good' },
+      { name: 'Good 11', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'good' },
+      { name: 'Good 12', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'good' },
+      { name: 'Good 13', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'good' },
+      { name: 'Good 14', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'good' },
+      { name: 'Good 15', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'good' },
+      { name: 'Good 16', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'good' },
+      { name: 'Good 17', color: '#22c55e', scale: 0.12, position: [-0.64, -0.24, -0.24], variant: 'good' },
 
-      // Bad mentals (clustered right/back)
-      { name: 'Bad 1', color: '#ef4444', scale: 0.12, position: [0.6, 0.2, -0.2], variant: 'bad' },
-      { name: 'Bad 2', color: '#ef4444', scale: 0.12, position: [0.8, 0.05, -0.1], variant: 'bad' },
-      { name: 'Bad 3', color: '#ef4444', scale: 0.12, position: [0.7, -0.05, 0.05], variant: 'bad' },
-      { name: 'Bad 4', color: '#ef4444', scale: 0.12, position: [0.5, 0.1, 0.2], variant: 'bad' },
 
-      // Neutral mentals (spaced center)
-      {
-        name: 'Neutral 1',
-        color: '#a1a1aa',
-        scale: 0.14,
-        position: [0.0, 0.12, 0.35],
-        detail: 'Paper plane thought',
-        modelPath: paperPlaneModel,
-        modelTargetWorldSize: 0.08,
-        modelOffset: { x: 0, y: -0.04, z: 0 },
-        variant: 'neutral',
-      },
-      { name: 'Neutral 2', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.05, -0.35], variant: 'neutral' },
+      // Bad mentals (right zone, X > 0, Y > -0.3) — using anger emoji model for all, for now
+      { name: 'Greed', color: '#ef4444', scale: 0.12, position: [0.48, 0.12, -0.10], variant: 'greed' },
+      { name: 'Hatred', color: '#ef4444', scale: 0.12, position: [0.60, 0.10, 0.05], variant: 'hatred' },
+      { name: 'Delusion', color: '#ef4444', scale: 0.12, position: [0.42, 0.06, -0.22], variant: 'delusion' },
+      { name: 'Wrong View', color: '#ef4444', scale: 0.12, position: [0.54, 0.04, 0.22], variant: 'wrong_view' },
+      { name: 'Conceit', color: '#ef4444', scale: 0.12, position: [0.66, 0.02, -0.06], variant: 'conceit' },
+      { name: 'Doubt', color: '#ef4444', scale: 0.12, position: [0.46, -0.02, 0.12], variant: 'doubt' },
+      { name: 'Restlessness', color: '#ef4444', scale: 0.12, position: [0.58, -0.04, -0.18], variant: 'restlessness' },
+      { name: 'Shamelessness', color: '#ef4444', scale: 0.12, position: [0.40, -0.06, 0.02], variant: 'shamelessness' },
+      { name: 'Recklessness', color: '#ef4444', scale: 0.12, position: [0.52, -0.08, -0.02], variant: 'recklessness' },
+      { name: 'Sloth', color: '#ef4444', scale: 0.12, position: [0.64, -0.10, 0.14], variant: 'sloth' },
+      { name: 'Torpor', color: '#ef4444', scale: 0.12, position: [0.44, -0.12, -0.12], variant: 'torpor' },
+      { name: 'Worry', color: '#ef4444', scale: 0.12, position: [0.56, -0.14, 0.00], variant: 'worry' },
+      { name: 'Envy', color: '#ef4444', scale: 0.12, position: [0.68, -0.16, -0.16], variant: 'envy' },
+      { name: 'Stinginess', color: '#ef4444', scale: 0.12, position: [0.50, -0.18, 0.18], variant: 'stinginess' },
 
-      // Perception (kept)
+      // Neutral mentals (bottom zone, Y < -0.3)
+      { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Paper plane thought', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
+      { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
+      { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
+      { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
+      { name: 'Consciousness', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'consciousness' },
+      { name: 'Awareness', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'awareness' },
       {
         name: 'Perception',
         color: '#60a5fa',
@@ -480,6 +815,81 @@ export function Simulation(): React.ReactElement {
           opacity: 0.5,
         })
       }
+      if (m.variant === 'contact') {
+        return new ContactMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          modelPath: m.modelPath,
+          modelTargetWorldSize: m.modelTargetWorldSize,
+          modelOffset: m.modelOffset,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'feeling') {
+        return new FeelingMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'intention') {
+        return new IntentionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'attention') {
+        return new AttentionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'consciousness') {
+        return new ConsciousnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
+      if (m.variant === 'awareness') {
+        return new AwarenessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        })
+      }
       if (m.variant === 'good') {
         const mental = new GoodMental({
           name: m.name,
@@ -492,6 +902,202 @@ export function Simulation(): React.ReactElement {
         })
         return mental
       }
+      if (m.variant === 'greed') {
+        return new GreedMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'hatred') {
+        return new HatredMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'delusion') {
+        return new DelusionMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'wrong_view') {
+        return new WrongViewMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'conceit') {
+        return new ConceitMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'doubt') {
+        return new DoubtMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'restlessness') {
+        return new RestlessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'shamelessness') {
+        return new ShamelessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'recklessness') {
+        return new RecklessnessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'sloth') {
+        return new SlothMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'torpor') {
+        return new TorporMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'worry') {
+        return new WorryMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'envy') {
+        return new EnvyMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
+      if (m.variant === 'stinginess') {
+        return new StinginessMental({
+          name: m.name,
+          detail: m.detail ?? '',
+          color: m.color,
+          scale: m.scale,
+          position: m.position,
+          labelEnabled: false,
+          motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+        })
+      }
       if (m.variant === 'bad') {
         const mental = new BadMental({
           name: m.name,
@@ -501,6 +1107,9 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
+          modelPath: m.modelPath ?? angerEmojiModel,
+          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
+          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
         mental.setFrozen(true)
         return mental
