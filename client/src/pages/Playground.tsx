@@ -50,6 +50,8 @@ export function Playground(): React.ReactElement {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected')
 
   const wsClientRef = useRef<WebSocketClient | null>(null)
+  const currentRunIdRef = useRef<string>('')
+  const liveUpdateTimerRef = useRef<number | null>(null)
   const variableToIdRef = useRef<Map<string, VariableRef>>(new Map())
   const pendingMindsRef = useRef<Map<string, string>>(new Map())
   const pendingMentalsRef = useRef<Map<string, string>>(new Map())
@@ -101,6 +103,13 @@ export function Playground(): React.ReactElement {
   }, [])
 
   const handleWebSocketMessage = (data: WSMessage) => {
+    // Ignore late responses from older executions (important for live updates)
+    if (data.request_id && currentRunIdRef.current) {
+      if (!data.request_id.startsWith(`${currentRunIdRef.current}:`)) {
+        return
+      }
+    }
+
     // Handle error responses
     if (data.type === 'response' && data.status === 'error') {
       // eslint-disable-next-line no-console
@@ -325,6 +334,14 @@ export function Playground(): React.ReactElement {
 
   const handleCodeChange = React.useCallback((newCode: string) => {
     setCode(newCode)
+
+    // Live update: debounce executions while typing/dragging blocks
+    if (liveUpdateTimerRef.current) {
+      window.clearTimeout(liveUpdateTimerRef.current)
+    }
+    liveUpdateTimerRef.current = window.setTimeout(() => {
+      handleExecute(newCode)
+    }, 450)
   }, [])
 
   const updateMentalAttribute = (variable: string, attribute: string, value: string) => {
@@ -345,10 +362,15 @@ export function Playground(): React.ReactElement {
     // eslint-disable-next-line no-console
     console.log('[Playground] handleExecute called with code:', codeToExecute)
     
-    if (!wsClient || !wsClient.connected) {
+    const client = wsClientRef.current
+    if (!client || !client.connected) {
       alert('WebSocket not connected. Please wait...')
       return
     }
+
+    const runId = `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`
+    currentRunIdRef.current = runId
+    const rid = (suffix: string) => `${runId}:${suffix}`
 
     // Clear the right side first
     // eslint-disable-next-line no-console
@@ -434,10 +456,10 @@ export function Playground(): React.ReactElement {
           console.log(`[Playground] Executing action ${index + 1}/${batchedActions.length}:`, action)
           switch (action.type) {
             case 'create_mind': {
-              const requestId = `mind_${action.variable}_${Date.now()}_${index}`
+              const requestId = rid(`mind_${action.variable}_${Date.now()}_${index}`)
               pendingMindsRef.current.set(requestId, action.variable)
 
-              wsClient.send({
+              client.send({
                 action: 'upsert_mind',
                 data: {
                   name: action.data.name || 'My Mind',
@@ -484,7 +506,7 @@ export function Playground(): React.ReactElement {
                 })
 
                 // Send single upsert_mind request with all attributes combined
-                wsClient.send({
+                client.send({
                   action: 'upsert_mind',
                   data: {
                     id: mind.id,
@@ -496,7 +518,7 @@ export function Playground(): React.ReactElement {
                     scale: updatedMind.scale,
                     rec_status: true,
                   },
-                  request_id: `update_${batchedAction.variable}_batch_${Date.now()}`,
+                  request_id: rid(`update_${batchedAction.variable}_batch_${Date.now()}`),
                 })
               } else {
                 // eslint-disable-next-line no-console
@@ -504,7 +526,7 @@ export function Playground(): React.ReactElement {
                   `Mind with variable ${batchedAction.variable} not found yet. Waiting for creation...`,
                 )
                 setTimeout(() => {
-                  const retryMind = minds.find(
+                  const retryMind = mindsRef.current.find(
                     (m) =>
                       !m._preview &&
                       (m.variable === batchedAction.variable ||
@@ -544,7 +566,7 @@ export function Playground(): React.ReactElement {
                   return next
                 })
 
-                wsClient.send({
+                client.send({
                   action: 'upsert_mind',
                   data: {
                     id: mind.id,
@@ -556,7 +578,7 @@ export function Playground(): React.ReactElement {
                     scale: updatedMind.scale,
                     rec_status: true,
                   },
-                  request_id: `update_${action.variable}_${action.attribute}_${Date.now()}`,
+                  request_id: rid(`update_${action.variable}_${action.attribute}_${Date.now()}`),
                 })
               } else {
                 // eslint-disable-next-line no-console
@@ -564,7 +586,7 @@ export function Playground(): React.ReactElement {
                   `Mind with variable ${action.variable} not found yet. Waiting for creation...`,
                 )
                 setTimeout(() => {
-                  const retryMind = minds.find(
+                  const retryMind = mindsRef.current.find(
                     (m) =>
                       !m._preview &&
                       (m.variable === action.variable ||
@@ -579,10 +601,10 @@ export function Playground(): React.ReactElement {
             }
 
             case 'create_mental': {
-              const requestId = `mental_${action.variable}_${Date.now()}_${index}`
+              const requestId = rid(`mental_${action.variable}_${Date.now()}_${index}`)
               pendingMentalsRef.current.set(requestId, action.variable)
 
-              wsClient.send({
+              client.send({
                 action: 'upsert_mental',
                 data: {
                   name: action.data.name || 'Mental Sphere',
@@ -630,7 +652,7 @@ export function Playground(): React.ReactElement {
                 })
 
                 // Send single upsert_mental request with all attributes combined
-                wsClient.send({
+                client.send({
                   action: 'upsert_mental',
                   data: {
                     id: mental.id,
@@ -643,7 +665,7 @@ export function Playground(): React.ReactElement {
                     scale: updatedMental.scale,
                     rec_status: true,
                   },
-                  request_id: `update_${batchedAction.variable}_batch_${Date.now()}`,
+                  request_id: rid(`update_${batchedAction.variable}_batch_${Date.now()}`),
                 })
               } else {
                 // eslint-disable-next-line no-console
@@ -651,7 +673,7 @@ export function Playground(): React.ReactElement {
                   `Mental sphere with variable ${batchedAction.variable} not found yet. Waiting for creation...`,
                 )
                 setTimeout(() => {
-                  const retryMental = mentals.find(
+                  const retryMental = mentalsRef.current.find(
                     (m) =>
                       !m._preview &&
                       (m.variable === batchedAction.variable ||
@@ -692,7 +714,7 @@ export function Playground(): React.ReactElement {
                   return next
                 })
 
-                wsClient.send({
+                client.send({
                   action: 'upsert_mental',
                   data: {
                     id: mental.id,
@@ -705,7 +727,7 @@ export function Playground(): React.ReactElement {
                     scale: updatedMental.scale,
                     rec_status: true,
                   },
-                  request_id: `update_${action.variable}_${action.attribute}_${Date.now()}`,
+                  request_id: rid(`update_${action.variable}_${action.attribute}_${Date.now()}`),
                 })
               } else {
                 // eslint-disable-next-line no-console
@@ -713,7 +735,7 @@ export function Playground(): React.ReactElement {
                   `Mental sphere with variable ${action.variable} not found yet. Waiting for creation...`,
                 )
                 setTimeout(() => {
-                  const retryMental = mentals.find(
+                  const retryMental = mentalsRef.current.find(
                     (m) =>
                       !m._preview &&
                       (m.variable === action.variable ||
@@ -754,13 +776,13 @@ export function Playground(): React.ReactElement {
                 )
 
                 if (targetMind && targetMental) {
-                  wsClient.send({
+                  client.send({
                     action: 'append_mental',
                     data: {
                       mind_id: targetMind.id,
                       sphere_id: [targetMental.id],
                     },
-                    request_id: `add_${mindVar}_${mentalVar}_${Date.now()}`,
+                    request_id: rid(`add_${mindVar}_${mentalVar}_${Date.now()}`),
                   })
                   return true
                 }
@@ -802,6 +824,14 @@ export function Playground(): React.ReactElement {
       alert(`Error: ${message}`)
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (liveUpdateTimerRef.current) {
+        window.clearTimeout(liveUpdateTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <main className="page">
