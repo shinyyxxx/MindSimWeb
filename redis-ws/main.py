@@ -15,7 +15,8 @@ from app.schemas import (
     MindUpsert, GetMindRequest, GetMindResponse, 
     UpsertMindResponse, MindResponse, MentalSphereRequest, MentalSphereResponse,
     MentalSphereUpsert, UpsertMentalSphereResponse, MentalSphereResponseData,
-    ExperienceInput, ExperienceResult, ProcessExperienceResponse, NonKammicStage, JavanaResult
+    ExperienceInput, ExperienceResult, ProcessExperienceResponse, NonKammicStage, JavanaResult,
+    ExecuteCodeRequest, ExecuteCodeResponse
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
@@ -27,6 +28,7 @@ from app.experience_helpers import (
     create_experience_zodb, get_experience_zodb, list_experiences_by_mind,
     get_kamma_statistics
 )
+from app.code_executor import persist_and_collect
 from zodb_module.zodb_management import get_connection, init_zodb, close_zodb
 from app.database import init_database
 
@@ -159,7 +161,7 @@ async def redis_result_subscriber():
                                 else:
                                     print(f"[MAIN] WARNING: No user_id found for request_id: {request_id}")
                                 
-                                if data.get("action") in ["upsert_mind", "upsert_mental", "append_mental", "remove_mental", "process_experience"] and data.get("status") == "success":
+                                if data.get("action") in ["upsert_mind", "upsert_mental", "append_mental", "remove_mental", "process_experience", "execute_code"] and data.get("status") == "success":
                                     await manager.broadcast({
                                         "type": "update",
                                         "action": data.get("action"),
@@ -302,6 +304,14 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                     "action": action,
                     "status": "processing",
                     "data": {"experience": preview_experience}
+                })
+            elif action == "execute_code":
+                await websocket.send_json({
+                    "type": "ack",
+                    "request_id": request_id,
+                    "action": action,
+                    "status": "executing",
+                    "data": {"code_length": len(data.get("code", ""))}
                 })
             else:
                 await websocket.send_json({
@@ -571,6 +581,34 @@ async def kamma_statistics_endpoint(mind_id: int):
         }
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/execute_code", response_model=ExecuteCodeResponse)
+async def execute_code_endpoint(request: ExecuteCodeRequest):
+    try:
+        _, root = get_connection()
+        result = persist_and_collect(root, request.code)
+
+        redis_client = redis.from_url(REDIS_URL)
+        for mind_data in result["created_minds"]:
+            await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(mind_data))
+        for mental_data in result["created_mentals"]:
+            await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(mental_data))
+        await redis_client.aclose()
+
+        return ExecuteCodeResponse(
+            message=f"Code executed: created {result['summary']['minds_created']} mind(s) and {result['summary']['mentals_created']} mental(s)",
+            created_minds=result["created_minds"],
+            created_mentals=result["created_mentals"],
+            execution_log=result["execution_log"],
+            summary=result["summary"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SyntaxError as e:
+        raise HTTPException(status_code=400, detail=f"Syntax error in code: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

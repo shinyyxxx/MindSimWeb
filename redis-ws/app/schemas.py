@@ -189,6 +189,25 @@ class ProcessExperienceResponse(BaseModel):
     experience: ExperienceResult
 
 
+class ExecuteCodeRequest(BaseModel):
+    code: str = Field(...)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "code": 'x = Mind()\nx.name = "mind1"\nx.color = "#fe0000"\n\ny = Mind()\ny.detail = "test"\n\nz = Mental()\nz.name = "mental1"\ny.append(z)'
+            }
+        }
+
+
+class ExecuteCodeResponse(BaseModel):
+    message: str
+    created_minds: List[dict]
+    created_mentals: List[dict]
+    execution_log: List[str]
+    summary: dict
+
+
 
 
 '''

@@ -20,6 +20,9 @@ export function Navbar(): React.ReactElement {
         <NavLink className={linkClass} to="/playground">
           Playground
         </NavLink>
+        <NavLink className={linkClass} to="/code-runner">
+          Code Runner
+        </NavLink>
         <NavLink className={linkClass} to="/simulation">
           Simulation
         </NavLink>

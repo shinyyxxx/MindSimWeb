@@ -191,6 +191,31 @@ async def process_task(task: dict, http_client: httpx.AsyncClient) -> dict:
                     "error": result.get("detail", "Unknown error")
                 }
         
+        elif action == "execute_code":
+            response = await http_client.post(
+                f"{BACKEND_URL}/api/execute_code",
+                json=data,
+                timeout=60.0
+            )
+            result = response.json()
+            
+            if response.status_code == 200:
+                summary = result.get('summary', {})
+                print(f"  Code executed: {summary.get('minds_created', 0)} minds, {summary.get('mentals_created', 0)} mentals")
+                return {
+                    "status": "success",
+                    "action": action,
+                    "request_id": request_id,
+                    "data": result
+                }
+            else:
+                return {
+                    "status": "error",
+                    "action": action,
+                    "request_id": request_id,
+                    "error": result.get("detail", "Unknown error")
+                }
+        
         else:
             return {
                 "status": "error",
