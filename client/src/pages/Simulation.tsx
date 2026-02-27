@@ -960,9 +960,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'hatred') {
@@ -974,9 +971,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'delusion') {
@@ -988,9 +982,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'wrong_view') {
@@ -1002,9 +993,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'conceit') {
@@ -1016,9 +1004,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'doubt') {
@@ -1030,9 +1015,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'restlessness') {
@@ -1044,9 +1026,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'shamelessness') {
@@ -1058,9 +1037,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'recklessness') {
@@ -1072,9 +1048,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'sloth') {
@@ -1086,9 +1059,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'torpor') {
@@ -1100,9 +1070,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'worry') {
@@ -1114,9 +1081,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'envy') {
@@ -1128,9 +1092,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'stinginess') {
@@ -1142,9 +1103,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
       }
       if (m.variant === 'bad') {
@@ -1156,9 +1114,6 @@ export function Simulation(): React.ReactElement {
           position: m.position,
           labelEnabled: false,
           motionSpeed: 0,
-          modelPath: m.modelPath ?? angerEmojiModel,
-          modelTargetWorldSize: m.modelTargetWorldSize ?? 0.08,
-          modelOffset: m.modelOffset ?? { x: 0, y: -0.02, z: 0 },
         })
         mental.setFrozen(true)
         return mental

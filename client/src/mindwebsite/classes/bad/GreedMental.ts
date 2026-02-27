@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import greedyEmojiModel from '../../../assets/emoji/greedy_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Greed (Lobha)
@@ -13,6 +14,10 @@ export class GreedMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Greed has its own model; everything else uses the anger placeholder.
+      modelPath: options.modelPath ?? greedyEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.08,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.02, z: 0 },
     })
   }
 
