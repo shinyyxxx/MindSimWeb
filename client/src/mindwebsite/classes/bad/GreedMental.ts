@@ -16,7 +16,7 @@ export class GreedMental extends BadMental {
       ...options,
       // Greed has its own model; everything else uses the anger placeholder.
       modelPath: options.modelPath ?? greedyEmojiModel,
-      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.08,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.07,
       modelOffset: options.modelOffset ?? { x: 0, y: -0.02, z: 0 },
     })
   }
