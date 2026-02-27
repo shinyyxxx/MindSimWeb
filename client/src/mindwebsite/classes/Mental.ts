@@ -147,9 +147,11 @@ export class Mental extends AbstractMental {
     ctx.fillText(label, canvas.width / 2, canvas.height / 2)
 
     const texture = new THREE.CanvasTexture(canvas)
-    texture.wrapS = THREE.ClampToEdgeWrapping
+    texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.ClampToEdgeWrapping
     texture.repeat.set(1, 1)
+    // Offset so the name (drawn at texture center) appears on the front of the sphere instead of the side
+    texture.offset.set(0.25, 0)
     texture.needsUpdate = true
     return texture
   }

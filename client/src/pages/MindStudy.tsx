@@ -1,8 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { useNavigate } from 'react-router-dom'
+import { DuckPool, type DropDropletFn } from '../components/DuckPool'
 import { DhammaObject } from '../mindwebsite/classes/DhammaObject'
+
+const POOL_NARRATIVE_TH =
+  'ลักษณะพื้นฐานของจิต มีลักษณะผ่องใสแต่เศร้าหมองเพราะอุปกิเลศที่จรมาอยู่ โดยธรรมชาติของจิตเหมือนน้ำใสๆที่ไม่มีอะไรมาผสมเลยเป็นกลางๆรับรู้เฉยๆแต่ที่มันมีความรู้สึกขึ้นมาได้ เช่น ขุ่นมัว ดีใจ เพราะมี้อุปกกิเลศ หรือก็คือ อารมณ์ ที่จรมาสู่จิต เหมือน หยดสี ที่ใส่ลงมา ทำให้จิตมีสีหรืออารมณ์ที่แตกต่างไปในแต่ละช่วง'
+
+/** Narrative split into lines for subtitle sync with TTS */
+const POOL_NARRATIVE_LINES = [
+  'ลักษณะพื้นฐานของจิต มีลักษณะผ่องใสแต่เศร้าหมองเพราะอุปกิเลศที่จรมาอยู่ ',
+  'โดยธรรมชาติของจิตเหมือนน้ำใสๆ ที่ไม่มีอะไรมาผสมเลยเป็นกลางๆ  รับรู้เฉยๆ',
+  'แต่ที่มันมีความรู้สึกขึ้นมาได้ เช่น ขุ่นมัว ดีใจ เพราะมี้อุปกิเลศ หรือก็คือ อารมณ์ ที่จรมาสู่จิต',
+  'เหมือน หยดสี ที่ใส่ลงมา',
+  'ทำให้จิตมีสีหรืออารมณ์ที่แตกต่างไปในแต่ละช่วง',
+]
+
 import violinModel from '../assets/violin.glb?url'
 import heartModel from '../assets/crystal_heart.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -117,8 +131,148 @@ export function MindStudy(): React.ReactElement {
   const [navOpen, setNavOpen] = React.useState<boolean>(true)
   const [modalOpen, setModalOpen] = useState<boolean>(false)
   const [selectedMind, setSelectedMind] = useState<DhammaObject | null>(null)
+  const [learnMoreConfirmOpen, setLearnMoreConfirmOpen] = useState<boolean>(false)
+  const [showDuckPool, setShowDuckPool] = useState<boolean>(false)
+  const [narrativePlaying, setNarrativePlaying] = useState<boolean>(false)
+  const [subtitleLine, setSubtitleLine] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const dropDropletRef = React.useRef<DropDropletFn | null>(null)
+
+  const audioRef = React.useRef<HTMLAudioElement | null>(null)
+
+  const playPoolNarrative = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    if (narrativePlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+      setNarrativePlaying(false)
+      setSubtitleLine(null)
+      return
+    }
+    const apiKey = import.meta.env.VITE_GOOGLE_TTS_KEY
+    if (!apiKey && !window.speechSynthesis) {
+      alert('No TTS available. Add VITE_GOOGLE_TTS_KEY to .env for Google Cloud TTS, or use a browser with Speech Synthesis.')
+      return
+    }
+    if (!apiKey) {
+      console.warn('VITE_GOOGLE_TTS_KEY not set. Using browser TTS (may be less smooth).')
+    }
+    setNarrativePlaying(true)
+    let index = 0
+    let cancelled = false
+    const DROPLET_LINE = 'เหมือน หยดสี ที่ใส่ลงมา'
+    const DROPLET_COLORS: [number, number, number][] = [
+      [1, 0, 0],
+      [0, 0, 1],
+      [0, 1, 0],
+      [1, 0.92, 0.016],
+      [0.659, 0.333, 0.969],
+      [0.024, 0.714, 0.831],
+      [0.976, 0.451, 0.086],
+    ]
+    const DROPLET_POSITIONS: [number, number][] = [
+      [-1.5, -1],
+      [0, 1],
+      [1.5, -0.5],
+      [-1, 1.2],
+      [1.2, 0.8],
+      [-0.8, -1.5],
+      [1.5, 1],
+    ]
+    const scheduleDropletDrops = () => {
+      const drop = dropDropletRef.current
+      if (!drop) return
+      DROPLET_COLORS.forEach(([r, g, b], i) => {
+        const [x, z] = DROPLET_POSITIONS[i]
+        setTimeout(() => drop(x, z, r, g, b), i * 850)
+      })
+    }
+    const playWithGoogleTTS = (text: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        if (!apiKey) {
+          const u = new SpeechSynthesisUtterance(text)
+          u.lang = 'th-TH'
+          u.rate = 0.9
+          u.onend = () => resolve()
+          u.onerror = () => reject(new Error('Web TTS failed'))
+          window.speechSynthesis?.speak(u)
+          return
+        }
+        fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: { text },
+            voice: { languageCode: 'th-TH', name: 'th-TH-Standard-A' },
+            audioConfig: { audioEncoding: 'MP3', speakingRate: 0.95 },
+          }),
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error(`TTS request failed: ${res.status}`)
+            return res.json()
+          })
+          .then((data) => {
+            if (!data.audioContent) throw new Error('No audioContent in TTS response')
+            const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`)
+            audioRef.current = audio
+            audio.onended = () => {
+              audioRef.current = null
+              resolve()
+            }
+            audio.onerror = () => {
+              audioRef.current = null
+              reject(new Error('Audio playback failed'))
+            }
+            return audio.play()
+          })
+          .then(() => {})
+          .catch(reject)
+      })
+    const speakNext = async () => {
+      if (cancelled || index >= POOL_NARRATIVE_LINES.length) {
+        setNarrativePlaying(false)
+        setSubtitleLine(null)
+        return
+      }
+      const line = POOL_NARRATIVE_LINES[index]
+      setSubtitleLine(line)
+      if (line === DROPLET_LINE) scheduleDropletDrops()
+      try {
+        await playWithGoogleTTS(line)
+      } catch (err) {
+        console.error('TTS error', err)
+        setNarrativePlaying(false)
+        setSubtitleLine(null)
+        return
+      }
+      index += 1
+      speakNext()
+    }
+    speakNext()
+    return () => {
+      cancelled = true
+    }
+  }, [narrativePlaying])
+
+  useEffect(() => {
+    if (!showDuckPool) {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+      setNarrativePlaying(false)
+      setSubtitleLine(null)
+    }
+  }, [showDuckPool])
 
   useEffect(() => {
     let cancelled = false
@@ -261,6 +415,44 @@ export function MindStudy(): React.ReactElement {
             </ul>
           </article>
 
+          <article className="mindstudy-section mindstudy-cognitive-box" id="cognitive-start">
+            <button
+              type="button"
+              className="mindstudy-cognitive-box-trigger"
+              onClick={() => navigate('/mind-study/cognitive-start')}
+              aria-label="Go to How Cognitive process starts"
+            >
+              <span className="mindstudy-badge light">Foundation</span>
+              <h3 className="mindstudy-cognitive-box-title">How Cognitive process starts</h3>
+              <span className="mindstudy-caret" aria-hidden>→</span>
+            </button>
+          </article>
+          <article className="mindstudy-section mindstudy-cognitive-box" id="cognitive">
+            <button
+              type="button"
+              className="mindstudy-cognitive-box-trigger"
+              onClick={() => navigate('/mind-study/cognitive')}
+              aria-label="Go to How Cognitive process work?"
+            >
+              <span className="mindstudy-badge light">Cognitive</span>
+              <h3 className="mindstudy-cognitive-box-title">How Cognitive process work?</h3>
+              <span className="mindstudy-caret" aria-hidden>→</span>
+            </button>
+          </article>
+
+          <article className="mindstudy-section mindstudy-cognitive-box" id="learn-more">
+            <button
+              type="button"
+              className="mindstudy-cognitive-box-trigger"
+              onClick={() => setLearnMoreConfirmOpen(true)}
+              aria-label="Learn more about the mind"
+            >
+              <span className="mindstudy-badge light">Learn more</span>
+              <h3 className="mindstudy-cognitive-box-title">Learn more about the mind</h3>
+              <span className="mindstudy-caret" aria-hidden>→</span>
+            </button>
+          </article>
+
           <div className="mindstudy-grid-surface">
             <p className="mindstudy-grid-hint">
               Select a level tile to open the model and study notes.
@@ -313,6 +505,122 @@ export function MindStudy(): React.ReactElement {
           </div>
         </section>
       </div>
+      {showDuckPool && (
+        <div
+          className="mindstudy-droplet-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Compute water – duck pool"
+        >
+          <div className="mindstudy-droplet-header">
+            <div>
+              <span className="mindstudy-level-pill small">Mind like water</span>
+              <small style={{ display: 'block', marginTop: 6, color: 'rgba(226,232,240,0.9)', fontSize: 12 }}>
+                Click Play to hear the narration. Colored droplets appear when the narrator speaks.
+              </small>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                className="mindstudy-pool-narrative-play"
+                onClick={playPoolNarrative}
+                aria-label={narrativePlaying ? 'Stop narration' : 'Play narration'}
+                aria-pressed={narrativePlaying}
+              >
+                {narrativePlaying ? (
+                  <>
+                    <span className="mindstudy-pool-narrative-icon" aria-hidden>⏹</span>
+                    Stop
+                  </>
+                ) : (
+                  <>
+                    <span className="mindstudy-pool-narrative-icon" aria-hidden>▶</span>
+                    Play
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                className="mindstudy-modal-close"
+                onClick={() => setShowDuckPool(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="mindstudy-droplet-canvas-wrap">
+            <DuckPool
+              style={{ width: '100%', height: '100%', minHeight: 320 }}
+              allowUserDrops={false}
+              onDropDropletReady={(fn) => { dropDropletRef.current = fn }}
+            />
+            {subtitleLine !== null && (
+              <div className="mindstudy-pool-subtitle" role="status" aria-live="polite">
+                <span lang="th">{subtitleLine}</span>
+              </div>
+            )}
+          </div>
+          <div className="mindstudy-droplet-actions">
+            <button className="mindstudy-btn ghost" onClick={() => setShowDuckPool(false)}>
+              Close
+            </button>
+            <button
+              className="mindstudy-btn primary"
+              onClick={() => {
+                setShowDuckPool(false)
+                navigate('/mind-study/cognitive')
+              }}
+            >
+              Go to Cognitive →
+            </button>
+          </div>
+        </div>
+      )}
+      {learnMoreConfirmOpen && (
+        <div
+          className="mindstudy-modal-backdrop"
+          role="presentation"
+          onClick={() => setLearnMoreConfirmOpen(false)}
+        >
+          <div
+            className="mindstudy-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm watch"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mindstudy-modal-glow" aria-hidden />
+            <div className="mindstudy-modal-header">
+              <span className="mindstudy-level-pill small">Learn more</span>
+              <button
+                className="mindstudy-modal-close"
+                onClick={() => setLearnMoreConfirmOpen(false)}
+                aria-label="Close dialog"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mindstudy-modal-body">
+              <h3>Do you want to watch this?</h3>
+            </div>
+            <div className="mindstudy-modal-actions">
+              <button className="mindstudy-btn ghost" onClick={() => setLearnMoreConfirmOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="mindstudy-btn primary"
+                onClick={() => {
+                  setLearnMoreConfirmOpen(false)
+                  setShowDuckPool(true)
+                }}
+              >
+                Yes, watch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {modalOpen && selectedMind && (
         <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setModalOpen(false)}>
           <div

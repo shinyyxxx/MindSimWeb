@@ -8,6 +8,8 @@ import { Playground } from './pages/Playground'
 import { Simulation } from './pages/Simulation'
 import { MindStudy } from './pages/MindStudy'
 import { MindStudyInspect } from './pages/MindStudyInspect'
+import { MindStudyCognitive } from './pages/MindStudyCognitive'
+import { MindStudyCognitiveStart } from './pages/MindStudyCognitiveStart'
 
 function App(): React.ReactElement {
   return (
@@ -16,6 +18,8 @@ function App(): React.ReactElement {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/mind-study" element={<MindStudy />} />
+        <Route path="/mind-study/cognitive-start" element={<MindStudyCognitiveStart />} />
+        <Route path="/mind-study/:cognitive" element={<MindStudyCognitive />} />
         <Route path="/mind-study/:mindId" element={<MindStudyInspect />} />
         <Route path="/simulation" element={<Simulation />} />
         <Route path="/playground" element={<Playground />} />
