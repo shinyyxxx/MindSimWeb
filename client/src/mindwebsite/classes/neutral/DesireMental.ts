@@ -2,14 +2,14 @@ import NeutralMental from './NeutralMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
- * Universal mental factor: Awareness
+ * Particular mental factor: Desire / Zeal (Chanda)
  */
-export class AwarenessMental extends NeutralMental {
+export class DesireMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
-      name: options.name ?? 'Awareness',
-      detail: options.detail ?? 'Awareness / mindfulness-like knowing',
-      color: options.color ?? '#6bcf7f',
+      name: options.name ?? 'Desire',
+      detail: options.detail ?? 'Chanda: desire-to-do / zeal / intention-to-engage',
+      color: options.color ?? '#fb7185',
       opacity: options.opacity ?? 0.55,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
@@ -17,10 +17,9 @@ export class AwarenessMental extends NeutralMental {
   }
 
   override getType(): string {
-    return 'awareness_mental'
+    return 'desire_mental'
   }
 }
 
-export default AwarenessMental
-
+export default DesireMental
 

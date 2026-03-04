@@ -11,10 +11,35 @@ import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
 import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
 import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
 import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
-import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
-import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
+import ConcentrationMental from '../mindwebsite/classes/neutral/ConcentrationMental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
+import LifeFacultyMental from '../mindwebsite/classes/neutral/LifeFacultyMental'
+import InitialApplicationMental from '../mindwebsite/classes/neutral/InitialApplicationMental'
+import SustainedApplicationMental from '../mindwebsite/classes/neutral/SustainedApplicationMental'
+import DeterminationMental from '../mindwebsite/classes/neutral/DeterminationMental'
+import EnergyMental from '../mindwebsite/classes/neutral/EnergyMental'
+import RaptureMental from '../mindwebsite/classes/neutral/RaptureMental'
+import DesireMental from '../mindwebsite/classes/neutral/DesireMental'
 import GoodMental from '../mindwebsite/classes/good/GoodMental'
+import FaithMental from '../mindwebsite/classes/good/FaithMental'
+import MindfulnessMental from '../mindwebsite/classes/good/MindfulnessMental'
+import MoralShameMental from '../mindwebsite/classes/good/MoralShameMental'
+import MoralDreadMental from '../mindwebsite/classes/good/MoralDreadMental'
+import NonGreedMental from '../mindwebsite/classes/good/NonGreedMental'
+import NonHatredMental from '../mindwebsite/classes/good/NonHatredMental'
+import EquanimityMental from '../mindwebsite/classes/good/EquanimityMental'
+import TranquilityBodyMental from '../mindwebsite/classes/good/TranquilityBodyMental'
+import TranquilityMindMental from '../mindwebsite/classes/good/TranquilityMindMental'
+import LightnessBodyMental from '../mindwebsite/classes/good/LightnessBodyMental'
+import LightnessMindMental from '../mindwebsite/classes/good/LightnessMindMental'
+import PliancyBodyMental from '../mindwebsite/classes/good/PliancyBodyMental'
+import PliancyMindMental from '../mindwebsite/classes/good/PliancyMindMental'
+import WieldinessBodyMental from '../mindwebsite/classes/good/WieldinessBodyMental'
+import WieldinessMindMental from '../mindwebsite/classes/good/WieldinessMindMental'
+import ProficiencyBodyMental from '../mindwebsite/classes/good/ProficiencyBodyMental'
+import ProficiencyMindMental from '../mindwebsite/classes/good/ProficiencyMindMental'
+import RectitudeBodyMental from '../mindwebsite/classes/good/RectitudeBodyMental'
+import RectitudeMindMental from '../mindwebsite/classes/good/RectitudeMindMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import GreedMental from '../mindwebsite/classes/bad/GreedMental'
 import WrongViewMental from '../mindwebsite/classes/bad/WrongViewMental'
@@ -53,8 +78,8 @@ type NeutralSeed = {
     | 'attention'
     | 'feeling'
     | 'intention'
-    | 'consciousness'
-    | 'awareness'
+    | 'concentration'
+    | 'life_faculty'
     | 'perception'
   detail?: string
   modelPath?: string
@@ -107,20 +132,20 @@ const neutralSeeds: NeutralSeed[] = [
     detail: 'The shaping force behind actions',
   },
   {
-    name: 'Consciousness',
+    name: 'Concentration',
     color: '#a1a1aa',
     scale: 0.14,
     position: [-0.22, -0.42, -0.02],
-    variant: 'consciousness',
-    detail: 'Knowing of the object',
+    variant: 'concentration',
+    detail: 'One-pointedness (ekaggatā): unifying the mind on a single object',
   },
   {
-    name: 'Awareness',
+    name: 'Life Faculty',
     color: '#a1a1aa',
     scale: 0.14,
     position: [0.22, -0.5, 0.12],
-    variant: 'awareness',
-    detail: 'Monitoring quality of mind',
+    variant: 'life_faculty',
+    detail: 'Life faculty (jīvitindriya): sustaining associated mental factors',
   },
   {
     name: 'Perception',
@@ -161,10 +186,10 @@ const buildDefaultNeutralMentals = (): Mental[] =>
         return new FeelingMental(baseOptions)
       case 'intention':
         return new IntentionMental(baseOptions)
-      case 'consciousness':
-        return new ConsciousnessMental(baseOptions)
-      case 'awareness':
-        return new AwarenessMental(baseOptions)
+      case 'concentration':
+        return new ConcentrationMental(baseOptions)
+      case 'life_faculty':
+        return new LifeFacultyMental(baseOptions)
       case 'perception':
         return new PerceptionMental(baseOptions)
       case 'neutral':
@@ -193,15 +218,101 @@ const pickMentalFactory = (label: string): ((opts: MentalBaseOptions) => Mental)
   if (key.includes('torpor')) return (opts) => new TorporMental(opts)
   if (key.includes('doubt')) return (opts) => new DoubtMental(opts)
 
+  // Common beautiful mental factors (sobhana-sādhāraṇa)
+  if (key.includes('faith') || key.includes('saddh')) return (opts) => new FaithMental(opts)
+  if (key.includes('mindfulness') || key.includes('sati')) return (opts) => new MindfulnessMental(opts)
+  if (key.includes('moral shame') || key.includes('hiri')) return (opts) => new MoralShameMental(opts)
+  if (
+    key.includes('moral dread') ||
+    key.includes('fear of wrong') ||
+    key.includes('fear of wrongdoing') ||
+    key.includes('ottappa')
+  )
+    return (opts) => new MoralDreadMental(opts)
+  if (key.includes('non-greed') || key.includes('nongreed') || key.includes('alobha')) return (opts) => new NonGreedMental(opts)
+  if (key.includes('non-hatred') || key.includes('nonhatred') || key.includes('adosa')) return (opts) => new NonHatredMental(opts)
+  if (key.includes('equanimity') || key.includes('tatramajjhatt')) return (opts) => new EquanimityMental(opts)
+  if (
+    key.includes('kayapassaddhi') ||
+    key.includes('kāyapassaddhi') ||
+    (key.includes('tranquility') && key.includes('mental body'))
+  )
+    return (opts) => new TranquilityBodyMental(opts)
+  if (
+    key.includes('cittapassaddhi') ||
+    (key.includes('tranquility') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new TranquilityMindMental(opts)
+  if (
+    key.includes('kayalahuta') ||
+    key.includes('kāyalahut') ||
+    (key.includes('lightness') && key.includes('mental body'))
+  )
+    return (opts) => new LightnessBodyMental(opts)
+  if (
+    key.includes('cittalahuta') ||
+    key.includes('cittalahut') ||
+    (key.includes('lightness') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new LightnessMindMental(opts)
+  if (
+    key.includes('kayamuduta') ||
+    key.includes('kāyamudut') ||
+    (key.includes('pliancy') && key.includes('mental body'))
+  )
+    return (opts) => new PliancyBodyMental(opts)
+  if (
+    key.includes('cittamuduta') ||
+    key.includes('cittamudut') ||
+    (key.includes('pliancy') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new PliancyMindMental(opts)
+  if (
+    key.includes('kayakammannata') ||
+    key.includes('kāyakamma') ||
+    (key.includes('wieldiness') && key.includes('mental body'))
+  )
+    return (opts) => new WieldinessBodyMental(opts)
+  if (
+    key.includes('cittakammannata') ||
+    key.includes('cittakamma') ||
+    (key.includes('wieldiness') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new WieldinessMindMental(opts)
+  if (
+    key.includes('kayapagunnata') ||
+    key.includes('kāyapāg') ||
+    (key.includes('proficiency') && key.includes('mental body'))
+  )
+    return (opts) => new ProficiencyBodyMental(opts)
+  if (
+    key.includes('cittapagunnata') ||
+    key.includes('cittapāg') ||
+    (key.includes('proficiency') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new ProficiencyMindMental(opts)
+  if (
+    key.includes('kayujukata') ||
+    key.includes('kāyujuk') ||
+    (key.includes('rectitude') && key.includes('mental body'))
+  )
+    return (opts) => new RectitudeBodyMental(opts)
+  if (
+    key.includes('cittujukata') ||
+    key.includes('cittujuk') ||
+    (key.includes('rectitude') && (key.includes('consciousness') || key.includes('mind')))
+  )
+    return (opts) => new RectitudeMindMental(opts)
+
   if (key.includes('beautiful') || key.includes('abstinences') || key.includes('illimitables') || key.includes('wisdom'))
     return (opts) => new GoodMental(opts)
-  if (key.includes('energy')) return (opts) => new GoodMental({ color: '#22c55e', ...opts })
-  if (key.includes('joy')) return (opts) => new GoodMental({ color: '#38bdf8', ...opts })
-  if (key.includes('desire')) return (opts) => new Mental({ color: '#f59e0b', ...opts })
+  if (key.includes('energy')) return (opts) => new EnergyMental(opts)
+  if (key.includes('rapture') || (key.includes('joy') && !key.includes('appreciative'))) return (opts) => new RaptureMental(opts)
+  if (key.includes('desire') || key.includes('zeal')) return (opts) => new DesireMental(opts)
 
-  if (key.includes('initial application')) return (opts) => new AttentionMental(opts)
-  if (key.includes('sustained application')) return (opts) => new AwarenessMental(opts)
-  if (key.includes('decision')) return (opts) => new IntentionMental(opts)
+  if (key.includes('initial application')) return (opts) => new InitialApplicationMental(opts)
+  if (key.includes('sustained application')) return (opts) => new SustainedApplicationMental(opts)
+  if (key.includes('decision') || key.includes('determination')) return (opts) => new DeterminationMental(opts)
 
   // Default to a neutral mental factor bubble if no specialized class exists
   return (opts) => new NeutralMental(opts)
@@ -219,16 +330,16 @@ const buildMentalsFromRow = (row: MindElementRow): Mental[] => {
       const amount = Math.max(1, Math.min(20, Math.round(count)))
       const scale = Math.min(0.26, 0.12 + Math.log1p(amount) * 0.05)
       const detail =
-        `${label} — universal set (Attention, Awareness, Consciousness, Contact, ` +
-        `Feeling, Intention, Perception) — ${count} factor${count > 1 ? 's' : ''} (MindElement.xlsx)`
+        `${label} — universal set (Attention, Concentration, Contact, ` +
+        `Feeling, Intention, Life Faculty, Perception) — ${count} factor${count > 1 ? 's' : ''} (MindElement.xlsx)`
 
       const universalMentals: Array<{ name: string; factory: (opts: MentalBaseOptions) => Mental }> = [
         { name: 'Attention', factory: (opts) => new AttentionMental(opts) },
-        { name: 'Awareness', factory: (opts) => new AwarenessMental(opts) },
-        { name: 'Consciousness', factory: (opts) => new ConsciousnessMental(opts) },
+        { name: 'Concentration', factory: (opts) => new ConcentrationMental(opts) },
         { name: 'Contact', factory: (opts) => new ContactMental(opts) },
         { name: 'Feeling', factory: (opts) => new FeelingMental(opts) },
         { name: 'Intention', factory: (opts) => new IntentionMental(opts) },
+        { name: 'Life Faculty', factory: (opts) => new LifeFacultyMental(opts) },
         { name: 'Perception', factory: (opts) => new PerceptionMental(opts) },
       ]
 

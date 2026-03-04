@@ -108,7 +108,7 @@ export function Home(): React.ReactElement {
             <div style={{ fontSize: 48, color: '#27ae60' }}>🧠</div>
             <h3 className="skandha-title">Vijnana (Consciousness)</h3>
             <p className="skandha-text">
-              Awareness and consciousness that cognizes and distinguishes
+              Consciousness that cognizes and distinguishes
             </p>
           </div>
           <div className="skandha-3d">

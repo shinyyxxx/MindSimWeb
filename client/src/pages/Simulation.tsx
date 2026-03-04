@@ -10,9 +10,27 @@ import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
 import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
 import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
 import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
-import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
-import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
-import GoodMental from '../mindwebsite/classes/good/GoodMental'
+import ConcentrationMental from '../mindwebsite/classes/neutral/ConcentrationMental'
+import LifeFacultyMental from '../mindwebsite/classes/neutral/LifeFacultyMental'
+import FaithMental from '../mindwebsite/classes/good/FaithMental'
+import MindfulnessMental from '../mindwebsite/classes/good/MindfulnessMental'
+import MoralShameMental from '../mindwebsite/classes/good/MoralShameMental'
+import MoralDreadMental from '../mindwebsite/classes/good/MoralDreadMental'
+import NonGreedMental from '../mindwebsite/classes/good/NonGreedMental'
+import NonHatredMental from '../mindwebsite/classes/good/NonHatredMental'
+import EquanimityMental from '../mindwebsite/classes/good/EquanimityMental'
+import TranquilityBodyMental from '../mindwebsite/classes/good/TranquilityBodyMental'
+import TranquilityMindMental from '../mindwebsite/classes/good/TranquilityMindMental'
+import LightnessBodyMental from '../mindwebsite/classes/good/LightnessBodyMental'
+import LightnessMindMental from '../mindwebsite/classes/good/LightnessMindMental'
+import PliancyBodyMental from '../mindwebsite/classes/good/PliancyBodyMental'
+import PliancyMindMental from '../mindwebsite/classes/good/PliancyMindMental'
+import WieldinessBodyMental from '../mindwebsite/classes/good/WieldinessBodyMental'
+import WieldinessMindMental from '../mindwebsite/classes/good/WieldinessMindMental'
+import ProficiencyBodyMental from '../mindwebsite/classes/good/ProficiencyBodyMental'
+import ProficiencyMindMental from '../mindwebsite/classes/good/ProficiencyMindMental'
+import RectitudeBodyMental from '../mindwebsite/classes/good/RectitudeBodyMental'
+import RectitudeMindMental from '../mindwebsite/classes/good/RectitudeMindMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import GreedMental from '../mindwebsite/classes/bad/GreedMental'
 import HatredMental from '../mindwebsite/classes/bad/HatredMental'
@@ -81,7 +99,25 @@ type MentalSeed = {
   modelOffset?: { x?: number; y?: number; z?: number }
   type?: 'perception'
   variant?:
-    | 'good'
+    | 'faith'
+    | 'mindfulness'
+    | 'moral_shame'
+    | 'moral_dread'
+    | 'non_greed'
+    | 'non_hatred'
+    | 'equanimity'
+    | 'tranquility_body'
+    | 'tranquility_mind'
+    | 'lightness_body'
+    | 'lightness_mind'
+    | 'pliancy_body'
+    | 'pliancy_mind'
+    | 'wieldiness_body'
+    | 'wieldiness_mind'
+    | 'proficiency_body'
+    | 'proficiency_mind'
+    | 'rectitude_body'
+    | 'rectitude_mind'
     | 'bad'
     | 'greed'
     | 'hatred'
@@ -103,8 +139,8 @@ type MentalSeed = {
     | 'feeling'
     | 'intention'
     | 'attention'
-    | 'consciousness'
-    | 'awareness'
+    | 'concentration'
+    | 'life_faculty'
 }
 
 function HumanBody({
@@ -792,24 +828,24 @@ export function Simulation(): React.ReactElement {
   const mentals = useMemo<Mental[]>(() => {
     const seeds: MentalSeed[] = [
       // Good mentals (left zone, X < 0, Y > -0.3)
-      { name: 'Good 1', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'good' },
-      { name: 'Good 2', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'good' },
-      { name: 'Good 3', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'good' },
-      { name: 'Good 4', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'good' },
-      
-      { name: 'Good 5', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'good' },
-      { name: 'Good 6', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'good' },
-      { name: 'Good 7', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'good' },
-      { name: 'Good 8', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'good' },
-      { name: 'Good 9', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'good' },
-      { name: 'Good 10', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'good' },
-      { name: 'Good 11', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'good' },
-      { name: 'Good 12', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'good' },
-      { name: 'Good 13', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'good' },
-      { name: 'Good 14', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'good' },
-      { name: 'Good 15', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'good' },
-      { name: 'Good 16', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'good' },
-      { name: 'Good 17', color: '#22c55e', scale: 0.12, position: [-0.64, -0.24, -0.24], variant: 'good' },
+      // (Randomly picked once from the added "common beautiful" set — fixed mapping at runtime)
+      { name: 'Faith (Saddhā)', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'faith' },
+      { name: 'Mindfulness (Sati)', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'mindfulness' },
+      { name: 'Moral Shame (Hiri)', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'moral_shame' },
+      { name: 'Moral Dread (Ottappa)', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'moral_dread' },
+
+      { name: 'Non-greed (Alobha)', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'non_greed' },
+      { name: 'Non-hatred (Adosa)', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'non_hatred' },
+      { name: 'Equanimity (Tatramajjhattatā)', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'equanimity' },
+      { name: 'Tranquility (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'tranquility_body' },
+      { name: 'Tranquility (Mind)', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'tranquility_mind' },
+      { name: 'Lightness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'lightness_body' },
+      { name: 'Lightness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'lightness_mind' },
+      { name: 'Pliancy (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'pliancy_body' },
+      { name: 'Pliancy (Mind)', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'pliancy_mind' },
+      { name: 'Wieldiness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'wieldiness_body' },
+      { name: 'Proficiency (Mind)', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'proficiency_mind' },
+      { name: 'Rectitude (Mind)', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'rectitude_mind' },
 
 
       // Bad mentals (right zone, X > 0, Y > -0.3) — using anger emoji model for all, for now
@@ -833,8 +869,8 @@ export function Simulation(): React.ReactElement {
       { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
       { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
       { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
-      { name: 'Consciousness', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'consciousness' },
-      { name: 'Awareness', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'awareness' },
+      { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
+      { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
       {
         name: 'Perception',
         color: '#60a5fa',
@@ -915,8 +951,8 @@ export function Simulation(): React.ReactElement {
           opacity: 0.5,
         })
       }
-      if (m.variant === 'consciousness') {
-        return new ConsciousnessMental({
+      if (m.variant === 'concentration') {
+        return new ConcentrationMental({
           name: m.name,
           detail: m.detail ?? '',
           color: m.color,
@@ -927,8 +963,8 @@ export function Simulation(): React.ReactElement {
           opacity: 0.5,
         })
       }
-      if (m.variant === 'awareness') {
-        return new AwarenessMental({
+      if (m.variant === 'life_faculty') {
+        return new LifeFacultyMental({
           name: m.name,
           detail: m.detail ?? '',
           color: m.color,
@@ -939,8 +975,8 @@ export function Simulation(): React.ReactElement {
           opacity: 0.5,
         })
       }
-      if (m.variant === 'good') {
-        const mental = new GoodMental({
+      if (m.variant === 'faith') {
+        return new FaithMental({
           name: m.name,
           detail: m.detail ?? '',
           color: m.color,
@@ -949,7 +985,60 @@ export function Simulation(): React.ReactElement {
           labelEnabled: false,
           motionSpeed: 0.002,
         })
-        return mental
+      }
+      if (m.variant === 'mindfulness') {
+        return new MindfulnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'moral_shame') {
+        return new MoralShameMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'moral_dread') {
+        return new MoralDreadMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'non_greed') {
+        return new NonGreedMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'non_hatred') {
+        return new NonHatredMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'equanimity') {
+        return new EquanimityMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'tranquility_body') {
+        return new TranquilityBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'tranquility_mind') {
+        return new TranquilityMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'lightness_body') {
+        return new LightnessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'lightness_mind') {
+        return new LightnessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'pliancy_body') {
+        return new PliancyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'pliancy_mind') {
+        return new PliancyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'wieldiness_body') {
+        return new WieldinessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'wieldiness_mind') {
+        return new WieldinessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'proficiency_body') {
+        return new ProficiencyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'proficiency_mind') {
+        return new ProficiencyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'rectitude_body') {
+        return new RectitudeBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+      }
+      if (m.variant === 'rectitude_mind') {
+        return new RectitudeMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
       }
       if (m.variant === 'greed') {
         return new GreedMental({

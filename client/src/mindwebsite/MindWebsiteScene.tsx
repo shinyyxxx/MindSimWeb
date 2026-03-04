@@ -8,9 +8,9 @@ import ContactMental from "./classes/neutral/ContactMental";
 import FeelingMental from "./classes/neutral/FeelingMental";
 import IntentionMental from "./classes/neutral/IntentionMental";
 import AttentionMental from "./classes/neutral/AttentionMental";
-import ConsciousnessMental from "./classes/neutral/ConsciousnessMental";
-import AwarenessMental from "./classes/neutral/AwarenessMental";
+import ConcentrationMental from "./classes/neutral/ConcentrationMental";
 import PerceptionMental from "./classes/neutral/PerceptionMental";
+import LifeFacultyMental from "./classes/neutral/LifeFacultyMental";
 import { OrbitControls } from "./components/OrbitControls";
 
 interface MindData {
@@ -54,9 +54,9 @@ function createUniversalMental(mentalData: MentalData): Mental {
     case -5:
       return new AttentionMental(base);
     case -6:
-      return new ConsciousnessMental(base);
+      return new ConcentrationMental(base);
     case -7:
-      return new AwarenessMental(base);
+      return new LifeFacultyMental(base);
     default:
       return new Mental(base);
   }
@@ -76,9 +76,9 @@ function getUniversalTypeForId(id: number): string | null {
     case -5:
       return 'attention_mental'
     case -6:
-      return 'consciousness_mental'
+      return 'concentration_mental'
     case -7:
-      return 'awareness_mental'
+      return 'life_faculty_mental'
     default:
       return null
   }
@@ -247,8 +247,8 @@ const UNIVERSAL_MENTAL_FACTORS: MentalData[] = [
   { id: -3, name: 'Perception', color: '#95e1d3', scale: 0.1, position: [0.5, -0.3, -0.3] },
   { id: -4, name: 'Intention', color: '#f38181', scale: 0.1, position: [-0.3, -0.5, -0.6] },
   { id: -5, name: 'Attention', color: '#aa96da', scale: 0.1, position: [0.1, -0.4, -0.2] },
-  { id: -6, name: 'Consciousness', color: '#ffd93d', scale: 0.1, position: [-0.5, -0.4, -0.3] },
-  { id: -7, name: 'Awareness', color: '#6bcf7f', scale: 0.1, position: [0.0, -0.7, 0.4] },
+  { id: -6, name: 'Concentration', color: '#38bdf8', scale: 0.1, position: [-0.5, -0.4, -0.3] },
+  { id: -7, name: 'Life Faculty', color: '#a78bfa', scale: 0.1, position: [0.0, -0.7, 0.4] },
 ];
 
 function MindSpheres({ minds, mentals }: { minds: MindData[]; mentals: MentalData[] }) {

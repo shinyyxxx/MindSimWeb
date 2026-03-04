@@ -10,8 +10,8 @@ import ContactMental from '../mindwebsite/classes/neutral/ContactMental'
 import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
 import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
 import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
-import ConsciousnessMental from '../mindwebsite/classes/neutral/ConsciousnessMental'
-import AwarenessMental from '../mindwebsite/classes/neutral/AwarenessMental'
+import ConcentrationMental from '../mindwebsite/classes/neutral/ConcentrationMental'
+import LifeFacultyMental from '../mindwebsite/classes/neutral/LifeFacultyMental'
 import GoodMental from '../mindwebsite/classes/good/GoodMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import GreedMental from '../mindwebsite/classes/bad/GreedMental'
@@ -74,8 +74,8 @@ type MentalSeed = {
     | 'feeling'
     | 'intention'
     | 'attention'
-    | 'consciousness'
-    | 'awareness'
+    | 'concentration'
+    | 'life_faculty'
 }
 
 function HumanBody({
@@ -801,8 +801,8 @@ export function MindStudyCognitive(): React.ReactElement {
       { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
       { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
       { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
-      { name: 'Consciousness', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'consciousness' },
-      { name: 'Awareness', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'awareness' },
+      { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
+      { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
       {
         name: 'Perception',
         color: '#60a5fa',
@@ -883,8 +883,8 @@ export function MindStudyCognitive(): React.ReactElement {
           opacity: 0.5,
         })
       }
-      if (m.variant === 'consciousness') {
-        return new ConsciousnessMental({
+      if (m.variant === 'concentration') {
+        return new ConcentrationMental({
           name: m.name,
           detail: m.detail ?? '',
           color: m.color,
@@ -895,8 +895,8 @@ export function MindStudyCognitive(): React.ReactElement {
           opacity: 0.5,
         })
       }
-      if (m.variant === 'awareness') {
-        return new AwarenessMental({
+      if (m.variant === 'life_faculty') {
+        return new LifeFacultyMental({
           name: m.name,
           detail: m.detail ?? '',
           color: m.color,
