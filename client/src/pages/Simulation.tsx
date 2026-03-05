@@ -62,6 +62,275 @@ type Vec3 = [number, number, number]
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
 
+/** Seeded random for deterministic "random" mentals per timeline stop */
+function seededRandom(seed: number): () => number {
+  return () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return seed / 0x7fffffff
+  }
+}
+
+const TIMELINE_STOPS: { label: string; description: string }[] = [
+  { label: 'T0', description: 'Awakening — mind at rest, minimal mental activity' },
+  { label: 'T1', description: 'First contact — perception and attention arise' },
+  { label: 'T2', description: 'Feeling emerges — pleasant, unpleasant, or neutral' },
+  { label: 'T3', description: 'Craving or aversion may arise' },
+  { label: 'T4', description: 'Clinging — mental formations intensify' },
+  { label: 'T5', description: 'Becoming — kamma taking shape in the mind' },
+  { label: 'T6', description: 'Full cycle — mind in flux, various factors active' },
+]
+
+const DEFAULT_SEEDS: MentalSeed[] = [
+  { name: 'Faith (Saddhā)', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'faith' },
+  { name: 'Mindfulness (Sati)', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'mindfulness' },
+  { name: 'Moral Shame (Hiri)', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'moral_shame' },
+  { name: 'Moral Dread (Ottappa)', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'moral_dread' },
+  { name: 'Non-greed (Alobha)', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'non_greed' },
+  { name: 'Non-hatred (Adosa)', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'non_hatred' },
+  { name: 'Equanimity (Tatramajjhattatā)', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'equanimity' },
+  { name: 'Tranquility (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'tranquility_body' },
+  { name: 'Tranquility (Mind)', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'tranquility_mind' },
+  { name: 'Lightness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'lightness_body' },
+  { name: 'Lightness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'lightness_mind' },
+  { name: 'Pliancy (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'pliancy_body' },
+  { name: 'Pliancy (Mind)', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'pliancy_mind' },
+  { name: 'Wieldiness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'wieldiness_body' },
+  { name: 'Proficiency (Mind)', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'proficiency_mind' },
+  { name: 'Rectitude (Mind)', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'rectitude_mind' },
+  { name: 'Greed', color: '#ef4444', scale: 0.12, position: [0.48, 0.12, -0.10], variant: 'greed' },
+  { name: 'Hatred', color: '#ef4444', scale: 0.12, position: [0.60, 0.10, 0.05], variant: 'hatred' },
+  { name: 'Delusion', color: '#ef4444', scale: 0.12, position: [0.42, 0.06, -0.22], variant: 'delusion' },
+  { name: 'Wrong View', color: '#ef4444', scale: 0.12, position: [0.54, 0.04, 0.22], variant: 'wrong_view' },
+  { name: 'Conceit', color: '#ef4444', scale: 0.12, position: [0.66, 0.02, -0.06], variant: 'conceit' },
+  { name: 'Doubt', color: '#ef4444', scale: 0.12, position: [0.46, -0.02, 0.12], variant: 'doubt' },
+  { name: 'Restlessness', color: '#ef4444', scale: 0.12, position: [0.58, -0.04, -0.18], variant: 'restlessness' },
+  { name: 'Shamelessness', color: '#ef4444', scale: 0.12, position: [0.40, -0.06, 0.02], variant: 'shamelessness' },
+  { name: 'Recklessness', color: '#ef4444', scale: 0.12, position: [0.52, -0.08, -0.02], variant: 'recklessness' },
+  { name: 'Sloth', color: '#ef4444', scale: 0.12, position: [0.64, -0.10, 0.14], variant: 'sloth' },
+  { name: 'Torpor', color: '#ef4444', scale: 0.12, position: [0.44, -0.12, -0.12], variant: 'torpor' },
+  { name: 'Worry', color: '#ef4444', scale: 0.12, position: [0.56, -0.14, 0.00], variant: 'worry' },
+  { name: 'Envy', color: '#ef4444', scale: 0.12, position: [0.68, -0.16, -0.16], variant: 'envy' },
+  { name: 'Stinginess', color: '#ef4444', scale: 0.12, position: [0.50, -0.18, 0.18], variant: 'stinginess' },
+  { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Paper plane thought', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
+  { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
+  { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
+  { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
+  { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
+  { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
+  { name: 'Perception', color: '#60a5fa', scale: 0.2, position: [-0.14, 0.16, 0.24], detail: 'Perception mental with bowl model', modelPath: perceptionBowlModel, modelTargetWorldSize: 0.02, modelOffset: { x: 0, y: -0.3, z: 0.5 }, variant: 'perception' },
+]
+
+function createMentalFromSeed(m: MentalSeed): Mental {
+  if (m.variant === 'perception') {
+    return new PerceptionMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      modelPath: m.modelPath,
+      modelTargetWorldSize: m.modelTargetWorldSize,
+      modelOffset: m.modelOffset,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'contact') {
+    return new ContactMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      modelPath: m.modelPath,
+      modelTargetWorldSize: m.modelTargetWorldSize,
+      modelOffset: m.modelOffset,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'feeling') {
+    return new FeelingMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'intention') {
+    return new IntentionMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'attention') {
+    return new AttentionMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'concentration') {
+    return new ConcentrationMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'life_faculty') {
+    return new LifeFacultyMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'faith') {
+    return new FaithMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.002,
+    })
+  }
+  if (m.variant === 'mindfulness') {
+    return new MindfulnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'moral_shame') {
+    return new MoralShameMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'moral_dread') {
+    return new MoralDreadMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'non_greed') {
+    return new NonGreedMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'non_hatred') {
+    return new NonHatredMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'equanimity') {
+    return new EquanimityMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'tranquility_body') {
+    return new TranquilityBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'tranquility_mind') {
+    return new TranquilityMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'lightness_body') {
+    return new LightnessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'lightness_mind') {
+    return new LightnessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'pliancy_body') {
+    return new PliancyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'pliancy_mind') {
+    return new PliancyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'wieldiness_body') {
+    return new WieldinessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'wieldiness_mind') {
+    return new WieldinessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'proficiency_body') {
+    return new ProficiencyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'proficiency_mind') {
+    return new ProficiencyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'rectitude_body') {
+    return new RectitudeBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'rectitude_mind') {
+    return new RectitudeMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'greed') {
+    return new GreedMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'hatred') {
+    return new HatredMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'delusion') {
+    return new DelusionMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'wrong_view') {
+    return new WrongViewMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'conceit') {
+    return new ConceitMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'doubt') {
+    return new DoubtMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'restlessness') {
+    return new RestlessnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'shamelessness') {
+    return new ShamelessnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'recklessness') {
+    return new RecklessnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'sloth') {
+    return new SlothMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'torpor') {
+    return new TorporMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'worry') {
+    return new WorryMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'envy') {
+    return new EnvyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  if (m.variant === 'stinginess') {
+    return new StinginessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
+  }
+  return new Mental({
+    name: m.name,
+    detail: m.detail ?? '',
+    color: m.color,
+    scale: m.scale,
+    position: m.position,
+    labelEnabled: false,
+    modelPath: m.modelPath,
+    modelTargetWorldSize: m.modelTargetWorldSize,
+    modelOffset: m.modelOffset,
+  })
+}
+
 function XRStatusBridge({
   onRendererReady,
   onPresentingChange,
@@ -313,6 +582,7 @@ function MentalsLayer({
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
 
   useEffect(() => {
+    mind.clearMentals()
     mentals.forEach((mental) => mind.addMental(mental))
   }, [mentals, mind])
 
@@ -636,6 +906,180 @@ function PanelPositionSync({
   return null
 }
 
+const TIMELINE_COLORS = ['#5D8DE0', '#38B2D1', '#4CAF50', '#FFC107', '#FF9800', '#F44336', '#1e3a5f']
+
+const TIMELINE_ICONS = ['⊙', '✦', '◉', '▤', '⚠', '✋', '◈']
+
+function TimelineCanvas({
+  stops,
+  selectedIndex,
+  onSelect,
+  colors,
+  isOpen,
+  onToggleOpen,
+}: {
+  stops: Array<{ label: string; description: string }>
+  selectedIndex: number
+  onSelect: (i: number) => void
+  colors: string[]
+  isOpen: boolean
+  onToggleOpen: () => void
+}) {
+  const [showDetail, setShowDetail] = useState(false)
+
+  const panelStyle: React.CSSProperties = {
+    background: 'rgba(17, 24, 39, 0.95)',
+    color: '#e5e7eb',
+    borderRadius: 12,
+    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    overflow: 'hidden',
+    minWidth: 320,
+    maxWidth: 'min(95vw, 720px)',
+  }
+
+  const headerStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 14px',
+    cursor: 'pointer',
+    borderBottom: isOpen ? '1px solid rgba(255,255,255,0.08)' : 'none',
+  }
+
+  if (!isOpen) {
+    return (
+      <div style={panelStyle}>
+        <div style={headerStyle} onClick={onToggleOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggleOpen()}>
+          <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: 0.3 }}>Cognitive Timeline</span>
+          <span style={{ fontSize: 18, opacity: 0.8 }}>▼</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={panelStyle}>
+      <div style={headerStyle} onClick={onToggleOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggleOpen()}>
+        <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: 0.3 }}>Cognitive Timeline</span>
+        <span style={{ fontSize: 18, opacity: 0.8, transform: 'rotate(180deg)' }}>▼</span>
+      </div>
+      <div style={{ padding: '16px 20px' }}>
+        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14 }}>Select a step to explore mental factors</div>
+        {/* Horizontal arrow-segment timeline bar */}
+        <div
+          style={{
+            display: 'flex',
+            width: '100%',
+            marginBottom: 20,
+            borderRadius: 4,
+            overflow: 'hidden',
+          }}
+        >
+          {stops.map((stop, i) => {
+            const isFirst = i === 0
+            const isLast = i === stops.length - 1
+            const isSelected = i === selectedIndex
+            const color = colors[i % colors.length]
+            return (
+              <button
+                key={stop.label}
+                type="button"
+                onClick={() => onSelect(i)}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '10px 6px',
+                  border: 'none',
+                  background: isSelected ? color : `${color}40`,
+                  color: isSelected ? '#fff' : 'rgba(255,255,255,0.85)',
+                  fontWeight: isSelected ? 700 : 600,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  clipPath: isFirst
+                    ? 'polygon(0 0, 100% 0, 95% 50%, 100% 100%, 0 100%)'
+                    : isLast
+                      ? 'polygon(5% 0, 100% 0, 100% 100%, 0 100%, 5% 50%)'
+                      : 'polygon(5% 0, 100% 0, 95% 50%, 100% 100%, 0 100%, 5% 50%)',
+                  marginLeft: isFirst ? 0 : -8,
+                }}
+              >
+                {stop.label}
+              </button>
+            )
+          })}
+        </div>
+        {/* Alternating content above/below with icon badges */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {stops.map((stop, i) => {
+            const isAbove = i % 2 === 0
+            const color = colors[i % colors.length]
+            const icon = TIMELINE_ICONS[i % TIMELINE_ICONS.length]
+            if (i !== selectedIndex) return null
+            return (
+              <div
+                key={stop.label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: 12,
+                  background: 'rgba(30, 41, 59, 0.5)',
+                  borderRadius: 10,
+                  border: '1px solid rgba(148, 163, 184, 0.2)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: '50%',
+                    background: color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: 18,
+                    flexShrink: 0,
+                  }}
+                >
+                  {icon}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: '#f8fafc' }}>{stop.label}</div>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>{stop.description}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowDetail((d) => !d)}
+          style={{
+            marginTop: 12,
+            padding: '6px 12px',
+            border: '1px solid rgba(148, 163, 184, 0.6)',
+            borderRadius: 8,
+            background: showDetail ? 'rgba(59, 130, 246, 0.2)' : 'rgba(30, 41, 59, 0.65)',
+            color: '#bfdbfe',
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          {showDetail ? 'Hide detail' : 'Explain detail'}
+        </button>
+        {showDetail && (
+          <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>
+            {stops[selectedIndex].description}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ThreeScene({
   mind,
   mentals,
@@ -650,6 +1094,7 @@ function ThreeScene({
   defaultMindScale,
   onRendererReady,
   onVrPresentingChange,
+  searchHighlight,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -664,6 +1109,7 @@ function ThreeScene({
   defaultMindScale: number
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
   onVrPresentingChange?: (presenting: boolean) => void
+  searchHighlight?: THREE.Object3D[]
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -674,8 +1120,13 @@ function ThreeScene({
   const showMentalsLayer = !isArMode || sendMode
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
-  // Use send mesh selection when in send mode, otherwise use hover selection
-  const outlineSelection = sendMode && sendMeshSelection.length > 0 ? sendMeshSelection : hoverSelection
+  // Use search highlight when active, else send mesh when in send mode, else hover selection
+  const outlineSelection =
+    (searchHighlight?.length ?? 0) > 0
+      ? searchHighlight!
+      : sendMode && sendMeshSelection.length > 0
+        ? sendMeshSelection
+        : hoverSelection
 
   // When hiding the human model, put the mind back to its default position/scale.
   useLayoutEffect(() => {
@@ -776,7 +1227,7 @@ export function Simulation(): React.ReactElement {
   const [attrKey, setAttrKey] = useState('')
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
-  const [showHumanModel, setShowHumanModel] = useState(true)
+  const [showHumanModel, setShowHumanModel] = useState(false)
 
   type XrSupport = 'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'
   const [activeXrMode, setActiveXrMode] = useState<'vr' | 'ar' | null>(null)
@@ -825,416 +1276,48 @@ export function Simulation(): React.ReactElement {
     mind.setLabelEnabled(!showHumanModel)
   }, [mind, showHumanModel])
 
-  const mentals = useMemo<Mental[]>(() => {
-    const seeds: MentalSeed[] = [
-      // Good mentals (left zone, X < 0, Y > -0.3)
-      // (Randomly picked once from the added "common beautiful" set — fixed mapping at runtime)
-      { name: 'Faith (Saddhā)', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'faith' },
-      { name: 'Mindfulness (Sati)', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'mindfulness' },
-      { name: 'Moral Shame (Hiri)', color: '#22c55e', scale: 0.12, position: [-0.4, 0.0, 0.2], variant: 'moral_shame' },
-      { name: 'Moral Dread (Ottappa)', color: '#22c55e', scale: 0.12, position: [-0.5, -0.15, -0.2], variant: 'moral_dread' },
+  const staticMentals = useMemo(() => DEFAULT_SEEDS.map(createMentalFromSeed), [])
 
-      { name: 'Non-greed (Alobha)', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'non_greed' },
-      { name: 'Non-hatred (Adosa)', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'non_hatred' },
-      { name: 'Equanimity (Tatramajjhattatā)', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'equanimity' },
-      { name: 'Tranquility (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'tranquility_body' },
-      { name: 'Tranquility (Mind)', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'tranquility_mind' },
-      { name: 'Lightness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'lightness_body' },
-      { name: 'Lightness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'lightness_mind' },
-      { name: 'Pliancy (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.70, 0.02, -0.14], variant: 'pliancy_body' },
-      { name: 'Pliancy (Mind)', color: '#22c55e', scale: 0.12, position: [-0.40, -0.02, 0.22], variant: 'pliancy_mind' },
-      { name: 'Wieldiness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.58, -0.06, 0.00], variant: 'wieldiness_body' },
-      { name: 'Proficiency (Mind)', color: '#22c55e', scale: 0.12, position: [-0.72, -0.12, 0.12], variant: 'proficiency_mind' },
-      { name: 'Rectitude (Mind)', color: '#22c55e', scale: 0.12, position: [-0.46, -0.18, -0.10], variant: 'rectitude_mind' },
-
-
-      // Bad mentals (right zone, X > 0, Y > -0.3) — using anger emoji model for all, for now
-      { name: 'Greed', color: '#ef4444', scale: 0.12, position: [0.48, 0.12, -0.10], variant: 'greed' },
-      { name: 'Hatred', color: '#ef4444', scale: 0.12, position: [0.60, 0.10, 0.05], variant: 'hatred' },
-      { name: 'Delusion', color: '#ef4444', scale: 0.12, position: [0.42, 0.06, -0.22], variant: 'delusion' },
-      { name: 'Wrong View', color: '#ef4444', scale: 0.12, position: [0.54, 0.04, 0.22], variant: 'wrong_view' },
-      { name: 'Conceit', color: '#ef4444', scale: 0.12, position: [0.66, 0.02, -0.06], variant: 'conceit' },
-      { name: 'Doubt', color: '#ef4444', scale: 0.12, position: [0.46, -0.02, 0.12], variant: 'doubt' },
-      { name: 'Restlessness', color: '#ef4444', scale: 0.12, position: [0.58, -0.04, -0.18], variant: 'restlessness' },
-      { name: 'Shamelessness', color: '#ef4444', scale: 0.12, position: [0.40, -0.06, 0.02], variant: 'shamelessness' },
-      { name: 'Recklessness', color: '#ef4444', scale: 0.12, position: [0.52, -0.08, -0.02], variant: 'recklessness' },
-      { name: 'Sloth', color: '#ef4444', scale: 0.12, position: [0.64, -0.10, 0.14], variant: 'sloth' },
-      { name: 'Torpor', color: '#ef4444', scale: 0.12, position: [0.44, -0.12, -0.12], variant: 'torpor' },
-      { name: 'Worry', color: '#ef4444', scale: 0.12, position: [0.56, -0.14, 0.00], variant: 'worry' },
-      { name: 'Envy', color: '#ef4444', scale: 0.12, position: [0.68, -0.16, -0.16], variant: 'envy' },
-      { name: 'Stinginess', color: '#ef4444', scale: 0.12, position: [0.50, -0.18, 0.18], variant: 'stinginess' },
-
-      // Neutral mentals (bottom zone, Y < -0.3)
-      { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Paper plane thought', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
-      { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
-      { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
-      { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
-      { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
-      { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
-      {
-        name: 'Perception',
-        color: '#60a5fa',
-        scale: 0.2,
-        position: [-0.14, 0.16, 0.24],
-        detail: 'Perception mental with bowl model',
-        modelPath: perceptionBowlModel,
-        modelTargetWorldSize: 0.02,
-        modelOffset: { x: 0, y: -0.3, z: 0.5 },
-        variant: 'perception',
-      },
-    ]
-
-    return seeds.map((m) => {
-      if (m.variant === 'perception') {
-        return new PerceptionMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          modelPath: m.modelPath,
-          modelTargetWorldSize: m.modelTargetWorldSize,
-          modelOffset: m.modelOffset,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'contact') {
-        return new ContactMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          modelPath: m.modelPath,
-          modelTargetWorldSize: m.modelTargetWorldSize,
-          modelOffset: m.modelOffset,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'feeling') {
-        return new FeelingMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'intention') {
-        return new IntentionMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'attention') {
-        return new AttentionMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'concentration') {
-        return new ConcentrationMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'life_faculty') {
-        return new LifeFacultyMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        })
-      }
-      if (m.variant === 'faith') {
-        return new FaithMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.002,
-        })
-      }
-      if (m.variant === 'mindfulness') {
-        return new MindfulnessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'moral_shame') {
-        return new MoralShameMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'moral_dread') {
-        return new MoralDreadMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'non_greed') {
-        return new NonGreedMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'non_hatred') {
-        return new NonHatredMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'equanimity') {
-        return new EquanimityMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'tranquility_body') {
-        return new TranquilityBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'tranquility_mind') {
-        return new TranquilityMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'lightness_body') {
-        return new LightnessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'lightness_mind') {
-        return new LightnessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'pliancy_body') {
-        return new PliancyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'pliancy_mind') {
-        return new PliancyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'wieldiness_body') {
-        return new WieldinessBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'wieldiness_mind') {
-        return new WieldinessMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'proficiency_body') {
-        return new ProficiencyBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'proficiency_mind') {
-        return new ProficiencyMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'rectitude_body') {
-        return new RectitudeBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'rectitude_mind') {
-        return new RectitudeMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-      }
-      if (m.variant === 'greed') {
-        return new GreedMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'hatred') {
-        return new HatredMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'delusion') {
-        return new DelusionMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'wrong_view') {
-        return new WrongViewMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'conceit') {
-        return new ConceitMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'doubt') {
-        return new DoubtMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'restlessness') {
-        return new RestlessnessMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'shamelessness') {
-        return new ShamelessnessMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'recklessness') {
-        return new RecklessnessMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'sloth') {
-        return new SlothMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'torpor') {
-        return new TorporMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'worry') {
-        return new WorryMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'envy') {
-        return new EnvyMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'stinginess') {
-        return new StinginessMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-      }
-      if (m.variant === 'bad') {
-        const mental = new BadMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0,
-        })
-        mental.setFrozen(true)
-        return mental
-      }
-      if (m.variant === 'neutral') {
-        const mental = new NeutralMental({
-          name: m.name,
-          detail: m.detail ?? '',
-          color: m.color,
-          scale: m.scale,
-          position: m.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          modelPath: m.modelPath,
-          modelTargetWorldSize: m.modelTargetWorldSize,
-          modelOffset: m.modelOffset,
-        })
-        return mental
-      }
-      return new Mental({
-        name: m.name,
-        detail: m.detail ?? '',
-        color: m.color,
-        scale: m.scale,
-        position: m.position,
-        labelEnabled: false,
-        modelPath: m.modelPath,
-        modelTargetWorldSize: m.modelTargetWorldSize,
-        modelOffset: m.modelOffset,
-      })
+  function getMentalsForTimelineStop(index: number): Mental[] {
+    const rng = seededRandom(1000 + index)
+    const pool = DEFAULT_SEEDS.map((_, i) => i)
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    const count = Math.floor(8 + rng() * 9)
+    const indices = pool.slice(0, count)
+    return indices.map((i) => {
+      const seed = { ...DEFAULT_SEEDS[i], position: [...DEFAULT_SEEDS[i].position] as Vec3 }
+      const jitter = 0.15
+      seed.position[0] += (rng() - 0.5) * jitter
+      seed.position[1] += (rng() - 0.5) * jitter
+      seed.position[2] += (rng() - 0.5) * jitter
+      return createMentalFromSeed(seed)
     })
-  }, [])
+  }
+
+  const [timelineMode, setTimelineMode] = useState(false)
+  const [timelineIndex, setTimelineIndex] = useState(0)
+  const [timelineOpen, setTimelineOpen] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  const mentals = useMemo<Mental[]>(() => {
+    if (timelineMode) return getMentalsForTimelineStop(timelineIndex)
+    return staticMentals
+  }, [timelineMode, timelineIndex, staticMentals])
+
+  const searchHighlight = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase()
+    if (!term) return [] as THREE.Object3D[]
+    return mentals
+      .filter((m) => m.getName().toLowerCase().includes(term))
+      .flatMap((m) => {
+        const mesh = m.getMesh()
+        return mesh ? [mesh] : []
+      })
+  }, [searchTerm, mentals])
 
   useEffect(() => {
     let cancelled = false
@@ -1627,6 +1710,64 @@ export function Simulation(): React.ReactElement {
           </button>
           <button
             type="button"
+            onClick={() => setSearchOpen((prev) => !prev)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: searchOpen ? '#22c55e' : '#64748b',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Search
+          </button>
+          {searchOpen && (
+            <>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && setSearchOpen(false)}
+                placeholder="Search mental sphere..."
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: 'white',
+                  width: 160,
+                  fontSize: 13,
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', fontSize: 12 }}
+              >
+                Close
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setTimelineMode((prev) => !prev)}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: timelineMode ? '#06b6d4' : '#64748b',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {timelineMode ? 'Exit Timeline' : 'Timeline Mode'}
+          </button>
+          <button
+            type="button"
             onClick={handleToggleVr}
             disabled={vrButtonDisabled}
             title={vrButtonTitle}
@@ -1693,6 +1834,27 @@ export function Simulation(): React.ReactElement {
             {arMessage && <span style={{ color: '#fbbf24' }}>{arMessage}</span>}
           </div>
         </div>
+        {timelineMode && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 12,
+              pointerEvents: 'auto',
+            }}
+          >
+            <TimelineCanvas
+              stops={TIMELINE_STOPS}
+              selectedIndex={timelineIndex ?? 0}
+              onSelect={setTimelineIndex}
+              colors={TIMELINE_COLORS}
+              isOpen={timelineOpen}
+              onToggleOpen={() => setTimelineOpen((o) => !o)}
+            />
+          </div>
+        )}
         {selected && (
           <InspectPanel
             selection={selected}
@@ -1726,6 +1888,7 @@ export function Simulation(): React.ReactElement {
           xrMode={activeXrMode}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
+          searchHighlight={searchHighlight}
           onRendererReady={(gl) => {
             rendererRef.current = gl
           }}

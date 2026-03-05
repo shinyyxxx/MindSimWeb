@@ -20,7 +20,7 @@ function App(): React.ReactElement {
         <Route path="/" element={<Home />} />
         <Route path="/mind-study" element={<MindStudy />} />
         <Route path="/mind-study/cognitive-start" element={<MindStudyCognitiveStart />} />
-        <Route path="/mind-study/:cognitive" element={<MindStudyCognitive />} />
+        <Route path="/mind-study/cognitive" element={<MindStudyCognitive />} />
         <Route path="/mind-study/:mindId" element={<MindStudyInspect />} />
         <Route path="/simulation" element={<Simulation />} />
         <Route path="/playground" element={<Playground />} />
