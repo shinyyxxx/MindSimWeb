@@ -1145,7 +1145,7 @@ function ThreeScene({
     <Canvas
       camera={{ position: [0, 0, 10], fov: 75 }}
       shadows={!isArMode}
-      gl={{ antialias: true, toneMappingExposure: 0.6, alpha: isArMode }}
+      gl={{ antialias: true, toneMappingExposure: 0.95, alpha: isArMode }}
       onCreated={({ gl }) => {
         if (isArMode) gl.setClearColor(0x000000, 0)
       }}
@@ -1158,7 +1158,7 @@ function ThreeScene({
         }}
       />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
-      {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.35} environmentIntensity={0.6} />}
+      {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
       <OrbitControls
         ref={controlsRef}
         enabled={!isVrPresenting}
@@ -1171,11 +1171,11 @@ function ThreeScene({
         maxDistance={24}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
-      <ambientLight intensity={0.25} />
-      <directionalLight position={[5, 8, 5]} intensity={0.9} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-far={50} shadow-camera-left={-10} shadow-camera-right={10} shadow-camera-top={10} shadow-camera-bottom={-10} />
-      <directionalLight position={[-5, 3, -5]} intensity={0.45} />
-      <pointLight position={[0, 6, 0]} intensity={0.8} distance={15} decay={2} />
-      <pointLight position={[0, 0, 5]} intensity={0.6} distance={15} decay={2} />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 8, 5]} intensity={1.6} castShadow shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-camera-far={50} shadow-camera-left={-10} shadow-camera-right={10} shadow-camera-top={10} shadow-camera-bottom={-10} />
+      <directionalLight position={[-5, 3, -5]} intensity={0.85} />
+      <pointLight position={[0, 6, 0]} intensity={1.35} distance={15} decay={2} />
+      <pointLight position={[0, 0, 5]} intensity={1.0} distance={15} decay={2} />
       {!isArMode && <GroundPlane />}
       {showHumanInScene && (
         <React.Suspense fallback={null}>
