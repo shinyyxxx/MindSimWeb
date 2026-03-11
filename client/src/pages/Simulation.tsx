@@ -19,7 +19,7 @@ import MoralDreadMental from '../mindwebsite/classes/good/MoralDreadMental'
 import NonGreedMental from '../mindwebsite/classes/good/NonGreedMental'
 import NonHatredMental from '../mindwebsite/classes/good/NonHatredMental'
 import EquanimityMental from '../mindwebsite/classes/good/EquanimityMental'
-import TranquilityBodyMental from '../mindwebsite/classes/good/TranquilityBodyMental'
+import AppreciativeJoyMental from '../mindwebsite/classes/good/AppreciativeJoyMental'
 import TranquilityMindMental from '../mindwebsite/classes/good/TranquilityMindMental'
 import LightnessBodyMental from '../mindwebsite/classes/good/LightnessBodyMental'
 import LightnessMindMental from '../mindwebsite/classes/good/LightnessMindMental'
@@ -88,7 +88,7 @@ const DEFAULT_SEEDS: MentalSeed[] = [
   { name: 'Non-greed (Alobha)', color: '#22c55e', scale: 0.12, position: [-0.68, 0.18, 0.18], variant: 'non_greed' },
   { name: 'Non-hatred (Adosa)', color: '#22c55e', scale: 0.12, position: [-0.42, 0.16, -0.06], variant: 'non_hatred' },
   { name: 'Equanimity (Tatramajjhattatā)', color: '#22c55e', scale: 0.12, position: [-0.56, 0.14, -0.22], variant: 'equanimity' },
-  { name: 'Tranquility (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'tranquility_body' },
+  { name: 'Appreciative Joy (Muditā)', color: '#22c55e', scale: 0.12, position: [-0.74, 0.12, 0.02], variant: 'appreciative_joy' },
   { name: 'Tranquility (Mind)', color: '#22c55e', scale: 0.12, position: [-0.36, 0.10, 0.06], variant: 'tranquility_mind' },
   { name: 'Lightness (Mental Body)', color: '#22c55e', scale: 0.12, position: [-0.62, 0.06, 0.26], variant: 'lightness_body' },
   { name: 'Lightness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.48, 0.04, -0.30], variant: 'lightness_mind' },
@@ -240,8 +240,8 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'equanimity') {
     return new EquanimityMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
   }
-  if (m.variant === 'tranquility_body') {
-    return new TranquilityBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  if (m.variant === 'appreciative_joy') {
+    return new AppreciativeJoyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
   }
   if (m.variant === 'tranquility_mind') {
     return new TranquilityMindMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
@@ -375,7 +375,7 @@ type MentalSeed = {
     | 'non_greed'
     | 'non_hatred'
     | 'equanimity'
-    | 'tranquility_body'
+    | 'appreciative_joy'
     | 'tranquility_mind'
     | 'lightness_body'
     | 'lightness_mind'

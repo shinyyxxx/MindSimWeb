@@ -14,8 +14,8 @@ export class BadMental extends Mental {
       ...options,
       // Default placeholder for all "bad" mental factors.
       modelPath: options.modelPath ?? angerEmojiModel,
-      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.08,
-      modelOffset: options.modelOffset ?? { x: 0, y: -0.02, z: 0 },
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.006,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: 0 },
     })
   }
 
