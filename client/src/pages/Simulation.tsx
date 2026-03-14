@@ -39,7 +39,6 @@ import RightSpeechMental from '../mindwebsite/classes/good/RightSpeechMental'
 import RightActionMental from '../mindwebsite/classes/good/RightActionMental'
 import RightLivelihoodMental from '../mindwebsite/classes/good/RightLivelihoodMental'
 import CompassionMental from '../mindwebsite/classes/good/CompassionMental'
-import AppreciativeJoyMental from '../mindwebsite/classes/good/AppreciativeJoyMental'
 import WisdomMental from '../mindwebsite/classes/good/WisdomMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import GreedMental from '../mindwebsite/classes/bad/GreedMental'
@@ -458,9 +457,6 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   }
   if (m.variant === 'compassion') {
     return new CompassionMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
-  }
-  if (m.variant === 'appreciative_joy') {
-    return new AppreciativeJoyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
   }
   if (m.variant === 'wisdom') {
     return new WisdomMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
