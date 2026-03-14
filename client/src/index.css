@@ -626,6 +626,9 @@ body {
   opacity: 1;
   padding-top: 4px;
 }
+.mindstudy-nav-children-nested.open {
+  max-height: 220px;
+}
 .mindstudy-content {
   display: flex;
   flex-direction: column;
@@ -901,6 +904,9 @@ body {
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
   scroll-margin-top: 110px; /* offset for sticky navbar */
+}
+.mindstudy-subsection {
+  scroll-margin-top: 100px; /* keep sub-section header visible when navigating to สัพพจิตตสาธารณ / ปกิณณก */
 }
 .mindstudy-card:target,
 .mindstudy-section:target {

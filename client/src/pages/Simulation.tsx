@@ -12,6 +12,10 @@ import IntentionMental from '../mindwebsite/classes/neutral/IntentionMental'
 import AttentionMental from '../mindwebsite/classes/neutral/AttentionMental'
 import ConcentrationMental from '../mindwebsite/classes/neutral/ConcentrationMental'
 import LifeFacultyMental from '../mindwebsite/classes/neutral/LifeFacultyMental'
+import InitialApplicationMental from '../mindwebsite/classes/neutral/InitialApplicationMental'
+import SustainedApplicationMental from '../mindwebsite/classes/neutral/SustainedApplicationMental'
+import DeterminationMental from '../mindwebsite/classes/neutral/DeterminationMental'
+import RaptureMental from '../mindwebsite/classes/neutral/RaptureMental'
 import FaithMental from '../mindwebsite/classes/good/FaithMental'
 import MindfulnessMental from '../mindwebsite/classes/good/MindfulnessMental'
 import MoralShameMental from '../mindwebsite/classes/good/MoralShameMental'
@@ -31,6 +35,12 @@ import ProficiencyBodyMental from '../mindwebsite/classes/good/ProficiencyBodyMe
 import ProficiencyMindMental from '../mindwebsite/classes/good/ProficiencyMindMental'
 import RectitudeBodyMental from '../mindwebsite/classes/good/RectitudeBodyMental'
 import RectitudeMindMental from '../mindwebsite/classes/good/RectitudeMindMental'
+import RightSpeechMental from '../mindwebsite/classes/good/RightSpeechMental'
+import RightActionMental from '../mindwebsite/classes/good/RightActionMental'
+import RightLivelihoodMental from '../mindwebsite/classes/good/RightLivelihoodMental'
+import CompassionMental from '../mindwebsite/classes/good/CompassionMental'
+import AppreciativeJoyMental from '../mindwebsite/classes/good/AppreciativeJoyMental'
+import WisdomMental from '../mindwebsite/classes/good/WisdomMental'
 import BadMental from '../mindwebsite/classes/bad/BadMental'
 import GreedMental from '../mindwebsite/classes/bad/GreedMental'
 import HatredMental from '../mindwebsite/classes/bad/HatredMental'
@@ -44,6 +54,8 @@ import RecklessnessMental from '../mindwebsite/classes/bad/RecklessnessMental'
 import SlothMental from '../mindwebsite/classes/bad/SlothMental'
 import TorporMental from '../mindwebsite/classes/bad/TorporMental'
 import WorryMental from '../mindwebsite/classes/bad/WorryMental'
+import EnergyMental from '../mindwebsite/classes/neutral/EnergyMental'
+import DesireMental from '../mindwebsite/classes/neutral/DesireMental'
 import EnvyMental from '../mindwebsite/classes/bad/EnvyMental'
 import StinginessMental from '../mindwebsite/classes/bad/StinginessMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
@@ -62,7 +74,6 @@ type Vec3 = [number, number, number]
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
 
-/** Seeded random for deterministic "random" mentals per timeline stop */
 function seededRandom(seed: number): () => number {
   return () => {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff
@@ -78,6 +89,24 @@ const TIMELINE_STOPS: { label: string; description: string }[] = [
   { label: 'T4', description: 'Clinging — mental formations intensify' },
   { label: 'T5', description: 'Becoming — kamma taking shape in the mind' },
   { label: 'T6', description: 'Full cycle — mind in flux, various factors active' },
+]
+
+/** Universal 7 — common to all timeline steps: Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty */
+const UNIVERSAL_SEEDS: MentalSeed[] = [
+  { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Meeting of sense base and object', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
+  { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
+  { name: 'Perception', color: '#60a5fa', scale: 0.18, position: [-0.14, 0.08, 0.18], detail: 'Perception mental with bowl model', modelPath: perceptionBowlModel, modelTargetWorldSize: 0.022, modelOffset: { x: 0, y: -0.28, z: 0.42 }, variant: 'perception' },
+  { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
+  { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
+  { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
+  { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
+]
+
+/** T0-specific: Initial Application, Sustained Application, Decision (Determination) */
+const T0_SPECIFIC_SEEDS: MentalSeed[] = [
+  { name: 'Initial Application', color: '#a1a1aa', scale: 0.14, position: [-0.22, -0.44, 0.08], variant: 'initial_application' },
+  { name: 'Sustained Application', color: '#a1a1aa', scale: 0.14, position: [0.12, -0.46, -0.06], variant: 'sustained_application' },
+  { name: 'Decision', color: '#a1a1aa', scale: 0.14, position: [-0.08, -0.5, 0.12], variant: 'decision' },
 ]
 
 const DEFAULT_SEEDS: MentalSeed[] = [
@@ -119,6 +148,34 @@ const DEFAULT_SEEDS: MentalSeed[] = [
   { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
   { name: 'Perception', color: '#60a5fa', scale: 0.2, position: [-0.14, 0.16, 0.24], detail: 'Perception mental with bowl model', modelPath: perceptionBowlModel, modelTargetWorldSize: 0.02, modelOffset: { x: 0, y: -0.3, z: 0.5 }, variant: 'perception' },
 ]
+
+/** Seeds for T5-specific variants (energy, desire, rapture) not in DEFAULT_SEEDS */
+const T5_EXTRA_SEEDS: MentalSeed[] = [
+  { name: 'Energy (Vīriya)', color: '#a1a1aa', scale: 0.12, position: [0.2, -0.35, 0.1], variant: 'energy' },
+  { name: 'Desire (Chanda)', color: '#a1a1aa', scale: 0.12, position: [0.25, -0.38, -0.05], variant: 'desire' },
+  { name: 'Joy (Pīti)', color: '#38bdf8', scale: 0.12, position: [0.1, -0.38, 0.15], detail: 'Rapture/joyful interest', variant: 'rapture' },
+]
+
+/** Seeds for Beautiful Universals (missing body/mind), Abstinences, Illimitables, Wisdom */
+const WHOLESOME_SEEDS: MentalSeed[] = [
+  { name: 'Wieldiness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.52, -0.04, -0.08], variant: 'wieldiness_mind' },
+  { name: 'Proficiency (Body)', color: '#22c55e', scale: 0.12, position: [-0.66, -0.08, 0.14], variant: 'proficiency_body' },
+  { name: 'Rectitude (Body)', color: '#22c55e', scale: 0.12, position: [-0.44, -0.14, -0.18], variant: 'rectitude_body' },
+  { name: 'Right Speech (Sammā-vācā)', color: '#22c55e', scale: 0.12, position: [-0.55, 0.08, 0.24], variant: 'right_speech' },
+  { name: 'Right Action (Sammā-kammanta)', color: '#22c55e', scale: 0.12, position: [-0.58, 0.02, -0.26], variant: 'right_action' },
+  { name: 'Right Livelihood (Sammā-ājīva)', color: '#22c55e', scale: 0.12, position: [-0.52, -0.06, 0.20], variant: 'right_livelihood' },
+  { name: 'Compassion (Karuṇā)', color: '#22c55e', scale: 0.12, position: [-0.62, 0.12, -0.14], variant: 'compassion' },
+  { name: 'Appreciative Joy (Muditā)', color: '#22c55e', scale: 0.12, position: [-0.48, 0.10, 0.08], variant: 'appreciative_joy' },
+  { name: 'Wisdom (Paññā)', color: '#22c55e', scale: 0.12, position: [-0.60, 0.16, 0.00], variant: 'wisdom' },
+]
+
+function getSeedForVariant(variant: string): MentalSeed | undefined {
+  const fromDefault = DEFAULT_SEEDS.find((s) => s.variant === variant)
+  if (fromDefault) return fromDefault
+  const fromExtra = T5_EXTRA_SEEDS.find((s) => s.variant === variant)
+  if (fromExtra) return fromExtra
+  return WHOLESOME_SEEDS.find((s) => s.variant === variant)
+}
 
 function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'perception') {
@@ -201,6 +258,78 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   }
   if (m.variant === 'life_faculty') {
     return new LifeFacultyMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'initial_application') {
+    return new InitialApplicationMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'sustained_application') {
+    return new SustainedApplicationMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'decision') {
+    return new DeterminationMental({
+      name: m.name,
+      detail: m.detail ?? 'Decision / determination (adhimokkha)',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'energy') {
+    return new EnergyMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'desire') {
+    return new DesireMental({
+      name: m.name,
+      detail: m.detail ?? '',
+      color: m.color,
+      scale: m.scale,
+      position: m.position,
+      labelEnabled: false,
+      motionSpeed: 0.0015,
+      opacity: 0.5,
+    })
+  }
+  if (m.variant === 'rapture') {
+    return new RaptureMental({
       name: m.name,
       detail: m.detail ?? '',
       color: m.color,
@@ -318,6 +447,24 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'stinginess') {
     return new StinginessMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0 })
   }
+  if (m.variant === 'right_speech') {
+    return new RightSpeechMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'right_action') {
+    return new RightActionMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'right_livelihood') {
+    return new RightLivelihoodMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'compassion') {
+    return new CompassionMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'appreciative_joy') {
+    return new AppreciativeJoyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'wisdom') {
+    return new WisdomMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
   return new Mental({
     name: m.name,
     detail: m.detail ?? '',
@@ -410,7 +557,64 @@ type MentalSeed = {
     | 'attention'
     | 'concentration'
     | 'life_faculty'
+    | 'initial_application'
+    | 'sustained_application'
+    | 'decision'
+    | 'energy'
+    | 'desire'
+    | 'rapture'
+    | 'right_speech'
+    | 'right_action'
+    | 'right_livelihood'
+    | 'compassion'
+    | 'appreciative_joy'
+    | 'wisdom'
 }
+
+const UNWHOLESOME_4_VARIANTS = ['delusion', 'shamelessness', 'recklessness', 'restlessness'] as const
+
+const BEAUTIFUL_UNIVERSALS_19: string[] = [
+  'faith', 'mindfulness', 'moral_shame', 'moral_dread', 'non_greed', 'non_hatred', 'equanimity',
+  'tranquility_body', 'tranquility_mind', 'lightness_body', 'lightness_mind', 'pliancy_body', 'pliancy_mind',
+  'wieldiness_body', 'wieldiness_mind', 'proficiency_body', 'proficiency_mind', 'rectitude_body', 'rectitude_mind',
+]
+
+const ABSTINENCES_3: string[] = ['right_speech', 'right_action', 'right_livelihood']
+
+const ILLIMITABLES_2: string[] = ['compassion', 'appreciative_joy']
+
+const T5_MENTAL_OPTIONS: { id: string; label: string; variants: string[] }[] = [
+  { id: 'greed-1', label: 'Greed-rooted #1', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view'] },
+  { id: 'greed-2', label: 'Greed-rooted #2', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'conceit'] },
+  { id: 'greed-3', label: 'Greed-rooted #3', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view', 'sloth', 'torpor'] },
+  { id: 'greed-4', label: 'Greed-rooted #4', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view', 'conceit', 'sloth', 'torpor'] },
+  { id: 'greed-5', label: 'Greed-rooted #5', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view'] },
+  { id: 'greed-6', label: 'Greed-rooted #6', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'conceit'] },
+  { id: 'greed-7', label: 'Greed-rooted #7', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view', 'sloth', 'torpor'] },
+  { id: 'greed-8', label: 'Greed-rooted #8', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'conceit', 'sloth', 'torpor'] },
+  { id: 'hatred-1', label: 'Hatred-rooted #1', variants: [...UNWHOLESOME_4_VARIANTS, 'worry', 'envy', 'stinginess', 'hatred'] },
+  { id: 'hatred-2', label: 'Hatred-rooted #2', variants: [...UNWHOLESOME_4_VARIANTS, 'worry', 'envy', 'stinginess', 'hatred', 'sloth', 'torpor'] },
+  { id: 'delusion-1', label: 'Delusion-rooted #1', variants: [...UNWHOLESOME_4_VARIANTS, 'doubt'] },
+  { id: 'delusion-2', label: 'Delusion-rooted #2', variants: [...UNWHOLESOME_4_VARIANTS] },
+  { id: 'smile-producing', label: 'Smile-producing', variants: ['rapture', 'desire'] },
+  { id: 'great-wholesome-1', label: 'Great Wholesome pair #1', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ABSTINENCES_3, ...ILLIMITABLES_2, 'wisdom', 'energy', 'rapture', 'desire'] },
+  { id: 'great-wholesome-2', label: 'Great Wholesome pair #2', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ABSTINENCES_3, ...ILLIMITABLES_2, 'energy', 'rapture', 'desire'] },
+  { id: 'great-wholesome-3', label: 'Great Wholesome pair #3', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ABSTINENCES_3, ...ILLIMITABLES_2, 'wisdom', 'energy', 'desire'] },
+  { id: 'great-wholesome-4', label: 'Great Wholesome pair #4', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ABSTINENCES_3, ...ILLIMITABLES_2, 'energy', 'desire'] },
+  { id: 'great-functional-1', label: 'Great Functional pair #1', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ILLIMITABLES_2, 'wisdom', 'energy', 'rapture', 'desire'] },
+  { id: 'great-functional-2', label: 'Great Functional pair #2', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ILLIMITABLES_2, 'energy', 'rapture', 'desire'] },
+  { id: 'great-functional-3', label: 'Great Functional pair #3', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ILLIMITABLES_2, 'wisdom', 'energy', 'desire'] },
+  { id: 'great-functional-4', label: 'Great Functional pair #4', variants: [...BEAUTIFUL_UNIVERSALS_19, ...ILLIMITABLES_2, 'energy', 'desire'] },
+]
+
+const T5_CATEGORIES: { label: string; optionIds: string[] }[] = [
+  { label: 'Greed-rooted', optionIds: ['greed-1', 'greed-2', 'greed-3', 'greed-4', 'greed-5', 'greed-6', 'greed-7', 'greed-8'] },
+  { label: 'Hatred-rooted', optionIds: ['hatred-1', 'hatred-2'] },
+  { label: 'Delusion-rooted', optionIds: ['delusion-1', 'delusion-2'] },
+  { label: 'Smile-producing', optionIds: ['smile-producing'] },
+  { label: 'Great Wholesome', optionIds: ['great-wholesome-1', 'great-wholesome-2', 'great-wholesome-3', 'great-wholesome-4'] },
+  { label: 'Great Functional', optionIds: ['great-functional-1', 'great-functional-2', 'great-functional-3', 'great-functional-4'] },
+]
 
 function HumanBody({
   mind,
@@ -910,6 +1114,14 @@ const TIMELINE_COLORS = ['#5D8DE0', '#38B2D1', '#4CAF50', '#FFC107', '#FF9800', 
 
 const TIMELINE_ICONS = ['⊙', '✦', '◉', '▤', '⚠', '✋', '◈']
 
+const T0_SENSE_OPTIONS = [
+  { id: 'sound', label: 'Sound', icon: '🔊' },
+  { id: 'picture', label: 'Picture', icon: '🖼️' },
+  { id: 'taste', label: 'Taste', icon: '👅' },
+  { id: 'touch', label: 'Touch', icon: '✋' },
+  { id: 'smell', label: 'Smell', icon: '👃' },
+] as const
+
 function TimelineCanvas({
   stops,
   selectedIndex,
@@ -917,6 +1129,10 @@ function TimelineCanvas({
   colors,
   isOpen,
   onToggleOpen,
+  t3HappySelected,
+  onT3HappyChange,
+  t5SelectedId,
+  onT5Change,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -924,8 +1140,13 @@ function TimelineCanvas({
   colors: string[]
   isOpen: boolean
   onToggleOpen: () => void
+  t3HappySelected?: boolean
+  onT3HappyChange?: (selected: boolean) => void
+  t5SelectedId?: string | null
+  onT5Change?: (id: string | null) => void
 }) {
   const [showDetail, setShowDetail] = useState(false)
+  const [selectedSense, setSelectedSense] = useState<string>('sound')
 
   const panelStyle: React.CSSProperties = {
     background: 'rgba(17, 24, 39, 0.95)',
@@ -1049,6 +1270,109 @@ function TimelineCanvas({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: '#f8fafc' }}>{stop.label}</div>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>{stop.description}</p>
+                  {selectedIndex === 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                        Choose sense data
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {T0_SENSE_OPTIONS.map((opt) => {
+                          const isSelected = selectedSense === opt.id
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => setSelectedSense(opt.id)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '8px 14px',
+                                borderRadius: 10,
+                                border: isSelected ? '2px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.4)',
+                                background: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(30, 41, 59, 0.65)',
+                                color: isSelected ? '#93c5fd' : '#e5e7eb',
+                                fontSize: 13,
+                                fontWeight: isSelected ? 600 : 500,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <span>{opt.icon}</span>
+                              <span>{opt.label}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {selectedIndex === 3 && (
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                        Add option
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onT3HappyChange?.(!t3HappySelected)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 14px',
+                          borderRadius: 10,
+                          border: t3HappySelected ? '2px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.4)',
+                          background: t3HappySelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.65)',
+                          color: t3HappySelected ? '#7dd3fc' : '#e5e7eb',
+                          fontSize: 13,
+                          fontWeight: t3HappySelected ? 600 : 500,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <span>😊</span>
+                        <span>Happy</span>
+                      </button>
+                    </div>
+                  )}
+                  {selectedIndex === 5 && (
+                    <div style={{ marginTop: 14 }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                        Choose mental factors (cetasikas)
+                      </div>
+                      <select
+                        value={t5SelectedId ?? ''}
+                        onChange={(e) => {
+                          const v = e.target.value
+                          onT5Change?.(v ? v : null)
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px',
+                          borderRadius: 8,
+                          border: '1px solid rgba(148, 163, 184, 0.4)',
+                          background: 'rgba(30, 41, 59, 0.85)',
+                          color: '#e5e7eb',
+                          fontSize: 13,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="">No selection (random)</option>
+                        {T5_CATEGORIES.map((cat) => (
+                          <optgroup key={cat.label} label={cat.label}>
+                            {cat.optionIds.map((id) => {
+                              const opt = T5_MENTAL_OPTIONS.find((o) => o.id === id)
+                              return opt ? (
+                                <option key={opt.id} value={opt.id}>
+                                  {opt.label}
+                                </option>
+                              ) : null
+                            })}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <p style={{ margin: '8px 0 0', fontSize: 11, color: '#64748b' }}>
+                        Select one option; choose &quot;No selection&quot; for random.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -1276,37 +1600,143 @@ export function Simulation(): React.ReactElement {
     mind.setLabelEnabled(!showHumanModel)
   }, [mind, showHumanModel])
 
-  const staticMentals = useMemo(() => DEFAULT_SEEDS.map(createMentalFromSeed), [])
-
-  function getMentalsForTimelineStop(index: number): Mental[] {
+  function getMentalsForTimelineStop(index: number, t3Happy: boolean, t5SelectedId: string | null): Mental[] {
     const rng = seededRandom(1000 + index)
-    const pool = DEFAULT_SEEDS.map((_, i) => i)
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]]
+    const jitter = 0.12
+
+    const jitterSeed = (seed: MentalSeed): MentalSeed => {
+      const s = { ...seed, position: [...seed.position] as Vec3 }
+      s.position[0] += (rng() - 0.5) * jitter
+      s.position[1] += (rng() - 0.5) * jitter
+      s.position[2] += (rng() - 0.5) * jitter
+      return s
     }
-    const count = Math.floor(8 + rng() * 9)
-    const indices = pool.slice(0, count)
-    return indices.map((i) => {
-      const seed = { ...DEFAULT_SEEDS[i], position: [...DEFAULT_SEEDS[i].position] as Vec3 }
-      const jitter = 0.15
-      seed.position[0] += (rng() - 0.5) * jitter
-      seed.position[1] += (rng() - 0.5) * jitter
-      seed.position[2] += (rng() - 0.5) * jitter
-      return createMentalFromSeed(seed)
+
+    const universalNames = new Set(UNIVERSAL_SEEDS.map((s) => s.name))
+    const mentals: Mental[] = []
+
+    // Universal 7 — exist in all timeline steps
+    UNIVERSAL_SEEDS.forEach((seed) => {
+      mentals.push(createMentalFromSeed(jitterSeed(seed)))
     })
+
+    if (index === 0 || index === 2) {
+      // T0 and T2: add Initial Application, Sustained Application, Decision
+      T0_SPECIFIC_SEEDS.forEach((seed) => {
+        mentals.push(createMentalFromSeed(jitterSeed(seed)))
+      })
+    } else if (index === 1) {
+      // T1: Universal 7 only — Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty
+      // No other mentals
+    } else if (index === 3) {
+      // T3: default like T0; if Happy selected, add Joy (Rapture) mental
+      T0_SPECIFIC_SEEDS.forEach((seed) => {
+        mentals.push(createMentalFromSeed(jitterSeed(seed)))
+      })
+      if (t3Happy) {
+        const joySeed = jitterSeed({
+          name: 'Joy (Pīti)',
+          color: '#38bdf8',
+          scale: 0.14,
+          position: [0.1, -0.38, 0.15] as Vec3,
+          detail: 'Rapture/joyful interest that refreshes the mind',
+        } as MentalSeed)
+        mentals.push(new RaptureMental({
+          name: joySeed.name,
+          detail: joySeed.detail ?? '',
+          color: joySeed.color,
+          scale: joySeed.scale,
+          position: joySeed.position,
+          labelEnabled: false,
+          motionSpeed: 0.0015,
+          opacity: 0.5,
+        }))
+      }
+    } else if (index === 4) {
+      // T4: same mentals as T3 with Happy — no option to click, always includes Joy
+      T0_SPECIFIC_SEEDS.forEach((seed) => {
+        mentals.push(createMentalFromSeed(jitterSeed(seed)))
+      })
+      const joySeed = jitterSeed({
+        name: 'Joy (Pīti)',
+        color: '#38bdf8',
+        scale: 0.14,
+        position: [0.1, -0.38, 0.15] as Vec3,
+        detail: 'Rapture/joyful interest that refreshes the mind',
+      } as MentalSeed)
+      mentals.push(new RaptureMental({
+        name: joySeed.name,
+        detail: joySeed.detail ?? '',
+        color: joySeed.color,
+        scale: joySeed.scale,
+        position: joySeed.position,
+        labelEnabled: false,
+        motionSpeed: 0.0015,
+        opacity: 0.5,
+      }))
+    } else if (index === 5) {
+      // T5: add T0 specific + mentals from selected rooted factor (single-select)
+      T0_SPECIFIC_SEEDS.forEach((seed) => {
+        mentals.push(createMentalFromSeed(jitterSeed(seed)))
+      })
+      if (t5SelectedId) {
+        const opt = T5_MENTAL_OPTIONS.find((o) => o.id === t5SelectedId)
+        if (opt) {
+          const seenVariants = new Set<string>()
+          opt.variants.forEach((v) => {
+            if (!seenVariants.has(v)) {
+              seenVariants.add(v)
+              const seed = getSeedForVariant(v)
+              if (seed) mentals.push(createMentalFromSeed(jitterSeed(seed)))
+            }
+          })
+        }
+      }
+      // If no selection, show random (fallback)
+      if (!t5SelectedId) {
+        const nonUniversal = DEFAULT_SEEDS.filter((s) => !universalNames.has(s.name))
+        const pool = nonUniversal.map((_, i) => i)
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]]
+        }
+        const count = Math.floor(4 + rng() * 8)
+        const indices = pool.slice(0, Math.min(count, pool.length))
+        indices.forEach((i) => {
+          const seed = jitterSeed(nonUniversal[i])
+          mentals.push(createMentalFromSeed(seed))
+        })
+      }
+    } else {
+      // T6: add random selection from non-universal seeds
+      const nonUniversal = DEFAULT_SEEDS.filter((s) => !universalNames.has(s.name))
+      const pool = nonUniversal.map((_, i) => i)
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]]
+      }
+      const count = Math.floor(4 + rng() * 8)
+      const indices = pool.slice(0, Math.min(count, pool.length))
+      indices.forEach((i) => {
+        const seed = jitterSeed(nonUniversal[i])
+        mentals.push(createMentalFromSeed(seed))
+      })
+    }
+
+    return mentals
   }
 
-  const [timelineMode, setTimelineMode] = useState(false)
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [timelineOpen, setTimelineOpen] = useState(true)
+  const [t3HappySelected, setT3HappySelected] = useState(false)
+  const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
 
-  const mentals = useMemo<Mental[]>(() => {
-    if (timelineMode) return getMentalsForTimelineStop(timelineIndex)
-    return staticMentals
-  }, [timelineMode, timelineIndex, staticMentals])
+  const mentals = useMemo<Mental[]>(
+    () => getMentalsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId),
+    [timelineIndex, t3HappySelected, t5SelectedId]
+  )
 
   const searchHighlight = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -1753,21 +2183,6 @@ export function Simulation(): React.ReactElement {
           )}
           <button
             type="button"
-            onClick={() => setTimelineMode((prev) => !prev)}
-            style={{
-              padding: '6px 10px',
-              borderRadius: 6,
-              border: 'none',
-              background: timelineMode ? '#06b6d4' : '#64748b',
-              color: 'white',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            {timelineMode ? 'Exit Timeline' : 'Timeline Mode'}
-          </button>
-          <button
-            type="button"
             onClick={handleToggleVr}
             disabled={vrButtonDisabled}
             title={vrButtonTitle}
@@ -1834,27 +2249,29 @@ export function Simulation(): React.ReactElement {
             {arMessage && <span style={{ color: '#fbbf24' }}>{arMessage}</span>}
           </div>
         </div>
-        {timelineMode && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 16,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 12,
-              pointerEvents: 'auto',
-            }}
-          >
-            <TimelineCanvas
-              stops={TIMELINE_STOPS}
-              selectedIndex={timelineIndex ?? 0}
-              onSelect={setTimelineIndex}
-              colors={TIMELINE_COLORS}
-              isOpen={timelineOpen}
-              onToggleOpen={() => setTimelineOpen((o) => !o)}
-            />
-          </div>
-        )}
+        <div
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 12,
+            pointerEvents: 'auto',
+          }}
+        >
+          <TimelineCanvas
+            stops={TIMELINE_STOPS}
+            selectedIndex={timelineIndex ?? 0}
+            onSelect={setTimelineIndex}
+            colors={TIMELINE_COLORS}
+            isOpen={timelineOpen}
+            onToggleOpen={() => setTimelineOpen((o) => !o)}
+            t3HappySelected={t3HappySelected}
+            onT3HappyChange={setT3HappySelected}
+            t5SelectedId={t5SelectedId}
+            onT5Change={setT5SelectedId}
+          />
+        </div>
         {selected && (
           <InspectPanel
             selection={selected}

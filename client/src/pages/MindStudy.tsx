@@ -24,6 +24,8 @@ import paperPlaneAssetModel from '../assets/paper_plane_asset.glb?url'
 import brainModel from '../assets/brain_3d.glb?url'
 import ghostModel from '../assets/ghost_of_tsushiito.glb?url'
 import { loadMentalTableRows } from '../utils/mentalTable'
+import { CETASIKA_CATEGORIES, type CetasikaCard } from '../data/cetasikaGrid'
+import { MentalSpherePreview } from '../components/MentalSpherePreview'
 
 type Topic = {
   id: string
@@ -133,6 +135,12 @@ export function MindStudy(): React.ReactElement {
   const [selectedMind, setSelectedMind] = useState<DhammaObject | null>(null)
   const [learnMoreConfirmOpen, setLearnMoreConfirmOpen] = useState<boolean>(false)
   const [showDuckPool, setShowDuckPool] = useState<boolean>(false)
+  const [selectedCetasika, setSelectedCetasika] = useState<CetasikaCard | null>(null)
+  const [cetasikaModalOpen, setCetasikaModalOpen] = useState<boolean>(false)
+  const [hoveredCetasikaId, setHoveredCetasikaId] = useState<string | null>(null)
+  const [neutralNavOpen, setNeutralNavOpen] = useState(false)
+  const [badNavOpen, setBadNavOpen] = useState(false)
+  const [goodNavOpen, setGoodNavOpen] = useState(false)
   const [narrativePlaying, setNarrativePlaying] = useState<boolean>(false)
   const [subtitleLine, setSubtitleLine] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -388,6 +396,72 @@ export function MindStudy(): React.ReactElement {
               role="region"
               aria-label="Subtopics"
             >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  type="button"
+                  className="mindstudy-nav-item sub"
+                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                  onClick={() => setNeutralNavOpen((o) => !o)}
+                  aria-expanded={neutralNavOpen}
+                >
+                  <span>Cetasikas — Neutral (13)</span>
+                  <span className={`mindstudy-caret ${neutralNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
+                </button>
+                <div
+                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${neutralNavOpen ? 'open' : ''}`}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
+                >
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-neutral-universal">
+                    สัพพจิตตสาธารณ (7)
+                  </a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-neutral-pakinnaka">
+                    ปกิณณก (6)
+                  </a>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  type="button"
+                  className="mindstudy-nav-item sub"
+                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                  onClick={() => setBadNavOpen((o) => !o)}
+                  aria-expanded={badNavOpen}
+                >
+                  <span>Cetasikas — Bad (14)</span>
+                  <span className={`mindstudy-caret ${badNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
+                </button>
+                <div
+                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${badNavOpen ? 'open' : ''}`}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
+                >
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-moha">โมหจตุกกะ (4)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-lobha">โลภจตุกกะ (3)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-dosa">โทจตุกกะ (4)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-thinamiddha">ถีนมิทธะ (2)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-vicikiccha">วิจิกิจฉา (1)</a>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  type="button"
+                  className="mindstudy-nav-item sub"
+                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                  onClick={() => setGoodNavOpen((o) => !o)}
+                  aria-expanded={goodNavOpen}
+                >
+                  <span>Cetasikas — Good (25)</span>
+                  <span className={`mindstudy-caret ${goodNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
+                </button>
+                <div
+                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${goodNavOpen ? 'open' : ''}`}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
+                >
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-sobhana">โสภณสาธารณ (19)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-virati">วิรตี (3)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-appamanna">อัปปมัญญา (2)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-panna">ปัญญา (1)</a>
+                </div>
+              </div>
               {aggregates.map((topic) => (
                 <a
                   key={topic.id}
@@ -452,6 +526,165 @@ export function MindStudy(): React.ReactElement {
               <span className="mindstudy-caret" aria-hidden>→</span>
             </button>
           </article>
+
+          {CETASIKA_CATEGORIES.map((cat) => {
+            const isNeutral = cat.titleEn.startsWith('Neutral')
+            const isGood = cat.titleEn.startsWith('Good')
+            const accentColor = isGood ? '#22c55e' : isNeutral ? '#94a3b8' : '#ef4444'
+            const sectionId = isNeutral ? 'cetasikas-neutral' : isGood ? 'cetasikas-good' : 'cetasikas-bad'
+
+            if (cat.subcategories?.length) {
+              return (
+                <article
+                  key={cat.titleEn}
+                  id={sectionId}
+                  className="mindstudy-section"
+                  style={{
+                    borderLeft: `4px solid ${accentColor}`,
+                    paddingLeft: 16,
+                    marginBottom: 32,
+                  }}
+                >
+                  <div className="mindstudy-section-header">
+                    <span className="mindstudy-badge" style={{ background: accentColor }}>
+                      {cat.titleEn}
+                    </span>
+                    <h2 style={{ color: 'var(--mindstudy-fg, #e2e8f0)' }}>{cat.title}</h2>
+                    <p className="mindstudy-section-desc">
+                      {cat.count} factors in {cat.subcategories.length} sub-categories. Tap a card to inspect.
+                    </p>
+                  </div>
+                  {cat.subcategories.map((sub, subIdx) => {
+                    const subId = sub.id ?? `cetasikas-sub-${subIdx}`
+                    return (
+                      <div
+                        key={subId}
+                        id={subId}
+                        className="mindstudy-subsection"
+                        style={{
+                          marginTop: 20,
+                          padding: 16,
+                          borderRadius: 12,
+                          border: `2px solid ${accentColor}`,
+                        }}
+                      >
+                        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--mindstudy-fg, #e2e8f0)', marginBottom: 12 }}>
+                          {sub.title} — {sub.titleEn}
+                        </h3>
+                        <div className="mindstudy-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                          {sub.items.map((item, index) => {
+                            const levelLabel = (index + 1).toString().padStart(2, '0')
+                            return (
+                              <article
+                                key={item.id}
+                                className="mindstudy-card"
+                                onMouseEnter={() => setHoveredCetasikaId(item.id)}
+                                onMouseLeave={() => setHoveredCetasikaId(null)}
+                              >
+                                <button
+                                  type="button"
+                                  className="mindstudy-card-trigger"
+                                  onClick={() => {
+                                    setSelectedCetasika(item)
+                                    setCetasikaModalOpen(true)
+                                  }}
+                                  aria-label={`${item.pali} (${item.thai})`}
+                                >
+                                  <div className="mindstudy-card-topline">
+                                    <span className="mindstudy-level-pill">{levelLabel}</span>
+                                    <span className="mindstudy-mode-hint">Hover for sphere · Tap to inspect</span>
+                                  </div>
+                                  <div className="mindstudy-card-top">
+                                    <div className="mindstudy-card-text">
+                                      <h3 className="mindstudy-card-title" style={{ fontSize: 14 }}>{item.pali}</h3>
+                                      <p className="mindstudy-card-sub" style={{ fontSize: 11 }}>{item.thai} · {item.className}</p>
+                                    </div>
+                                    <span className="mindstudy-caret" aria-hidden>→</span>
+                                  </div>
+                                  <div className="mindstudy-card-preview" style={{ height: 100, minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${accentColor}18`, borderRadius: 8, overflow: 'hidden' }}>
+                                    {hoveredCetasikaId === item.id ? (
+                                      <MentalSpherePreview card={item} accentColor={accentColor} />
+                                    ) : (
+                                      <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{item.pali.charAt(0)}</span>
+                                    )}
+                                  </div>
+                                </button>
+                              </article>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </article>
+              )
+            }
+
+            return (
+              <article
+                key={cat.titleEn}
+                id={sectionId}
+                className="mindstudy-section"
+                style={{
+                  borderLeft: `4px solid ${accentColor}`,
+                  paddingLeft: 16,
+                  marginBottom: 32,
+                }}
+              >
+                <div className="mindstudy-section-header">
+                  <span className="mindstudy-badge" style={{ background: accentColor }}>
+                    {cat.titleEn}
+                  </span>
+                  <h2 style={{ color: 'var(--mindstudy-fg, #e2e8f0)' }}>{cat.title}</h2>
+                  <p className="mindstudy-section-desc">
+                    {cat.count} factors. Tap a card to inspect.
+                  </p>
+                </div>
+                <div className="mindstudy-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+                  {cat.items.map((item, index) => {
+                    const levelLabel = (index + 1).toString().padStart(2, '0')
+                    return (
+                      <article
+                        key={item.id}
+                        className="mindstudy-card"
+                        onMouseEnter={() => setHoveredCetasikaId(item.id)}
+                        onMouseLeave={() => setHoveredCetasikaId(null)}
+                      >
+                        <button
+                          type="button"
+                          className="mindstudy-card-trigger"
+                          onClick={() => {
+                            setSelectedCetasika(item)
+                            setCetasikaModalOpen(true)
+                          }}
+                          aria-label={`${item.pali} (${item.thai})`}
+                        >
+                          <div className="mindstudy-card-topline">
+                            <span className="mindstudy-level-pill">{levelLabel}</span>
+                            <span className="mindstudy-mode-hint">Hover for sphere · Tap to inspect</span>
+                          </div>
+                          <div className="mindstudy-card-top">
+                            <div className="mindstudy-card-text">
+                              <h3 className="mindstudy-card-title" style={{ fontSize: 14 }}>{item.pali}</h3>
+                              <p className="mindstudy-card-sub" style={{ fontSize: 11 }}>{item.thai} · {item.className}</p>
+                            </div>
+                            <span className="mindstudy-caret" aria-hidden>→</span>
+                          </div>
+                          <div className="mindstudy-card-preview" style={{ height: 100, minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${accentColor}18`, borderRadius: 8, overflow: 'hidden' }}>
+                            {hoveredCetasikaId === item.id ? (
+                              <MentalSpherePreview card={item} accentColor={accentColor} />
+                            ) : (
+                              <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{item.pali.charAt(0)}</span>
+                            )}
+                          </div>
+                        </button>
+                      </article>
+                    )
+                  })}
+                </div>
+              </article>
+            )
+          })}
 
           <div className="mindstudy-grid-surface">
             <p className="mindstudy-grid-hint">
@@ -659,6 +892,50 @@ export function MindStudy(): React.ReactElement {
                 }}
               >
                 Inspect this mind →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cetasikaModalOpen && selectedCetasika && (
+        <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setCetasikaModalOpen(false)}>
+          <div
+            className="mindstudy-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Inspect ${selectedCetasika.pali}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mindstudy-modal-glow" aria-hidden />
+            <div className="mindstudy-modal-header">
+              <span className="mindstudy-level-pill small">Cetasika</span>
+              <button className="mindstudy-modal-close" onClick={() => setCetasikaModalOpen(false)} aria-label="Close dialog">
+                ✕
+              </button>
+            </div>
+            <div className="mindstudy-modal-body">
+              <h3>{selectedCetasika.pali} ({selectedCetasika.thai})</h3>
+              <p className="mindstudy-modal-sub">{selectedCetasika.className}</p>
+              <p className="mindstudy-section-desc">{selectedCetasika.description}</p>
+              <ul className="mindstudy-list modal-list">
+                {selectedCetasika.highlights.map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
+              </ul>
+            </div>
+            <div className="mindstudy-modal-actions">
+              <button className="mindstudy-btn ghost" onClick={() => setCetasikaModalOpen(false)}>
+                Maybe later
+              </button>
+              <button
+                className="mindstudy-btn primary"
+                onClick={() => {
+                  setCetasikaModalOpen(false)
+                  navigate(`/mind-study/${selectedCetasika.id}`)
+                  setSelectedCetasika(null)
+                }}
+              >
+                Inspect this cetasika →
               </button>
             </div>
           </div>

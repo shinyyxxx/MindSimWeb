@@ -368,6 +368,44 @@ const buildMentalsFromRow = (row: MindElementRow): Mental[] => {
   return mentals
 }
 
+/** Map cetasika grid id (from /mind-study/:mindId) to label for pickMentalFactory when Excel has no row */
+const CETASIKA_ID_TO_LABEL: Record<string, string> = {
+  contact: 'Contact', feeling: 'Feeling', perception: 'Perception', intention: 'Intention',
+  concentration: 'Concentration', 'life-faculty': 'Life faculty', attention: 'Attention',
+  'initial-application': 'Initial application', 'sustained-application': 'Sustained application',
+  decision: 'Determination', energy: 'Energy', rapture: 'Rapture', desire: 'Desire',
+  delusion: 'Delusion', shamelessness: 'Shamelessness', recklessness: 'Recklessness', restlessness: 'Restlessness',
+  greed: 'Greed', 'wrong-view': 'Wrong view', conceit: 'Conceit', hatred: 'Hatred', envy: 'Envy',
+  stinginess: 'Stinginess', worry: 'Worry', sloth: 'Sloth', torpor: 'Torpor', doubt: 'Doubt',
+  faith: 'Faith', mindfulness: 'Mindfulness', 'moral-shame': 'Moral shame', 'moral-dread': 'Moral dread',
+  'non-greed': 'Non-greed', 'non-hatred': 'Non-hatred', equanimity: 'Equanimity',
+  'tranquility-body': 'Tranquility body', 'tranquility-mind': 'Tranquility mind',
+  'lightness-body': 'Lightness body', 'lightness-mind': 'Lightness mind',
+  'wieldiness-body': 'Wieldiness body', 'wieldiness-mind': 'Wieldiness mind',
+  'proficiency-body': 'Proficiency body', 'proficiency-mind': 'Proficiency mind',
+  'pliancy-body': 'Pliancy body', 'pliancy-mind': 'Pliancy mind',
+  'rectitude-body': 'Rectitude body', 'rectitude-mind': 'Rectitude mind',
+  'right-speech': 'Right speech', 'right-action': 'Right action', 'right-livelihood': 'Right livelihood',
+  compassion: 'Compassion', 'appreciative-joy': 'Appreciative joy', wisdom: 'Wisdom',
+}
+
+function buildSingleMentalFromCetasikaId(id: string): Mental[] | null {
+  const label = CETASIKA_ID_TO_LABEL[id.toLowerCase()]
+  if (!label) return null
+  const factory = pickMentalFactory(label)
+  const name = label
+  const mental = factory({
+    name,
+    detail: `${label} (cetasika)`,
+    position: randomPosition(),
+    motionSpeed: 0.001,
+    scale: 0.18,
+    labelEnabled: false,
+    opacity: 0.52,
+  })
+  return [mental]
+}
+
 const formatMindName = (id?: string): string => {
   const mindKey = id ?? 'mind'
   const names: Record<string, string> = {
@@ -1030,13 +1068,39 @@ export function MindStudyInspect(): React.ReactElement {
         }
 
         const targetId = (mindId ?? 'mind').toLowerCase()
-        const targetRow = rows.find((row) => row.id === targetId) ?? rows[0]
-        setMindLabel(targetRow.name)
-        setMindDetail(targetRow.group || 'MindElement.xlsx')
-        setMentals((prev) => {
-          prev.forEach((m) => m.dispose())
-          return buildMentalsFromRow(targetRow)
-        })
+        const targetRow = rows.find((row) => row.id === targetId)
+        if (targetRow) {
+          setMindLabel(targetRow.name)
+          setMindDetail(targetRow.group || 'MindElement.xlsx')
+          setMentals((prev) => {
+            prev.forEach((m) => m.dispose())
+            return buildMentalsFromRow(targetRow!)
+          })
+        } else {
+          const singleMentals = buildSingleMentalFromCetasikaId(targetId)
+          if (singleMentals) {
+            setMindLabel(formatMindName(targetId))
+            setMindDetail('Cetasika')
+            setMentals((prev) => {
+              prev.forEach((m) => m.dispose())
+              return singleMentals
+            })
+          } else if (rows[0]) {
+            setMindLabel(rows[0].name)
+            setMindDetail(rows[0].group || 'MindElement.xlsx')
+            setMentals((prev) => {
+              prev.forEach((m) => m.dispose())
+              return buildMentalsFromRow(rows[0]!)
+            })
+          } else {
+            setMindLabel(formatMindName(targetId))
+            setMindDetail('Neutral mentals playground')
+            setMentals((prev) => {
+              prev.forEach((m) => m.dispose())
+              return buildDefaultNeutralMentals()
+            })
+          }
+        }
         setLoadError(null)
       } catch (err) {
         console.error('Failed to load MindElement.xlsx', err)
