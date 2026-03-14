@@ -1413,7 +1413,6 @@ function ThreeScene({
   defaultMindPosition,
   defaultMindScale,
   onRendererReady,
-  onVrPresentingChange,
   searchHighlight,
 }: {
   mind: Mind
@@ -1428,14 +1427,13 @@ function ThreeScene({
   defaultMindPosition: Vec3
   defaultMindScale: number
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
-  onVrPresentingChange?: (presenting: boolean) => void
   searchHighlight?: THREE.Object3D[]
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
   const [sendMeshSelection, setSendMeshSelection] = useState<THREE.Object3D[]>([])
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
-  const [isVrPresenting, setIsVrPresenting] = useState(false)
+  const isXrActive = xrMode !== null
   const isArMode = xrMode === 'ar'
   const showMentalsLayer = !isArMode || sendMode
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
@@ -1472,21 +1470,17 @@ function ThreeScene({
     >
       <XRStatusBridge
         onRendererReady={onRendererReady}
-        onPresentingChange={(presenting) => {
-          setIsVrPresenting(presenting)
-          onVrPresentingChange?.(presenting)
-        }}
       />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
       <OrbitControls
         ref={controlsRef}
-        enabled={!isVrPresenting}
+        enabled={!isXrActive}
         enableDamping={!selectedMentalName}
         dampingFactor={selectedMentalName ? 0 : 0.05}
         enableZoom
-        enablePan={!selectedMentalName && !isVrPresenting}
-        enableRotate={!selectedMentalName && !isVrPresenting}
+        enablePan={!selectedMentalName && !isXrActive}
+        enableRotate={!selectedMentalName && !isXrActive}
         minDistance={0.35}
         maxDistance={24}
         target={[mind.position.x, mind.position.y, mind.position.z]}
@@ -1552,19 +1546,14 @@ export function Simulation(): React.ReactElement {
   type XrSupport = 'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'
   const [activeXrMode, setActiveXrMode] = useState<'vr' | 'ar' | null>(null)
 
-  const [vrPresenting, setVrPresenting] = useState(false)
   const [vrSupport, setVrSupport] = useState<XrSupport>('checking')
   const [vrMessage, setVrMessage] = useState<string | null>(null)
-  const [vrDomOverlay, setVrDomOverlay] = useState(false)
 
-  const [arPresenting, setArPresenting] = useState(false)
   const [arSupport, setArSupport] = useState<XrSupport>('checking')
   const [arMessage, setArMessage] = useState<string | null>(null)
-  const [arDomOverlay, setArDomOverlay] = useState(false)
 
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
-  const requestedXrModeRef = useRef<'vr' | 'ar' | null>(null)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
   })
@@ -1852,6 +1841,110 @@ export function Simulation(): React.ReactElement {
     }
   }
 
+  type XrSessionMode = 'immersive-vr' | 'immersive-ar'
+  type XrNavigator = Navigator & {
+    xr?: {
+      isSessionSupported?: (mode: XrSessionMode) => Promise<boolean>
+      requestSession?: (mode: XrSessionMode, options?: XRSessionInit) => Promise<XRSession>
+    }
+  }
+
+  const startXrSession = async (mode: XrSessionMode) => {
+    const gl = rendererRef.current
+    const xrModeName: 'vr' | 'ar' = mode === 'immersive-ar' ? 'ar' : 'vr'
+
+    if (!gl) {
+      if (xrModeName === 'vr') setVrMessage('VR not ready yet (renderer still loading)')
+      else setArMessage('AR not ready yet (renderer still loading)')
+      return
+    }
+
+    if (!window.isSecureContext) {
+      if (xrModeName === 'vr') setVrMessage('VR requires HTTPS or localhost')
+      else setArMessage('AR requires HTTPS or localhost')
+      return
+    }
+
+    const xr = (navigator as XrNavigator).xr
+    if (!xr || typeof xr.requestSession !== 'function') {
+      if (xrModeName === 'vr') setVrMessage('WebXR not supported in this browser/device')
+      else setArMessage('WebXR not supported in this browser/device')
+      return
+    }
+
+    if (typeof xr.isSessionSupported === 'function') {
+      try {
+        const supported = await xr.isSessionSupported(mode)
+        if (!supported) {
+          if (xrModeName === 'vr') {
+            setVrSupport('unsupported')
+            setVrMessage('immersive-vr is not supported (connect headset / enable WebXR)')
+          } else {
+            setArSupport('unsupported')
+            setArMessage('immersive-ar is not supported on this device/browser')
+          }
+          return
+        }
+      } catch {
+        if (xrModeName === 'vr') setVrMessage('Failed to verify VR support')
+        else setArMessage('Failed to verify AR support')
+        return
+      }
+    }
+
+    if (gl.xr.isPresenting) {
+      const sameMode = activeXrMode === xrModeName
+      await gl.xr.getSession()?.end()
+      if (sameMode) {
+        setActiveXrMode(null)
+        return
+      }
+    }
+
+    try {
+      const baseFeatures = mode === 'immersive-ar' ? ['local-floor'] : ['local-floor', 'bounded-floor']
+      let session: XRSession
+      try {
+        session = await xr.requestSession(mode, {
+          optionalFeatures: [...baseFeatures, 'dom-overlay'],
+          domOverlay: { root: overlayRootRef.current ?? document.body },
+        } as XRSessionInit)
+      } catch {
+        session = await xr.requestSession(mode, {
+          optionalFeatures: baseFeatures,
+        })
+        if (xrModeName === 'vr') {
+          setVrMessage('Entered VR without DOM overlay. Use browser/headset system exit to leave session.')
+        } else {
+          setArMessage('Entered AR without DOM overlay. Use browser/device system exit to leave session.')
+        }
+      }
+
+      session.addEventListener(
+        'end',
+        () => {
+          setActiveXrMode(null)
+        },
+        { once: true }
+      )
+
+      try {
+        gl.xr.setReferenceSpaceType('local-floor')
+      } catch {
+        gl.xr.setReferenceSpaceType('local')
+      }
+
+      await gl.xr.setSession(session)
+      setActiveXrMode(xrModeName)
+      if (xrModeName === 'vr') setArMessage(null)
+      else setVrMessage(null)
+    } catch (error) {
+      console.error(`Failed to enter ${xrModeName.toUpperCase()}`, error)
+      if (xrModeName === 'vr') setVrMessage('Failed to enter VR (see console)')
+      else setArMessage('Failed to enter AR (see console)')
+    }
+  }
+
   const vrButtonDisabled = (() => {
     if (activeXrMode === 'vr') return false
     if (!rendererRef.current) return true
@@ -1869,94 +1962,7 @@ export function Simulation(): React.ReactElement {
   })()
 
   const handleToggleVr = async () => {
-    const gl = rendererRef.current
-    if (!gl) {
-      setVrMessage('VR not ready yet (renderer still loading)')
-      return
-    }
-
-    if (!window.isSecureContext) {
-      setVrMessage('VR requires HTTPS or localhost')
-      return
-    }
-
-    const xr = (navigator as unknown as { xr?: { requestSession: Function; isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
-    if (!xr) {
-      setVrMessage('WebXR not supported in this browser/device')
-      return
-    }
-
-    requestedXrModeRef.current = 'vr'
-
-    // Toggle / switch: if something is presenting, end it first.
-    if (gl.xr.isPresenting) {
-      const sameMode = activeXrMode === 'vr'
-      await gl.xr.getSession()?.end()
-      if (sameMode) {
-        requestedXrModeRef.current = null
-        return
-      }
-    }
-
-    try {
-      if (typeof xr.isSessionSupported === 'function') {
-        const ok = await xr.isSessionSupported('immersive-vr')
-        if (!ok) {
-          setVrMessage('immersive-vr not supported (connect a headset / enable WebXR)')
-          setVrSupport('unsupported')
-          return
-        }
-      }
-
-      const baseInit: any = {
-        optionalFeatures: ['local-floor', 'bounded-floor'],
-      }
-
-      // Try to enable DOM Overlay so the HTML toolbar stays visible in VR.
-      // If not supported, we fall back to regular VR (UI will disappear).
-      let session: any
-      try {
-        session = await (xr.requestSession as any)('immersive-vr', {
-          ...baseInit,
-          optionalFeatures: [...baseInit.optionalFeatures, 'dom-overlay'],
-          domOverlay: { root: overlayRootRef.current ?? document.body },
-        })
-        setVrDomOverlay(true)
-      } catch (overlayErr) {
-        console.warn('DOM Overlay not available, falling back', overlayErr)
-        session = await (xr.requestSession as any)('immersive-vr', baseInit)
-        setVrDomOverlay(false)
-        setVrMessage('Entered VR without DOM overlay (toolbar will be hidden). Press Esc to exit.')
-      }
-
-      session.addEventListener(
-        'end',
-        () => {
-          setVrPresenting(false)
-          setVrDomOverlay(false)
-          if (activeXrMode === 'vr') setActiveXrMode(null)
-          requestedXrModeRef.current = null
-        },
-        { once: true }
-      )
-      gl.xr.setReferenceSpaceType('local-floor')
-      await gl.xr.setSession(session)
-      setVrPresenting(true)
-      setArPresenting(false)
-      setActiveXrMode('vr')
-      requestedXrModeRef.current = 'vr'
-      // If we have DOM overlay, clear messages; otherwise keep the hint.
-      if (session?.domOverlayState?.type) {
-        // If browser reports an overlay type, assume overlay is active.
-        setVrDomOverlay(true)
-        setVrMessage(null)
-      }
-    } catch (err) {
-      console.error('Failed to enter VR', err)
-      setVrMessage('Failed to enter VR (see console)')
-      setVrPresenting(false)
-      requestedXrModeRef.current = null
-    }
+    await startXrSession('immersive-vr')
   }
 
   const arButtonDisabled = (() => {
@@ -1976,98 +1982,7 @@ export function Simulation(): React.ReactElement {
   })()
 
   const handleToggleAr = async () => {
-    const gl = rendererRef.current
-    if (!gl) {
-      setArMessage('AR not ready yet (renderer still loading)')
-      return
-    }
-
-    if (!window.isSecureContext) {
-      setArMessage('AR requires HTTPS or localhost')
-      return
-    }
-
-    const xr = (navigator as unknown as { xr?: { requestSession: Function; isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
-    if (!xr) {
-      setArMessage('WebXR not supported in this browser/device')
-      return
-    }
-
-    requestedXrModeRef.current = 'ar'
-
-    // Toggle / switch: if something is presenting, end it first.
-    if (gl.xr.isPresenting) {
-      const sameMode = activeXrMode === 'ar'
-      await gl.xr.getSession()?.end()
-      if (sameMode) {
-        requestedXrModeRef.current = null
-        return
-      }
-    }
-
-    try {
-      if (typeof xr.isSessionSupported === 'function') {
-        const ok = await xr.isSessionSupported('immersive-ar')
-        if (!ok) {
-          setArMessage('immersive-ar not supported (use a phone/tablet with AR support)')
-          setArSupport('unsupported')
-          return
-        }
-      }
-
-      const baseInit: any = {
-        // Prefer floor-aligned reference space so models aren't "floating".
-        // Fall back handled below if not supported.
-        optionalFeatures: ['local-floor'],
-      }
-
-      let session: any
-      try {
-        session = await (xr.requestSession as any)('immersive-ar', {
-          ...baseInit,
-          optionalFeatures: [...baseInit.optionalFeatures, 'dom-overlay'],
-          domOverlay: { root: overlayRootRef.current ?? document.body },
-        })
-        setArDomOverlay(true)
-      } catch (overlayErr) {
-        console.warn('DOM Overlay not available, falling back', overlayErr)
-        session = await (xr.requestSession as any)('immersive-ar', baseInit)
-        setArDomOverlay(false)
-        setArMessage('Entered AR without DOM overlay. Tap to exit if UI is hidden.')
-      }
-
-      session.addEventListener(
-        'end',
-        () => {
-          setArPresenting(false)
-          setArDomOverlay(false)
-          if (activeXrMode === 'ar') setActiveXrMode(null)
-          requestedXrModeRef.current = null
-        },
-        { once: true }
-      )
-
-      try {
-        gl.xr.setReferenceSpaceType('local-floor')
-      } catch {
-        gl.xr.setReferenceSpaceType('local')
-      }
-      await gl.xr.setSession(session)
-      setArPresenting(true)
-      setVrPresenting(false)
-      setActiveXrMode('ar')
-      requestedXrModeRef.current = 'ar'
-
-      if (session?.domOverlayState?.type) {
-        setArDomOverlay(true)
-        setArMessage(null)
-      }
-    } catch (err) {
-      console.error('Failed to enter AR', err)
-      setArMessage('Failed to enter AR (see console)')
-      setArPresenting(false)
-      requestedXrModeRef.current = null
-    }
+    await startXrSession('immersive-ar')
   }
 
   return (
@@ -2220,9 +2135,7 @@ export function Simulation(): React.ReactElement {
             <span>
               VR:{' '}
               {activeXrMode === 'vr'
-                ? vrDomOverlay
-                  ? 'On (Overlay)'
-                  : 'On'
+                ? 'On'
                 : vrSupport === 'supported'
                   ? 'Ready'
                   : vrSupport === 'checking'
@@ -2232,9 +2145,7 @@ export function Simulation(): React.ReactElement {
             <span>
               AR:{' '}
               {activeXrMode === 'ar'
-                ? arDomOverlay
-                  ? 'On (Overlay)'
-                  : 'On'
+                ? 'On'
                 : arSupport === 'supported'
                   ? 'Ready'
                   : arSupport === 'checking'
@@ -2304,35 +2215,6 @@ export function Simulation(): React.ReactElement {
           searchHighlight={searchHighlight}
           onRendererReady={(gl) => {
             rendererRef.current = gl
-          }}
-          onVrPresentingChange={(presenting) => {
-            if (presenting) {
-              const session: any = rendererRef.current?.xr.getSession?.()
-              const blendMode = session?.environmentBlendMode as string | undefined
-              const inferredMode: 'vr' | 'ar' | null =
-                requestedXrModeRef.current ??
-                activeXrMode ??
-                (blendMode === 'alpha-blend' ? 'ar' : blendMode ? 'vr' : null)
-
-              if (inferredMode === 'ar') {
-                setActiveXrMode('ar')
-                setArPresenting(true)
-                setVrPresenting(false)
-                setArMessage(null)
-              } else {
-                setActiveXrMode('vr')
-                setVrPresenting(true)
-                setArPresenting(false)
-                setVrMessage(null)
-              }
-            } else {
-              setVrPresenting(false)
-              setArPresenting(false)
-              setVrDomOverlay(false)
-              setArDomOverlay(false)
-              setActiveXrMode(null)
-              requestedXrModeRef.current = null
-            }
           }}
         />
       </div>
