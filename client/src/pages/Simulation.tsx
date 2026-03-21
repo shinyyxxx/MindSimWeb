@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -63,6 +63,8 @@ import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
+import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
+import { useXRSession } from './simulation/useXRSession'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -474,176 +476,6 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   })
 }
 
-function XRStatusBridge({
-  onRendererReady,
-  onPresentingChange,
-}: {
-  onRendererReady?: (gl: THREE.WebGLRenderer) => void
-  onPresentingChange?: (presenting: boolean) => void
-}) {
-  const { gl } = useThree()
-  const lastPresentingRef = useRef<boolean | null>(null)
-
-  useEffect(() => {
-    gl.xr.enabled = true
-    onRendererReady?.(gl)
-  }, [gl, onRendererReady])
-
-  useFrame(() => {
-    const presenting = gl.xr.isPresenting
-    if (lastPresentingRef.current !== presenting) {
-      lastPresentingRef.current = presenting
-      onPresentingChange?.(presenting)
-    }
-  })
-
-  return null
-}
-
-function XRMovement({
-  enabled,
-  moveSpeed = 1.8,
-  sprintMultiplier = 1.8,
-  turnSpeed = 1.8,
-}: {
-  enabled: boolean
-  moveSpeed?: number
-  sprintMultiplier?: number
-  turnSpeed?: number
-}) {
-  const { gl, camera } = useThree()
-  const keysRef = useRef<Record<string, boolean>>({})
-  const baseReferenceSpaceRef = useRef<XRReferenceSpace | null>(null)
-  const locomotionOffsetRef = useRef(new THREE.Vector3())
-  const yawRef = useRef(0)
-  const forwardRef = useRef(new THREE.Vector3())
-  const rightRef = useRef(new THREE.Vector3())
-  const moveRef = useRef(new THREE.Vector3())
-  const orientationRef = useRef(new THREE.Quaternion())
-  const inverseOrientationRef = useRef(new THREE.Quaternion())
-  const inversePositionRef = useRef(new THREE.Vector3())
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      keysRef.current[event.code] = true
-    }
-    const onKeyUp = (event: KeyboardEvent) => {
-      keysRef.current[event.code] = false
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-    }
-  }, [])
-
-  useFrame((_state, delta) => {
-    if (!enabled || !gl.xr.isPresenting) {
-      baseReferenceSpaceRef.current = null
-      locomotionOffsetRef.current.set(0, 0, 0)
-      return
-    }
-
-    if (!baseReferenceSpaceRef.current) {
-      baseReferenceSpaceRef.current = gl.xr.getReferenceSpace()
-    }
-    const baseReferenceSpace = baseReferenceSpaceRef.current
-    if (!baseReferenceSpace) return
-
-    const keys = keysRef.current
-    let strafe = 0
-    let forward = 0
-    let turn = 0
-
-    const session = gl.xr.getSession()
-    if (session) {
-      for (const inputSource of session.inputSources) {
-        const gamepad = (inputSource as { gamepad?: Gamepad }).gamepad
-        if (!gamepad || gamepad.axes.length < 2) continue
-
-        // Runtime/browser mappings vary. Pick the strongest axis pair.
-        const pairs: [number, number][] = [[2, 3], [0, 1]]
-        let bestPair: [number, number] = [0, 1]
-        let bestMagnitude = -1
-        for (const pair of pairs) {
-          const ax = gamepad.axes[pair[0]] ?? 0
-          const ay = gamepad.axes[pair[1]] ?? 0
-          const magnitude = Math.hypot(ax, ay)
-          if (magnitude > bestMagnitude) {
-            bestMagnitude = magnitude
-            bestPair = pair
-          }
-        }
-
-        const axisX = gamepad.axes[bestPair[0]] ?? 0
-        const axisY = gamepad.axes[bestPair[1]] ?? 0
-        if (Math.hypot(axisX, axisY) < 0.12) continue
-
-        if (inputSource.handedness === 'left') {
-          strafe += axisX
-          forward += -axisY
-        } else if (inputSource.handedness === 'right') {
-          turn += axisX
-        }
-      }
-    }
-
-    if (Math.abs(turn) > 0.12) {
-      // Positive X on the right stick should turn the player right.
-      yawRef.current -= turn * turnSpeed * delta
-    }
-
-    let hasMovement = false
-    if (Math.abs(strafe) >= 0.001 || Math.abs(forward) >= 0.001) {
-      hasMovement = true
-
-      camera.getWorldDirection(forwardRef.current)
-      forwardRef.current.y = 0
-      if (forwardRef.current.lengthSq() >= 1e-8) {
-        forwardRef.current.normalize()
-
-        rightRef.current.crossVectors(forwardRef.current, THREE.Object3D.DEFAULT_UP).normalize()
-
-        moveRef.current.set(0, 0, 0)
-        moveRef.current.addScaledVector(rightRef.current, strafe)
-        moveRef.current.addScaledVector(forwardRef.current, forward)
-        const moveLen = moveRef.current.length()
-        if (moveLen >= 1e-6) {
-          moveRef.current.multiplyScalar(1 / moveLen)
-
-          const speedMultiplier = keys.ShiftLeft || keys.ShiftRight ? sprintMultiplier : 1
-          const frameSpeed = moveSpeed * speedMultiplier * delta
-          locomotionOffsetRef.current.addScaledVector(moveRef.current, frameSpeed)
-        }
-      }
-    }
-
-    if (!hasMovement && Math.abs(turn) <= 0.12) return
-
-    const offset = locomotionOffsetRef.current
-    orientationRef.current.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yawRef.current)
-    inverseOrientationRef.current.copy(orientationRef.current).invert()
-    // Inverse rigid transform translation: -R^-1 * p
-    // This keeps turning centered on the user rather than orbiting world origin.
-    inversePositionRef.current.copy(offset).applyQuaternion(inverseOrientationRef.current).multiplyScalar(-1)
-    const referenceSpace = baseReferenceSpace.getOffsetReferenceSpace(
-      new XRRigidTransform(
-        { x: inversePositionRef.current.x, y: inversePositionRef.current.y, z: inversePositionRef.current.z },
-        {
-          x: inverseOrientationRef.current.x,
-          y: inverseOrientationRef.current.y,
-          z: inverseOrientationRef.current.z,
-          w: inverseOrientationRef.current.w,
-        }
-      )
-    )
-    gl.xr.setReferenceSpace(referenceSpace)
-  })
-
-  return null
-}
-
 type MentalSeed = {
   name: string
   color: string
@@ -925,6 +757,112 @@ function MentalsLayer({
   const senderRef = useRef<Mental | null>(null)
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
 
+  const collectMentalTargets = useCallback((list: Mental[]): THREE.Object3D[] => {
+    const targets: THREE.Object3D[] = []
+    list.forEach((mental) => {
+      const mesh = mental.getMesh()
+      if (mesh) targets.push(mesh)
+    })
+    return targets
+  }, [])
+
+  const findMentalForHitObject = useCallback((list: Mental[], hitObject: THREE.Object3D): Mental | undefined => {
+    return list.find((mental) => {
+      const mesh = mental.getMesh()
+      if (!mesh) return false
+      let node: THREE.Object3D | null = hitObject
+      while (node) {
+        if (node === mesh) return true
+        node = node.parent
+      }
+      return false
+    })
+  }, [])
+
+  const findTargetMeshForHitObject = useCallback((targets: THREE.Object3D[], hitObject: THREE.Object3D): THREE.Object3D | undefined => {
+    return targets.find((mesh) => {
+      let node: THREE.Object3D | null = hitObject
+      while (node) {
+        if (node === mesh) return true
+        node = node.parent
+      }
+      return false
+    })
+  }, [])
+
+  const handleMentalPick = useCallback((found: Mental, screenPos?: { x: number; y: number }) => {
+    if (sendMode) {
+      // In send mode: first pick selects sender, second pick sends to receiver.
+      const currentSender = senderRef.current
+      if (!currentSender) {
+        senderRef.current = found
+        const senderMesh = found.getMesh()
+        // Highlight the sender when first selected.
+        if (senderMesh && onSendMeshSelection) {
+          onSendMeshSelection([senderMesh])
+        }
+        onSendSelection?.({ sender: found.getName(), receiver: null, status: 'Choose receiver' })
+        return
+      }
+      if (currentSender === found) {
+        // Same as sender; ignore to avoid self-send spam.
+        return
+      }
+      const senderName = currentSender.getName()
+      const receiverName = found.getName()
+      const receiverMesh = found.getMesh()
+
+      // Unhighlight sender and highlight only the receiver.
+      if (receiverMesh && onSendMeshSelection) {
+        onSendMeshSelection([receiverMesh])
+      }
+
+      onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
+      const sendPromise = currentSender.sendDataTo(gl, found, {
+        planeModelPath,
+        durationMs: 1400,
+        arcHeight: 0.14,
+        scale: 0.1,
+      })
+
+      if (!sendPromise || typeof (sendPromise as Promise<void>).then !== 'function') {
+        onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed (no send promise)' })
+        senderRef.current = null
+        return
+      }
+
+      ;(sendPromise as Promise<void>)
+        .then(() => {
+          onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
+          // Keep receiver highlighted until another one is picked.
+        })
+        .catch((err) => {
+          console.error('Failed to visualize send', err)
+          onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
+          // Keep receiver highlighted even on error.
+        })
+      // Reset sender so next pick can choose a new sender.
+      senderRef.current = null
+      return
+    }
+
+    // Stop motion while inspecting.
+    found.setFrozen(true)
+    const worldPos = new THREE.Vector3()
+    found.getMesh()?.getWorldPosition(worldPos)
+    focusTargetRef.current = worldPos
+
+    const idx = mind.getMentals().indexOf(found)
+    onSelectMental({
+      name: found.getName(),
+      detail: found.getDetail(),
+      type: found.getType?.() ?? 'mental',
+      labelNumber: idx + 1,
+      screenPosition: screenPos,
+      modelPath: found.getModelPath?.(),
+    })
+  }, [focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
+
   useEffect(() => {
     mind.clearMentals()
     mentals.forEach((mental) => mind.addMental(mental))
@@ -957,102 +895,19 @@ function MentalsLayer({
       raycaster.setFromCamera(pointer, camera)
 
       const list = mind.getMentals()
-      const targets: THREE.Object3D[] = []
-      list.forEach((mental) => {
-        const mesh = mental.getMesh()
-        if (mesh) targets.push(mesh)
-      })
+      const targets = collectMentalTargets(list)
 
       const hits = raycaster.intersectObjects(targets, true)
       if (!hits.length) return
 
-      const hit = hits[0].object
-      const found = list.find((mental) => {
-        const mesh = mental.getMesh()
-        if (!mesh) return false
-        let node: THREE.Object3D | null = hit
-        while (node) {
-          if (node === mesh) return true
-          node = node.parent
-        }
-        return false
-      })
+      const found = findMentalForHitObject(list, hits[0].object)
 
       if (found) {
-        if (sendMode) {
-          // In send mode: first click picks sender, second click sends to receiver.
-          const currentSender = senderRef.current
-          if (!currentSender) {
-            senderRef.current = found
-            const senderMesh = found.getMesh()
-            // Highlight the sender when first selected
-            if (senderMesh && onSendMeshSelection) {
-              onSendMeshSelection([senderMesh])
-            }
-            onSendSelection?.({ sender: found.getName(), receiver: null, status: 'Choose receiver' })
-            return
-          }
-          if (currentSender === found) {
-            // Same as sender; ignore to avoid self-send spam.
-            return
-          }
-          const senderName = currentSender.getName()
-          const receiverName = found.getName()
-          const receiverMesh = found.getMesh()
-          
-          // Unhighlight sender and highlight only the receiver
-          if (receiverMesh && onSendMeshSelection) {
-            onSendMeshSelection([receiverMesh])
-          }
-          
-          onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
-          const sendPromise = currentSender.sendDataTo(gl, found, {
-            planeModelPath,
-            durationMs: 1400,
-            arcHeight: 0.14,
-            scale: 0.1,
-          })
-
-          if (!sendPromise || typeof (sendPromise as Promise<void>).then !== 'function') {
-            onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed (no send promise)' })
-            senderRef.current = null
-            return
-          }
-
-          ;(sendPromise as Promise<void>)
-            .then(() => {
-              onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
-              // Keep receiver highlighted until another one is clicked
-            })
-            .catch((err) => {
-              console.error('Failed to visualize send', err)
-              onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
-              // Keep receiver highlighted even on error
-            })
-          // Reset sender so next click can pick a new sender
-          senderRef.current = null
-          return
-        }
-
-        // Stop motion while inspecting
-        found.setFrozen(true)
-        const worldPos = new THREE.Vector3()
-        found.getMesh()?.getWorldPosition(worldPos)
-        focusTargetRef.current = worldPos
         const screenPos = {
           x: event.clientX + window.scrollX,
           y: event.clientY + window.scrollY,
         }
-
-        const idx = list.indexOf(found)
-        onSelectMental({
-          name: found.getName(),
-          detail: found.getDetail(),
-          type: found.getType?.() ?? 'mental',
-          labelNumber: idx + 1,
-          screenPosition: screenPos,
-          modelPath: found.getModelPath?.(),
-        })
+        handleMentalPick(found, screenPos)
       }
     }
 
@@ -1060,7 +915,45 @@ function MentalsLayer({
     return () => {
       canvas.removeEventListener('pointerdown', handlePointer)
     }
-  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef, planeModelPath, sendMode, onSendSelection])
+  }, [camera, collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind, pointer, raycaster])
+
+  useEffect(() => {
+    const xrRaycaster = new THREE.Raycaster()
+    const rayOrigin = new THREE.Vector3()
+    const rayDirection = new THREE.Vector3()
+    const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+
+    const handleXrSelect = (event: Event) => {
+      if (!gl.xr.isPresenting) return
+
+      const controller = event.target as THREE.Object3D
+      const list = mind.getMentals()
+      const targets = collectMentalTargets(list)
+      if (!targets.length) return
+
+      rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+      rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+      xrRaycaster.set(rayOrigin, rayDirection)
+
+      const hits = xrRaycaster.intersectObjects(targets, true)
+      if (!hits.length) return
+
+      const found = findMentalForHitObject(list, hits[0].object)
+      if (found) {
+        handleMentalPick(found)
+      }
+    }
+
+    controllers.forEach((controller) => {
+      controller.addEventListener('selectstart', handleXrSelect)
+    })
+
+    return () => {
+      controllers.forEach((controller) => {
+        controller.removeEventListener('selectstart', handleXrSelect)
+      })
+    }
+  }, [collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind])
 
   useEffect(() => {
     if (!onHoverSelection) return
@@ -1077,11 +970,7 @@ function MentalsLayer({
       raycaster.setFromCamera(pointer, camera)
 
       const list = mind.getMentals()
-      const targets: THREE.Object3D[] = []
-      list.forEach((mental) => {
-        const mesh = mental.getMesh()
-        if (mesh) targets.push(mesh)
-      })
+      const targets = collectMentalTargets(list)
 
       const hits = raycaster.intersectObjects(targets, true)
       if (!hits.length) {
@@ -1092,15 +981,7 @@ function MentalsLayer({
         return
       }
 
-      const hit = hits[0].object
-      const foundMesh = targets.find((mesh) => {
-        let node: THREE.Object3D | null = hit
-        while (node) {
-          if (node === mesh) return true
-          node = node.parent
-        }
-        return false
-      })
+      const foundMesh = findTargetMeshForHitObject(targets, hits[0].object)
 
       if (foundMesh && foundMesh !== hoveredMeshRef.current) {
         hoveredMeshRef.current = foundMesh
@@ -1115,7 +996,58 @@ function MentalsLayer({
         hoveredMeshRef.current = null
       }
     }
-  }, [camera, gl, mind, onHoverSelection, pointer, raycaster, sendMode])
+  }, [camera, collectMentalTargets, findTargetMeshForHitObject, gl, mind, onHoverSelection, pointer, raycaster, sendMode])
+
+  useFrame(() => {
+    if (!onHoverSelection || sendMode || !gl.xr.isPresenting) return
+
+    const list = mind.getMentals()
+    const targets = collectMentalTargets(list)
+    if (!targets.length) {
+      if (hoveredMeshRef.current) {
+        hoveredMeshRef.current = null
+        onHoverSelection([])
+      }
+      return
+    }
+
+    const xrRaycaster = new THREE.Raycaster()
+    const rayOrigin = new THREE.Vector3()
+    const rayDirection = new THREE.Vector3()
+    const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+
+    let closestDistance = Number.POSITIVE_INFINITY
+    let hoveredTarget: THREE.Object3D | undefined
+
+    for (const controller of controllers) {
+      rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+      rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+      xrRaycaster.set(rayOrigin, rayDirection)
+
+      const hits = xrRaycaster.intersectObjects(targets, true)
+      if (!hits.length) continue
+
+      const topHit = hits[0]
+      const targetMesh = findTargetMeshForHitObject(targets, topHit.object)
+      if (targetMesh && topHit.distance < closestDistance) {
+        closestDistance = topHit.distance
+        hoveredTarget = targetMesh
+      }
+    }
+
+    if (!hoveredTarget) {
+      if (hoveredMeshRef.current) {
+        hoveredMeshRef.current = null
+        onHoverSelection([])
+      }
+      return
+    }
+
+    if (hoveredTarget !== hoveredMeshRef.current) {
+      hoveredMeshRef.current = hoveredTarget
+      onHoverSelection([hoveredTarget])
+    }
+  })
 
   useEffect(() => {
     if (!selectedMentalName) {
@@ -1579,7 +1511,8 @@ function ThreeScene({
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const isXrActive = xrMode !== null
   const isArMode = xrMode === 'ar'
-  const showMentalsLayer = !isArMode || sendMode
+  // Keep mentals interactable in AR so controller trigger/tap can pick them.
+  const showMentalsLayer = true
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
   // Use search highlight when active, else send mesh when in send mode, else hover selection
@@ -1612,9 +1545,11 @@ function ThreeScene({
         if (isArMode) gl.setClearColor(0x000000, 0)
       }}
     >
+      <XRClearMode isArMode={isArMode} />
       <XRStatusBridge
         onRendererReady={onRendererReady}
       />
+      <XRControllers />
       <XRMovement enabled={isXrActive} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
@@ -1688,19 +1623,26 @@ export function Simulation(): React.ReactElement {
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
 
-  type XrSupport = 'checking' | 'supported' | 'unsupported' | 'not_secure' | 'no_webxr'
-  const [activeXrMode, setActiveXrMode] = useState<'vr' | 'ar' | null>(null)
-
-  const [vrSupport, setVrSupport] = useState<XrSupport>('checking')
-  const [vrMessage, setVrMessage] = useState<string | null>(null)
-
-  const [arSupport, setArSupport] = useState<XrSupport>('checking')
-  const [arMessage, setArMessage] = useState<string | null>(null)
-
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
+  })
+  const {
+    activeXrMode,
+    vrSupport,
+    arSupport,
+    vrMessage,
+    arMessage,
+    vrButtonDisabled,
+    vrButtonTitle,
+    arButtonDisabled,
+    arButtonTitle,
+    handleToggleVr,
+    handleToggleAr,
+  } = useXRSession({
+    renderer: rendererRef.current,
+    overlayRoot: overlayRootRef.current,
   })
 
   useEffect(() => {
@@ -1879,70 +1821,6 @@ export function Simulation(): React.ReactElement {
       })
   }, [searchTerm, mentals])
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      // WebXR requires a secure context (https or localhost).
-      if (!window.isSecureContext) {
-        if (!cancelled) setVrSupport('not_secure')
-        return
-      }
-
-      const xr = (navigator as unknown as { xr?: { isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
-      if (!xr) {
-        if (!cancelled) setVrSupport('no_webxr')
-        return
-      }
-
-      if (typeof xr.isSessionSupported === 'function') {
-        try {
-          const ok = await xr.isSessionSupported('immersive-vr')
-          if (!cancelled) setVrSupport(ok ? 'supported' : 'unsupported')
-        } catch {
-          if (!cancelled) setVrSupport('unsupported')
-        }
-      } else {
-        // Some browsers may not expose isSessionSupported; allow the user to try.
-        if (!cancelled) setVrSupport('supported')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      if (!window.isSecureContext) {
-        if (!cancelled) setArSupport('not_secure')
-        return
-      }
-
-      const xr = (navigator as unknown as { xr?: { isSessionSupported?: (mode: string) => Promise<boolean> } }).xr
-      if (!xr) {
-        if (!cancelled) setArSupport('no_webxr')
-        return
-      }
-
-      if (typeof xr.isSessionSupported === 'function') {
-        try {
-          const ok = await xr.isSessionSupported('immersive-ar')
-          if (!cancelled) setArSupport(ok ? 'supported' : 'unsupported')
-        } catch {
-          if (!cancelled) setArSupport('unsupported')
-        }
-      } else {
-        if (!cancelled) setArSupport('supported')
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const handleSelect = (info: InspectSelection) => {
     setSelected(info)
     setPanelPosition(info.screenPosition ?? null)
@@ -1984,150 +1862,6 @@ export function Simulation(): React.ReactElement {
       setAttrKey('')
       setAttrValue('')
     }
-  }
-
-  type XrSessionMode = 'immersive-vr' | 'immersive-ar'
-  type XrNavigator = Navigator & {
-    xr?: {
-      isSessionSupported?: (mode: XrSessionMode) => Promise<boolean>
-      requestSession?: (mode: XrSessionMode, options?: XRSessionInit) => Promise<XRSession>
-    }
-  }
-
-  const startXrSession = async (mode: XrSessionMode) => {
-    const gl = rendererRef.current
-    const xrModeName: 'vr' | 'ar' = mode === 'immersive-ar' ? 'ar' : 'vr'
-
-    if (!gl) {
-      if (xrModeName === 'vr') setVrMessage('VR not ready yet (renderer still loading)')
-      else setArMessage('AR not ready yet (renderer still loading)')
-      return
-    }
-
-    if (!window.isSecureContext) {
-      if (xrModeName === 'vr') setVrMessage('VR requires HTTPS or localhost')
-      else setArMessage('AR requires HTTPS or localhost')
-      return
-    }
-
-    const xr = (navigator as XrNavigator).xr
-    if (!xr || typeof xr.requestSession !== 'function') {
-      if (xrModeName === 'vr') setVrMessage('WebXR not supported in this browser/device')
-      else setArMessage('WebXR not supported in this browser/device')
-      return
-    }
-
-    if (typeof xr.isSessionSupported === 'function') {
-      try {
-        const supported = await xr.isSessionSupported(mode)
-        if (!supported) {
-          if (xrModeName === 'vr') {
-            setVrSupport('unsupported')
-            setVrMessage('immersive-vr is not supported (connect headset / enable WebXR)')
-          } else {
-            setArSupport('unsupported')
-            setArMessage('immersive-ar is not supported on this device/browser')
-          }
-          return
-        }
-      } catch {
-        if (xrModeName === 'vr') setVrMessage('Failed to verify VR support')
-        else setArMessage('Failed to verify AR support')
-        return
-      }
-    }
-
-    if (gl.xr.isPresenting) {
-      const sameMode = activeXrMode === xrModeName
-      await gl.xr.getSession()?.end()
-      if (sameMode) {
-        setActiveXrMode(null)
-        return
-      }
-    }
-
-    try {
-      const baseFeatures = mode === 'immersive-ar' ? ['local-floor'] : ['local-floor', 'bounded-floor']
-      let session: XRSession
-      try {
-        session = await xr.requestSession(mode, {
-          optionalFeatures: [...baseFeatures, 'dom-overlay'],
-          domOverlay: { root: overlayRootRef.current ?? document.body },
-        } as XRSessionInit)
-      } catch {
-        session = await xr.requestSession(mode, {
-          optionalFeatures: baseFeatures,
-        })
-        if (xrModeName === 'vr') {
-          setVrMessage('Entered VR without DOM overlay. Use browser/headset system exit to leave session.')
-        } else {
-          setArMessage('Entered AR without DOM overlay. Use browser/device system exit to leave session.')
-        }
-      }
-
-      session.addEventListener(
-        'end',
-        () => {
-          setActiveXrMode(null)
-        },
-        { once: true }
-      )
-
-      try {
-        gl.xr.setReferenceSpaceType('local-floor')
-      } catch {
-        gl.xr.setReferenceSpaceType('local')
-      }
-
-      await gl.xr.setSession(session)
-      setActiveXrMode(xrModeName)
-      if (xrModeName === 'vr') setArMessage(null)
-      else setVrMessage(null)
-    } catch (error) {
-      console.error(`Failed to enter ${xrModeName.toUpperCase()}`, error)
-      if (xrModeName === 'vr') setVrMessage('Failed to enter VR (see console)')
-      else setArMessage('Failed to enter AR (see console)')
-    }
-  }
-
-  const vrButtonDisabled = (() => {
-    if (activeXrMode === 'vr') return false
-    if (!rendererRef.current) return true
-    return vrSupport !== 'supported'
-  })()
-
-  const vrButtonTitle = (() => {
-    if (!rendererRef.current) return '3D renderer is still loading...'
-    if (activeXrMode === 'vr') return 'Exit VR session'
-    if (vrSupport === 'checking') return 'Checking VR support...'
-    if (vrSupport === 'not_secure') return 'WebXR requires HTTPS or localhost'
-    if (vrSupport === 'no_webxr') return 'WebXR not available in this browser/device'
-    if (vrSupport === 'unsupported') return 'immersive-vr is not supported (no headset / not enabled)'
-    return 'Enter VR'
-  })()
-
-  const handleToggleVr = async () => {
-    await startXrSession('immersive-vr')
-  }
-
-  const arButtonDisabled = (() => {
-    if (activeXrMode === 'ar') return false
-    if (!rendererRef.current) return true
-    return arSupport !== 'supported'
-  })()
-
-  const arButtonTitle = (() => {
-    if (!rendererRef.current) return '3D renderer is still loading...'
-    if (activeXrMode === 'ar') return 'Exit AR session'
-    if (arSupport === 'checking') return 'Checking AR support...'
-    if (arSupport === 'not_secure') return 'WebXR requires HTTPS or localhost'
-    if (arSupport === 'no_webxr') return 'WebXR not available in this browser/device'
-    if (arSupport === 'unsupported') return 'immersive-ar is not supported on this device/browser'
-    return 'Enter AR'
-  })()
-
-  const handleToggleAr = async () => {
-    await startXrSession('immersive-ar')
   }
 
   return (
