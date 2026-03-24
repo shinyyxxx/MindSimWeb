@@ -591,7 +591,7 @@ const T5_CATEGORIES: { label: string; optionIds: string[] }[] = [
 function HumanBody({
   mind,
   controlsRef,
-  url = '/assets/humanMind/human.gltf',
+  url = `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`,
   targetHeight = 1.7,
   groundY = 0,
   bodyOpacity = 0.12,
@@ -689,17 +689,7 @@ function HumanBody({
   )
 }
 
-function MindSphere({
-  mind,
-  selectedMentalName,
-  focusTargetRef,
-}: {
-  mind: Mind
-  selectedMentalName: string | null
-  focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
-}) {
-  const { camera } = useThree()
-
+function MindSphere({ mind }: { mind: Mind }) {
   useEffect(() => {
     return () => {
       mind.dispose()
@@ -708,19 +698,6 @@ function MindSphere({
 
   useFrame((_state, delta) => {
     mind.updatePhysics(delta)
-
-    if (selectedMentalName && focusTargetRef.current) {
-      const target = focusTargetRef.current
-      const radius = mind.getRadius?.() ?? 1
-      const desiredDistance = Math.max(0.35, Math.min(radius * 0.55, 0.6))
-
-      // Approach from a consistent forward/up offset to avoid sliding underneath
-      const approachDir = new THREE.Vector3(0, 0.2, 1).normalize() // slight upward bias
-      const desiredPos = target.clone().add(approachDir.multiplyScalar(desiredDistance))
-
-      camera.position.lerp(desiredPos, 0.08)
-      camera.lookAt(target)
-    }
   })
 
   const mindMesh = mind.getMesh()
@@ -732,6 +709,7 @@ function MentalsLayer({
   mind,
   mentals,
   selectedMentalName,
+  inspectOpen,
   onSelectMental,
   focusTargetRef,
   planeModelPath,
@@ -743,6 +721,7 @@ function MentalsLayer({
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
+  inspectOpen: boolean
   onSelectMental: (info: InspectSelection) => void
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   planeModelPath: string
@@ -756,6 +735,10 @@ function MentalsLayer({
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const senderRef = useRef<Mental | null>(null)
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
+  const stagedMentalRef = useRef<Mental | null>(null)
+  const stagedOriginalPosRef = useRef<THREE.Vector3 | null>(null)
+  const stagedOriginalScaleRef = useRef<THREE.Vector3 | null>(null)
+  const stagedTargetWorldRef = useRef<THREE.Vector3 | null>(null)
 
   const collectMentalTargets = useCallback((list: Mental[]): THREE.Object3D[] => {
     const targets: THREE.Object3D[] = []
@@ -847,10 +830,42 @@ function MentalsLayer({
     }
 
     // Stop motion while inspecting.
+    if (stagedMentalRef.current && stagedMentalRef.current !== found) {
+      const prevMesh = stagedMentalRef.current.getMesh()
+      if (prevMesh && stagedOriginalPosRef.current) {
+        prevMesh.position.copy(stagedOriginalPosRef.current)
+      }
+      if (prevMesh && stagedOriginalScaleRef.current) {
+        prevMesh.scale.copy(stagedOriginalScaleRef.current)
+      }
+      prevMesh?.updateMatrixWorld(true)
+      stagedMentalRef.current.setFrozen(false)
+      stagedMentalRef.current = null
+      stagedOriginalPosRef.current = null
+      stagedOriginalScaleRef.current = null
+      stagedTargetWorldRef.current = null
+    }
+
     found.setFrozen(true)
+    const foundMesh = found.getMesh()
     const worldPos = new THREE.Vector3()
-    found.getMesh()?.getWorldPosition(worldPos)
-    focusTargetRef.current = worldPos
+    foundMesh?.getWorldPosition(worldPos)
+
+    // Stage selected sphere in front-center of camera.
+    if (foundMesh) {
+      if (stagedMentalRef.current !== found) {
+        stagedMentalRef.current = found
+        stagedOriginalPosRef.current = foundMesh.position.clone()
+        stagedOriginalScaleRef.current = foundMesh.scale.clone()
+      }
+      const cameraForward = new THREE.Vector3()
+      camera.getWorldDirection(cameraForward)
+      const targetWorld = camera.position.clone().add(cameraForward.multiplyScalar(1.3))
+      stagedTargetWorldRef.current = targetWorld
+      focusTargetRef.current = targetWorld
+    } else {
+      focusTargetRef.current = worldPos
+    }
 
     const idx = mind.getMentals().indexOf(found)
     onSelectMental({
@@ -861,7 +876,7 @@ function MentalsLayer({
       screenPosition: screenPos,
       modelPath: found.getModelPath?.(),
     })
-  }, [focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
+  }, [camera, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
 
   useEffect(() => {
     mind.clearMentals()
@@ -1049,10 +1064,60 @@ function MentalsLayer({
     }
   })
 
+  useFrame(() => {
+    const staged = stagedMentalRef.current
+    const targetWorld = stagedTargetWorldRef.current
+    if (!staged || !targetWorld) return
+    const mesh = staged.getMesh()
+    if (!mesh) return
+
+    const targetLocal = mesh.parent ? mesh.parent.worldToLocal(targetWorld.clone()) : targetWorld
+    mesh.position.lerp(targetLocal, 0.18)
+
+    const originalScale = stagedOriginalScaleRef.current
+    if (originalScale) {
+      const targetScale = originalScale.clone().multiplyScalar(2.35)
+      mesh.scale.lerp(targetScale, 0.18)
+    }
+    mesh.updateMatrixWorld(true)
+  })
+
+  // When entering detail mode, restore the staged sphere back into the mind sphere.
+  useEffect(() => {
+    if (!inspectOpen || !stagedMentalRef.current) return
+    const stagedMesh = stagedMentalRef.current.getMesh()
+    if (stagedMesh && stagedOriginalPosRef.current) {
+      stagedMesh.position.copy(stagedOriginalPosRef.current)
+    }
+    if (stagedMesh && stagedOriginalScaleRef.current) {
+      stagedMesh.scale.copy(stagedOriginalScaleRef.current)
+    }
+    stagedMesh?.updateMatrixWorld(true)
+    stagedMentalRef.current.setFrozen(false)
+    stagedMentalRef.current = null
+    stagedOriginalPosRef.current = null
+    stagedOriginalScaleRef.current = null
+    stagedTargetWorldRef.current = null
+  }, [inspectOpen])
+
   useEffect(() => {
     if (!selectedMentalName) {
       // Unfreeze all when selection is cleared
       mind.getMentals().forEach((m) => m.setFrozen(false))
+      if (stagedMentalRef.current) {
+        const stagedMesh = stagedMentalRef.current.getMesh()
+        if (stagedMesh && stagedOriginalPosRef.current) {
+          stagedMesh.position.copy(stagedOriginalPosRef.current)
+        }
+        if (stagedMesh && stagedOriginalScaleRef.current) {
+          stagedMesh.scale.copy(stagedOriginalScaleRef.current)
+        }
+        stagedMesh?.updateMatrixWorld(true)
+      }
+      stagedMentalRef.current = null
+      stagedOriginalPosRef.current = null
+      stagedOriginalScaleRef.current = null
+      stagedTargetWorldRef.current = null
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
@@ -1199,8 +1264,6 @@ function TimelineCanvas({
   selectedIndex,
   onSelect,
   colors,
-  isOpen,
-  onToggleOpen,
   t3HappySelected,
   onT3HappyChange,
   t5SelectedId,
@@ -1210,267 +1273,451 @@ function TimelineCanvas({
   selectedIndex: number
   onSelect: (i: number) => void
   colors: string[]
-  isOpen: boolean
-  onToggleOpen: () => void
   t3HappySelected?: boolean
   onT3HappyChange?: (selected: boolean) => void
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
 }) {
   const [showDetail, setShowDetail] = useState(false)
+  const [detailPanelOpen, setDetailPanelOpen] = useState(true)
   const [selectedSense, setSelectedSense] = useState<string>('sound')
+  const railRef = useRef<HTMLDivElement | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const maxIndex = Math.max(stops.length - 1, 0)
+  const [pinRatio, setPinRatio] = useState(maxIndex > 0 ? selectedIndex / maxIndex : 0)
+  const activeStop = stops[selectedIndex] ?? stops[0]
 
-  const panelStyle: React.CSSProperties = {
-    background: 'rgba(17, 24, 39, 0.95)',
-    color: '#e5e7eb',
-    borderRadius: 12,
-    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.12)',
-    overflow: 'hidden',
-    minWidth: 320,
-    maxWidth: 'min(95vw, 720px)',
-  }
+  useEffect(() => {
+    if (isDragging) return
+    if (maxIndex <= 0) {
+      setPinRatio(0)
+      return
+    }
+    setPinRatio(Math.min(1, Math.max(0, selectedIndex / maxIndex)))
+  }, [isDragging, maxIndex, selectedIndex])
 
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 14px',
-    cursor: 'pointer',
-    borderBottom: isOpen ? '1px solid rgba(255,255,255,0.08)' : 'none',
-  }
+  const selectFromClientY = useCallback(
+    (clientY: number) => {
+      const rail = railRef.current
+      if (!rail || maxIndex <= 0) return
+      const rect = rail.getBoundingClientRect()
+      const ratio = (clientY - rect.top) / rect.height
+      const clamped = Math.min(1, Math.max(0, ratio))
+      setPinRatio(clamped)
+      const nextIndex = Math.floor(clamped * maxIndex + Number.EPSILON)
+      if (nextIndex !== selectedIndex) onSelect(nextIndex)
+    },
+    [maxIndex, onSelect, selectedIndex]
+  )
 
-  if (!isOpen) {
-    return (
-      <div style={panelStyle}>
-        <div style={headerStyle} onClick={onToggleOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggleOpen()}>
-          <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: 0.3 }}>Cognitive Timeline</span>
-          <span style={{ fontSize: 18, opacity: 0.8 }}>▼</span>
-        </div>
-      </div>
-    )
+  useEffect(() => {
+    if (!isDragging) return
+    const handlePointerMove = (e: PointerEvent) => {
+      selectFromClientY(e.clientY)
+    }
+    const handlePointerUp = () => {
+      setIsDragging(false)
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [isDragging, selectFromClientY])
+
+  const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(true)
+    selectFromClientY(e.clientY)
   }
 
   return (
-    <div style={panelStyle}>
-      <div style={headerStyle} onClick={onToggleOpen} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onToggleOpen()}>
-        <span style={{ fontWeight: 700, fontSize: 14, letterSpacing: 0.3 }}>Cognitive Timeline</span>
-        <span style={{ fontSize: 18, opacity: 0.8, transform: 'rotate(180deg)' }}>▼</span>
-      </div>
-      <div style={{ padding: '16px 20px' }}>
-        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14 }}>Select a step to explore mental factors</div>
-        {/* Horizontal arrow-segment timeline bar */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: detailPanelOpen ? 18 : 10 }}>
+      {detailPanelOpen && (
         <div
           style={{
-            display: 'flex',
-            width: '100%',
-            marginBottom: 20,
-            borderRadius: 4,
-            overflow: 'hidden',
+            width: 360,
+            maxHeight: 520,
+            overflowY: 'auto',
+            background: 'rgba(17, 24, 39, 0.9)',
+            color: '#e5e7eb',
+            borderRadius: 14,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            padding: '14px 16px',
+            pointerEvents: 'auto',
           }}
         >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  background: colors[selectedIndex % colors.length],
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 15,
+                  flexShrink: 0,
+                }}
+              >
+                {TIMELINE_ICONS[selectedIndex % TIMELINE_ICONS.length]}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#f8fafc' }}>{activeStop.label}</div>
+                <div style={{ fontSize: 12, color: '#94a3b8' }}>Cognitive Timeline</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailPanelOpen(false)}
+              style={{
+                padding: '5px 10px',
+                border: '1px solid rgba(148, 163, 184, 0.6)',
+                borderRadius: 8,
+                background: 'rgba(15, 23, 42, 0.75)',
+                color: '#cbd5e1',
+                fontSize: 11,
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          </div>
+          <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.45, color: '#9ca3af' }}>{activeStop.description}</p>
+
+          {selectedIndex === 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                Choose sense data
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                {T0_SENSE_OPTIONS.map((opt) => {
+                  const isSelected = selectedSense === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setSelectedSense(opt.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 10px',
+                        borderRadius: 10,
+                        border: isSelected ? '2px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.4)',
+                        background: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(30, 41, 59, 0.65)',
+                        color: isSelected ? '#93c5fd' : '#e5e7eb',
+                        fontSize: 12,
+                        fontWeight: isSelected ? 600 : 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span>{opt.icon}</span>
+                      <span>{opt.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {selectedIndex === 3 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                Add option
+              </div>
+              <button
+                type="button"
+                onClick={() => onT3HappyChange?.(!t3HappySelected)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 12px',
+                  borderRadius: 10,
+                  border: t3HappySelected ? '2px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.4)',
+                  background: t3HappySelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.65)',
+                  color: t3HappySelected ? '#7dd3fc' : '#e5e7eb',
+                  fontSize: 12,
+                  fontWeight: t3HappySelected ? 600 : 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>😊</span>
+                <span>Happy</span>
+              </button>
+            </div>
+          )}
+
+          {selectedIndex === 5 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
+                Choose mental factors (cetasikas)
+              </div>
+              <select
+                value={t5SelectedId ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  onT5Change?.(v ? v : null)
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(148, 163, 184, 0.4)',
+                  background: 'rgba(30, 41, 59, 0.85)',
+                  color: '#e5e7eb',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">No selection (random)</option>
+                {T5_CATEGORIES.map((cat) => (
+                  <optgroup key={cat.label} label={cat.label}>
+                    {cat.optionIds.map((id) => {
+                      const opt = T5_MENTAL_OPTIONS.find((o) => o.id === id)
+                      return opt ? (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                        </option>
+                      ) : null
+                    })}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowDetail((d) => !d)}
+            style={{
+              marginTop: 12,
+              padding: '6px 11px',
+              border: '1px solid rgba(148, 163, 184, 0.6)',
+              borderRadius: 8,
+              background: showDetail ? 'rgba(59, 130, 246, 0.2)' : 'rgba(30, 41, 59, 0.65)',
+              color: '#bfdbfe',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            {showDetail ? 'Hide detail' : 'Explain detail'}
+          </button>
+          {showDetail && (
+            <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>
+              {stops[selectedIndex].description}
+            </p>
+          )}
+        </div>
+      )}
+      <div
+        style={{
+          position: 'relative',
+          height: 520,
+          width: detailPanelOpen ? 40 : 48,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'auto',
+        }}
+      >
+        <div
+          ref={railRef}
+          onPointerDown={startDrag}
+          style={{
+            position: 'relative',
+            height: '100%',
+            width: 12,
+            borderRadius: 999,
+            background: 'rgba(2, 6, 23, 0.9)',
+            border: '1px solid rgba(226, 232, 240, 0.9)',
+            boxShadow: '0 10px 36px rgba(0,0,0,0.52)',
+            cursor: isDragging ? 'grabbing' : 'grab',
+          }}
+        >
+          {!detailPanelOpen && (
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDetailPanelOpen(true)
+              }}
+              style={{
+                position: 'absolute',
+                top: -42,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                padding: '5px 11px',
+                borderRadius: 8,
+                border: '1px solid rgba(148, 163, 184, 0.75)',
+                background: 'rgba(15, 23, 42, 0.85)',
+                color: '#cbd5e1',
+                fontSize: 11,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Open timeline
+            </button>
+          )}
           {stops.map((stop, i) => {
-            const isFirst = i === 0
-            const isLast = i === stops.length - 1
+            const topPct = maxIndex > 0 ? (i / maxIndex) * 100 : 0
             const isSelected = i === selectedIndex
-            const color = colors[i % colors.length]
             return (
               <button
                 key={stop.label}
                 type="button"
-                onClick={() => onSelect(i)}
+                onClick={() => {
+                  onSelect(i)
+                  if (maxIndex > 0) setPinRatio(i / maxIndex)
+                }}
+                title={stop.label}
                 style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: '10px 6px',
-                  border: 'none',
-                  background: isSelected ? color : `${color}40`,
-                  color: isSelected ? '#fff' : 'rgba(255,255,255,0.85)',
-                  fontWeight: isSelected ? 700 : 600,
-                  fontSize: 12,
+                  position: 'absolute',
+                  top: `${topPct}%`,
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: isSelected ? 16 : 11,
+                  height: isSelected ? 16 : 11,
+                  borderRadius: '50%',
+                  border: isSelected ? '2px solid #f8fafc' : '1px solid rgba(226,232,240,0.9)',
+                  background: colors[i % colors.length],
+                  boxShadow: isSelected ? '0 0 0 3px rgba(255,255,255,0.25)' : 'none',
+                  padding: 0,
                   cursor: 'pointer',
-                  clipPath: isFirst
-                    ? 'polygon(0 0, 100% 0, 95% 50%, 100% 100%, 0 100%)'
-                    : isLast
-                      ? 'polygon(5% 0, 100% 0, 100% 100%, 0 100%, 5% 50%)'
-                      : 'polygon(5% 0, 100% 0, 95% 50%, 100% 100%, 0 100%, 5% 50%)',
-                  marginLeft: isFirst ? 0 : -8,
                 }}
-              >
-                {stop.label}
-              </button>
+              />
             )
           })}
+          <div
+            onPointerDown={startDrag}
+            style={{
+              position: 'absolute',
+              top: `${pinRatio * 100}%`,
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 30,
+              height: 30,
+              borderRadius: 999,
+              border: '3px solid #f8fafc',
+              background: 'rgba(15, 23, 42, 0.96)',
+              boxShadow: '0 8px 28px rgba(0,0,0,0.58)',
+            }}
+          />
         </div>
-        {/* Alternating content above/below with icon badges */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {stops.map((stop, i) => {
-            const isAbove = i % 2 === 0
-            const color = colors[i % colors.length]
-            const icon = TIMELINE_ICONS[i % TIMELINE_ICONS.length]
-            if (i !== selectedIndex) return null
-            return (
-              <div
-                key={stop.label}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  padding: 12,
-                  background: 'rgba(30, 41, 59, 0.5)',
-                  borderRadius: 10,
-                  border: '1px solid rgba(148, 163, 184, 0.2)',
-                }}
-              >
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '50%',
-                    background: color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontSize: 18,
-                    flexShrink: 0,
-                  }}
-                >
-                  {icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4, color: '#f8fafc' }}>{stop.label}</div>
-                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>{stop.description}</p>
-                  {selectedIndex === 0 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                        Choose sense data
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {T0_SENSE_OPTIONS.map((opt) => {
-                          const isSelected = selectedSense === opt.id
-                          return (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() => setSelectedSense(opt.id)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '8px 14px',
-                                borderRadius: 10,
-                                border: isSelected ? '2px solid #60a5fa' : '1px solid rgba(148, 163, 184, 0.4)',
-                                background: isSelected ? 'rgba(59, 130, 246, 0.25)' : 'rgba(30, 41, 59, 0.65)',
-                                color: isSelected ? '#93c5fd' : '#e5e7eb',
-                                fontSize: 13,
-                                fontWeight: isSelected ? 600 : 500,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <span>{opt.icon}</span>
-                              <span>{opt.label}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {selectedIndex === 3 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                        Add option
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onT3HappyChange?.(!t3HappySelected)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '8px 14px',
-                          borderRadius: 10,
-                          border: t3HappySelected ? '2px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.4)',
-                          background: t3HappySelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.65)',
-                          color: t3HappySelected ? '#7dd3fc' : '#e5e7eb',
-                          fontSize: 13,
-                          fontWeight: t3HappySelected ? 600 : 500,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <span>😊</span>
-                        <span>Happy</span>
-                      </button>
-                    </div>
-                  )}
-                  {selectedIndex === 5 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                        Choose mental factors (cetasikas)
-                      </div>
-                      <select
-                        value={t5SelectedId ?? ''}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          onT5Change?.(v ? v : null)
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 10px',
-                          borderRadius: 8,
-                          border: '1px solid rgba(148, 163, 184, 0.4)',
-                          background: 'rgba(30, 41, 59, 0.85)',
-                          color: '#e5e7eb',
-                          fontSize: 13,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">No selection (random)</option>
-                        {T5_CATEGORIES.map((cat) => (
-                          <optgroup key={cat.label} label={cat.label}>
-                            {cat.optionIds.map((id) => {
-                              const opt = T5_MENTAL_OPTIONS.find((o) => o.id === id)
-                              return opt ? (
-                                <option key={opt.id} value={opt.id}>
-                                  {opt.label}
-                                </option>
-                              ) : null
-                            })}
-                          </optgroup>
-                        ))}
-                      </select>
-                      <p style={{ margin: '8px 0 0', fontSize: 11, color: '#64748b' }}>
-                        Select one option; choose &quot;No selection&quot; for random.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+      </div>
+    </div>
+  )
+}
+
+function InspectOptionMenu({
+  selection,
+  panelPosition,
+  onClose,
+  onViewDetail,
+}: {
+  selection: InspectSelection
+  panelPosition: { x: number; y: number } | null
+  onClose: () => void
+  onViewDetail: (selection: InspectSelection) => void
+}) {
+  const menuStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: panelPosition?.x ?? 24,
+    top: (panelPosition?.y ?? 24) - 12,
+    transform: 'translate(-50%, -100%)',
+    minWidth: 240,
+    background: 'linear-gradient(145deg, rgba(30,41,82,0.9), rgba(17,94,163,0.72))',
+    border: '1px solid rgba(125, 211, 252, 0.35)',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.35), 0 0 18px rgba(59,130,246,0.4)',
+    borderRadius: 14,
+    padding: 16,
+    color: '#e5e7eb',
+    backdropFilter: 'blur(12px)',
+    zIndex: 20,
+  }
+
+  const optionStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '11px 13px',
+    borderRadius: 12,
+    background: 'linear-gradient(120deg, rgba(59,130,246,0.18), rgba(16,185,129,0.16))',
+    border: '1px solid rgba(255,255,255,0.08)',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  }
+
+  const renderOption = (label: string, description: string, onClick: () => void) => (
+    <button
+      key={label}
+      type="button"
+      style={optionStyle}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(120deg, rgba(96,165,250,0.28), rgba(16,185,129,0.24))'
+      }}
+      onMouseLeave={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(120deg, rgba(59,130,246,0.18), rgba(16,185,129,0.16))'
+      }}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 8,
+          background: 'linear-gradient(135deg, rgba(59,130,246,0.55), rgba(16,185,129,0.55))',
+          border: '1px solid rgba(96,165,250,0.45)',
+          boxShadow: '0 0 12px rgba(34,211,238,0.35)',
+        }}
+      />
+      <div style={{ textAlign: 'left' }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#f8fafc', letterSpacing: 0.2 }}>{label}</div>
+        <div style={{ fontSize: 12, color: '#dbeafe', marginTop: 2, opacity: 0.9 }}>{description}</div>
+      </div>
+    </button>
+  )
+
+  return (
+    <div style={menuStyle}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 14, boxShadow: '0 0 0 1px rgba(125,211,252,0.25), inset 0 1px 0 rgba(255,255,255,0.04)' }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 11, letterSpacing: 1.4, color: '#bfdbfe', textTransform: 'uppercase' }}>Mental Sphere</div>
+          <div style={{ fontWeight: 900, fontSize: 18, color: '#f8fafc', textShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{selection.name}</div>
         </div>
         <button
           type="button"
-          onClick={() => setShowDetail((d) => !d)}
+          onClick={onClose}
           style={{
-            marginTop: 12,
-            padding: '6px 12px',
-            border: '1px solid rgba(148, 163, 184, 0.6)',
+            width: 30,
+            height: 30,
             borderRadius: 8,
-            background: showDetail ? 'rgba(59, 130, 246, 0.2)' : 'rgba(30, 41, 59, 0.65)',
-            color: '#bfdbfe',
-            fontSize: 12,
+            background: 'rgba(15,23,42,0.5)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: '#e5e7eb',
             cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
           }}
         >
-          {showDetail ? 'Hide detail' : 'Explain detail'}
+          ✕
         </button>
-        {showDetail && (
-          <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>
-            {stops[selectedIndex].description}
-          </p>
-        )}
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {renderOption('View Detail', 'Inspect this sphere closely', () => onViewDetail(selection))}
+        {renderOption('Voice', 'Hear a narrated explanation', () => {})}
+        {renderOption('How it works?', 'Learn the mechanics in-game', () => {})}
       </div>
     </div>
   )
@@ -1480,6 +1727,7 @@ function ThreeScene({
   mind,
   mentals,
   selectedMentalName,
+  inspectOpen,
   onSelectMental,
   onUpdatePanelPosition,
   sendMode,
@@ -1494,6 +1742,7 @@ function ThreeScene({
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
+  inspectOpen: boolean
   onSelectMental: (info: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
@@ -1515,13 +1764,22 @@ function ThreeScene({
   const showMentalsLayer = true
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
-  // Use search highlight when active, else send mesh when in send mode, else hover selection
+  const selectedOutlineSelection = useMemo(() => {
+    if (!inspectOpen || !selectedMentalName) return [] as THREE.Object3D[]
+    const selectedMental = mentals.find((m) => m.getName() === selectedMentalName)
+    const mesh = selectedMental?.getMesh()
+    return mesh ? [mesh] : []
+  }, [inspectOpen, mentals, selectedMentalName])
+
+  // Use search highlight when active, else send mesh when in send mode, else selected sphere in detail mode, else hover selection
   const outlineSelection =
     (searchHighlight?.length ?? 0) > 0
       ? searchHighlight!
       : sendMode && sendMeshSelection.length > 0
         ? sendMeshSelection
-        : hoverSelection
+        : selectedOutlineSelection.length > 0
+          ? selectedOutlineSelection
+          : hoverSelection
 
   // When hiding the human model, put the mind back to its default position/scale.
   useLayoutEffect(() => {
@@ -1579,12 +1837,13 @@ function ThreeScene({
           />
         </React.Suspense>
       )}
-      <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
+      <MindSphere mind={mind} />
       {showMentalsLayer && (
         <MentalsLayer
           mind={mind}
           mentals={mentals}
           selectedMentalName={selectedMentalName}
+          inspectOpen={inspectOpen}
           onSelectMental={onSelectMental}
           focusTargetRef={focusTargetRef}
           planeModelPath={paperPlaneModel}
@@ -1614,6 +1873,7 @@ function ThreeScene({
 
 export function Simulation(): React.ReactElement {
   const [selected, setSelected] = useState<InspectSelection | null>(null)
+  const [inspectOpen, setInspectOpen] = useState(false)
   const [panelPosition, setPanelPosition] = useState<{ x: number; y: number } | null>(null)
   const [profile, setProfile] = useState<InspectSelection | null>(null)
   const [profileAttrs, setProfileAttrs] = useState<Array<{ key: string; value: string }>>([])
@@ -1799,7 +2059,6 @@ export function Simulation(): React.ReactElement {
   }
 
   const [timelineIndex, setTimelineIndex] = useState(0)
-  const [timelineOpen, setTimelineOpen] = useState(true)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -1823,12 +2082,26 @@ export function Simulation(): React.ReactElement {
 
   const handleSelect = (info: InspectSelection) => {
     setSelected(info)
-    setPanelPosition(info.screenPosition ?? null)
+    setInspectOpen(false)
+    if (typeof window !== 'undefined') {
+      setPanelPosition({
+        x: window.scrollX + window.innerWidth - 210,
+        y: window.scrollY + window.innerHeight * 0.52,
+      })
+    } else {
+      setPanelPosition(info.screenPosition ?? null)
+    }
   }
 
   const handleClose = () => {
     setSelected(null)
+    setInspectOpen(false)
     setPanelPosition(null)
+  }
+
+  const handleViewDetail = (info: InspectSelection) => {
+    setSelected(info)
+    setInspectOpen(true)
   }
 
   const handleShowProfile = (info: InspectSelection) => {
@@ -2038,9 +2311,9 @@ export function Simulation(): React.ReactElement {
         <div
           style={{
             position: 'absolute',
-            top: 16,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            right: 10,
+            top: '50%',
+            transform: 'translateY(-50%)',
             zIndex: 12,
             pointerEvents: 'auto',
           }}
@@ -2050,15 +2323,21 @@ export function Simulation(): React.ReactElement {
             selectedIndex={timelineIndex ?? 0}
             onSelect={setTimelineIndex}
             colors={TIMELINE_COLORS}
-            isOpen={timelineOpen}
-            onToggleOpen={() => setTimelineOpen((o) => !o)}
             t3HappySelected={t3HappySelected}
             onT3HappyChange={setT3HappySelected}
             t5SelectedId={t5SelectedId}
             onT5Change={setT5SelectedId}
           />
         </div>
-        {selected && (
+        {selected && !inspectOpen && (
+          <InspectOptionMenu
+            selection={selected}
+            panelPosition={panelPosition}
+            onClose={handleClose}
+            onViewDetail={handleViewDetail}
+          />
+        )}
+        {selected && inspectOpen && (
           <InspectPanel
             selection={selected}
             panelPosition={panelPosition}
@@ -2083,8 +2362,9 @@ export function Simulation(): React.ReactElement {
           mind={mind}
           mentals={mentals}
           selectedMentalName={selected?.name ?? null}
+          inspectOpen={inspectOpen}
           onSelectMental={handleSelect}
-          onUpdatePanelPosition={setPanelPosition}
+          onUpdatePanelPosition={undefined}
           sendMode={sendMode}
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}

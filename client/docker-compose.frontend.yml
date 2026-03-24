@@ -1,0 +1,11 @@
+services:
+  mindillustrate-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_BASE_PATH: /mindillustrate/frontend/
+    container_name: mindillustrate-frontend
+    ports:
+      - "3004:3004"
+    restart: unless-stopped

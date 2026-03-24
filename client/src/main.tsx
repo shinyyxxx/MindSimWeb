@@ -39,9 +39,11 @@ async function setupIwer(): Promise<void> {
 }
 
 function renderApp(): void {
+  const base = import.meta.env.BASE_URL || '/'
+  const routerBase = base === '/' ? undefined : base.replace(/\/$/, '')
   createRoot(rootContainer).render(
     <StrictMode>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBase}>
         <App />
       </BrowserRouter>
     </StrictMode>,

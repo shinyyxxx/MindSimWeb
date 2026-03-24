@@ -81,7 +81,7 @@ type MentalSeed = {
 function HumanBody({
   mind,
   controlsRef,
-  url = '/assets/humanMind/human.gltf',
+  url = `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`,
   targetHeight = 6,
   groundY = -2,
   bodyOpacity = 0.02,
