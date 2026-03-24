@@ -157,6 +157,15 @@ const T5_EXTRA_SEEDS: MentalSeed[] = [
   { name: 'Joy (Pīti)', color: '#38bdf8', scale: 0.12, position: [0.1, -0.38, 0.15], detail: 'Rapture/joyful interest', variant: 'rapture' },
 ]
 
+const RAPTURE_TIMELINE_SEED: MentalSeed = {
+  name: 'Joy (Pīti)',
+  color: '#38bdf8',
+  scale: 0.14,
+  position: [0.1, -0.38, 0.15],
+  detail: 'Rapture/joyful interest that refreshes the mind',
+  variant: 'rapture',
+}
+
 /** Seeds for Beautiful Universals (missing body/mind), Abstinences, Illimitables, Wisdom */
 const WHOLESOME_SEEDS: MentalSeed[] = [
   { name: 'Wieldiness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.52, -0.04, -0.08], variant: 'wieldiness_mind' },
@@ -495,6 +504,7 @@ type MentalSeed = {
     | 'non_hatred'
     | 'equanimity'
     | 'appreciative_joy'
+    | 'tranquility_body'
     | 'tranquility_mind'
     | 'lightness_body'
     | 'lightness_mind'
@@ -543,19 +553,21 @@ type MentalSeed = {
     | 'wisdom'
 }
 
+type MentalVariant = NonNullable<MentalSeed['variant']>
+
 const UNWHOLESOME_4_VARIANTS = ['delusion', 'shamelessness', 'recklessness', 'restlessness'] as const
 
-const BEAUTIFUL_UNIVERSALS_19: string[] = [
+const BEAUTIFUL_UNIVERSALS_19: MentalVariant[] = [
   'faith', 'mindfulness', 'moral_shame', 'moral_dread', 'non_greed', 'non_hatred', 'equanimity',
   'tranquility_body', 'tranquility_mind', 'lightness_body', 'lightness_mind', 'pliancy_body', 'pliancy_mind',
   'wieldiness_body', 'wieldiness_mind', 'proficiency_body', 'proficiency_mind', 'rectitude_body', 'rectitude_mind',
 ]
 
-const ABSTINENCES_3: string[] = ['right_speech', 'right_action', 'right_livelihood']
+const ABSTINENCES_3: MentalVariant[] = ['right_speech', 'right_action', 'right_livelihood']
 
-const ILLIMITABLES_2: string[] = ['compassion', 'appreciative_joy']
+const ILLIMITABLES_2: MentalVariant[] = ['compassion', 'appreciative_joy']
 
-const T5_MENTAL_OPTIONS: { id: string; label: string; variants: string[] }[] = [
+const T5_MENTAL_OPTIONS: { id: string; label: string; variants: MentalVariant[] }[] = [
   { id: 'greed-1', label: 'Greed-rooted #1', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view'] },
   { id: 'greed-2', label: 'Greed-rooted #2', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'conceit'] },
   { id: 'greed-3', label: 'Greed-rooted #3', variants: [...UNWHOLESOME_4_VARIANTS, 'greed', 'wrong_view', 'sloth', 'torpor'] },
@@ -587,6 +599,121 @@ const T5_CATEGORIES: { label: string; optionIds: string[] }[] = [
   { label: 'Great Wholesome', optionIds: ['great-wholesome-1', 'great-wholesome-2', 'great-wholesome-3', 'great-wholesome-4'] },
   { label: 'Great Functional', optionIds: ['great-functional-1', 'great-functional-2', 'great-functional-3', 'great-functional-4'] },
 ]
+
+function resolveSeedForVariant(variant: MentalVariant): MentalSeed {
+  const fromUniversal = UNIVERSAL_SEEDS.find((s) => s.variant === variant)
+  if (fromUniversal) return fromUniversal
+
+  const fromT0Specific = T0_SPECIFIC_SEEDS.find((s) => s.variant === variant)
+  if (fromT0Specific) return fromT0Specific
+
+  if (variant === 'rapture') return RAPTURE_TIMELINE_SEED
+
+  const fromOtherPools = getSeedForVariant(variant)
+  if (fromOtherPools) return fromOtherPools
+
+  return {
+    name: variant,
+    color: '#9ca3af',
+    scale: 0.12,
+    position: [0, 0, 0],
+    variant: 'neutral',
+  }
+}
+
+function hashStringToSeed(input: string): number {
+  let hash = 2166136261
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return Math.abs(hash) + 1
+}
+
+function jitterSeedForVariant(seed: MentalSeed, variant: MentalVariant): MentalSeed {
+  const rng = seededRandom(7000 + hashStringToSeed(variant))
+  const jitter = 0.12
+  return {
+    ...seed,
+    position: [
+      seed.position[0] + (rng() - 0.5) * jitter,
+      seed.position[1] + (rng() - 0.5) * jitter,
+      seed.position[2] + (rng() - 0.5) * jitter,
+    ],
+  }
+}
+
+function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5SelectedId: string | null): MentalVariant[] {
+  const variants: MentalVariant[] = []
+  const pushUnique = (...next: MentalVariant[]) => {
+    next.forEach((variant) => {
+      if (!variants.includes(variant)) variants.push(variant)
+    })
+  }
+
+  // Universal 7 — exist in all timeline steps
+  pushUnique(...UNIVERSAL_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+
+  if (index === 0 || index === 2) {
+    // T0 and T2: add Initial Application, Sustained Application, Decision
+    pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+  } else if (index === 1) {
+    // T1: Universal 7 only
+  } else if (index === 3) {
+    // T3: default like T0; if Happy selected, add Joy (Rapture) mental
+    pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+    if (t3Happy) pushUnique('rapture')
+  } else if (index === 4) {
+    // T4: same mentals as T3 with Happy
+    pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+    pushUnique('rapture')
+  } else if (index === 5) {
+    // T5: add T0 specific + mentals from selected rooted factor (single-select)
+    pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+
+    if (t5SelectedId) {
+      const opt = T5_MENTAL_OPTIONS.find((o) => o.id === t5SelectedId)
+      if (opt) pushUnique(...opt.variants)
+    }
+
+    // If no selection, show random (fallback)
+    if (!t5SelectedId) {
+      const rng = seededRandom(1000 + index)
+      const universalVariants = new Set(UNIVERSAL_SEEDS.map((s) => s.variant).filter(Boolean) as MentalVariant[])
+      const nonUniversal = DEFAULT_SEEDS.filter((s) => s.variant && !universalVariants.has(s.variant as MentalVariant))
+
+      const pool = nonUniversal.map((_, i) => i)
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1))
+        ;[pool[i], pool[j]] = [pool[j], pool[i]]
+      }
+      const count = Math.floor(4 + rng() * 8)
+      const indices = pool.slice(0, Math.min(count, pool.length))
+      indices.forEach((i) => {
+        const variant = nonUniversal[i]?.variant
+        if (variant) pushUnique(variant as MentalVariant)
+      })
+    }
+  } else {
+    // T6: add random selection from non-universal seeds
+    const rng = seededRandom(1000 + index)
+    const universalVariants = new Set(UNIVERSAL_SEEDS.map((s) => s.variant).filter(Boolean) as MentalVariant[])
+    const nonUniversal = DEFAULT_SEEDS.filter((s) => s.variant && !universalVariants.has(s.variant as MentalVariant))
+    const pool = nonUniversal.map((_, i) => i)
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      ;[pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    const count = Math.floor(4 + rng() * 8)
+    const indices = pool.slice(0, Math.min(count, pool.length))
+    indices.forEach((i) => {
+      const variant = nonUniversal[i]?.variant
+      if (variant) pushUnique(variant as MentalVariant)
+    })
+  }
+
+  return variants
+}
 
 function HumanBody({
   mind,
@@ -690,12 +817,6 @@ function HumanBody({
 }
 
 function MindSphere({ mind }: { mind: Mind }) {
-  useEffect(() => {
-    return () => {
-      mind.dispose()
-    }
-  }, [mind])
-
   useFrame((_state, delta) => {
     mind.updatePhysics(delta)
   })
@@ -739,6 +860,7 @@ function MentalsLayer({
   const stagedOriginalPosRef = useRef<THREE.Vector3 | null>(null)
   const stagedOriginalScaleRef = useRef<THREE.Vector3 | null>(null)
   const stagedTargetWorldRef = useRef<THREE.Vector3 | null>(null)
+  const appliedMentalsRef = useRef<Set<Mental>>(new Set())
 
   const collectMentalTargets = useCallback((list: Mental[]): THREE.Object3D[] => {
     const targets: THREE.Object3D[] = []
@@ -879,25 +1001,37 @@ function MentalsLayer({
   }, [camera, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
 
   useEffect(() => {
-    mind.clearMentals()
-    mentals.forEach((mental) => mind.addMental(mental))
-  }, [mentals, mind])
-
-  // Load any attached models so they sit inside the bubbles
-  useEffect(() => {
     const basisPath = 'https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'
-    const list = mind.getMentals()
+    const previous = appliedMentalsRef.current
+    const next = new Set(mentals)
 
-    list.forEach((mental) => {
+    previous.forEach((mental) => {
+      if (next.has(mental)) return
+      mind.removeMental(mental)
+      mental.detachModel()
+    })
+
+    next.forEach((mental) => {
+      if (previous.has(mental)) return
+      mind.addMental(mental)
       mental.loadModel(gl, { basisPath }).catch((err) => {
         console.error('Failed to load mental model', err)
       })
     })
 
+    appliedMentalsRef.current = next
+  }, [gl, mentals, mind])
+
+  useEffect(() => {
     return () => {
-      list.forEach((mental) => mental.detachModel())
+      const applied = appliedMentalsRef.current
+      applied.forEach((mental) => {
+        mind.removeMental(mental)
+        mental.detachModel()
+      })
+      appliedMentalsRef.current = new Set()
     }
-  }, [gl, mind, mentals])
+  }, [mind])
 
   useEffect(() => {
     const canvas = gl.domElement
@@ -938,10 +1072,11 @@ function MentalsLayer({
     const rayDirection = new THREE.Vector3()
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
 
-    const handleXrSelect = (event: Event) => {
+    const handleXrSelect = (event: unknown) => {
       if (!gl.xr.isPresenting) return
 
-      const controller = event.target as THREE.Object3D
+      const controller = (event as { target?: unknown }).target as THREE.Object3D | undefined
+      if (!controller) return
       const list = mind.getMentals()
       const targets = collectMentalTargets(list)
       if (!targets.length) return
@@ -960,12 +1095,12 @@ function MentalsLayer({
     }
 
     controllers.forEach((controller) => {
-      controller.addEventListener('selectstart', handleXrSelect)
+      controller.addEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
     })
 
     return () => {
       controllers.forEach((controller) => {
-        controller.removeEventListener('selectstart', handleXrSelect)
+        controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
   }, [collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind])
@@ -1882,9 +2017,15 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
+  const [timelineIndex, setTimelineIndex] = useState(0)
+  const [t3HappySelected, setT3HappySelected] = useState(false)
+  const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const mentalCacheRef = useRef<Map<MentalVariant, Mental>>(new Map())
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
   })
@@ -1932,142 +2073,37 @@ export function Simulation(): React.ReactElement {
     mind.setLabelEnabled(!showHumanModel)
   }, [mind, showHumanModel])
 
-  function getMentalsForTimelineStop(index: number, t3Happy: boolean, t5SelectedId: string | null): Mental[] {
-    const rng = seededRandom(1000 + index)
-    const jitter = 0.12
+  const getOrCreateMental = useCallback((variant: MentalVariant): Mental => {
+    const cached = mentalCacheRef.current.get(variant)
+    if (cached) return cached
 
-    const jitterSeed = (seed: MentalSeed): MentalSeed => {
-      const s = { ...seed, position: [...seed.position] as Vec3 }
-      s.position[0] += (rng() - 0.5) * jitter
-      s.position[1] += (rng() - 0.5) * jitter
-      s.position[2] += (rng() - 0.5) * jitter
-      return s
-    }
+    const seed = jitterSeedForVariant(resolveSeedForVariant(variant), variant)
+    const nextMental = createMentalFromSeed(seed)
+    mentalCacheRef.current.set(variant, nextMental)
+    return nextMental
+  }, [])
 
-    const universalNames = new Set(UNIVERSAL_SEEDS.map((s) => s.name))
-    const mentals: Mental[] = []
-
-    // Universal 7 — exist in all timeline steps
-    UNIVERSAL_SEEDS.forEach((seed) => {
-      mentals.push(createMentalFromSeed(jitterSeed(seed)))
-    })
-
-    if (index === 0 || index === 2) {
-      // T0 and T2: add Initial Application, Sustained Application, Decision
-      T0_SPECIFIC_SEEDS.forEach((seed) => {
-        mentals.push(createMentalFromSeed(jitterSeed(seed)))
-      })
-    } else if (index === 1) {
-      // T1: Universal 7 only — Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty
-      // No other mentals
-    } else if (index === 3) {
-      // T3: default like T0; if Happy selected, add Joy (Rapture) mental
-      T0_SPECIFIC_SEEDS.forEach((seed) => {
-        mentals.push(createMentalFromSeed(jitterSeed(seed)))
-      })
-      if (t3Happy) {
-        const joySeed = jitterSeed({
-          name: 'Joy (Pīti)',
-          color: '#38bdf8',
-          scale: 0.14,
-          position: [0.1, -0.38, 0.15] as Vec3,
-          detail: 'Rapture/joyful interest that refreshes the mind',
-        } as MentalSeed)
-        mentals.push(new RaptureMental({
-          name: joySeed.name,
-          detail: joySeed.detail ?? '',
-          color: joySeed.color,
-          scale: joySeed.scale,
-          position: joySeed.position,
-          labelEnabled: false,
-          motionSpeed: 0.0015,
-          opacity: 0.5,
-        }))
-      }
-    } else if (index === 4) {
-      // T4: same mentals as T3 with Happy — no option to click, always includes Joy
-      T0_SPECIFIC_SEEDS.forEach((seed) => {
-        mentals.push(createMentalFromSeed(jitterSeed(seed)))
-      })
-      const joySeed = jitterSeed({
-        name: 'Joy (Pīti)',
-        color: '#38bdf8',
-        scale: 0.14,
-        position: [0.1, -0.38, 0.15] as Vec3,
-        detail: 'Rapture/joyful interest that refreshes the mind',
-      } as MentalSeed)
-      mentals.push(new RaptureMental({
-        name: joySeed.name,
-        detail: joySeed.detail ?? '',
-        color: joySeed.color,
-        scale: joySeed.scale,
-        position: joySeed.position,
-        labelEnabled: false,
-        motionSpeed: 0.0015,
-        opacity: 0.5,
-      }))
-    } else if (index === 5) {
-      // T5: add T0 specific + mentals from selected rooted factor (single-select)
-      T0_SPECIFIC_SEEDS.forEach((seed) => {
-        mentals.push(createMentalFromSeed(jitterSeed(seed)))
-      })
-      if (t5SelectedId) {
-        const opt = T5_MENTAL_OPTIONS.find((o) => o.id === t5SelectedId)
-        if (opt) {
-          const seenVariants = new Set<string>()
-          opt.variants.forEach((v) => {
-            if (!seenVariants.has(v)) {
-              seenVariants.add(v)
-              const seed = getSeedForVariant(v)
-              if (seed) mentals.push(createMentalFromSeed(jitterSeed(seed)))
-            }
-          })
-        }
-      }
-      // If no selection, show random (fallback)
-      if (!t5SelectedId) {
-        const nonUniversal = DEFAULT_SEEDS.filter((s) => !universalNames.has(s.name))
-        const pool = nonUniversal.map((_, i) => i)
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(rng() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]]
-        }
-        const count = Math.floor(4 + rng() * 8)
-        const indices = pool.slice(0, Math.min(count, pool.length))
-        indices.forEach((i) => {
-          const seed = jitterSeed(nonUniversal[i])
-          mentals.push(createMentalFromSeed(seed))
-        })
-      }
-    } else {
-      // T6: add random selection from non-universal seeds
-      const nonUniversal = DEFAULT_SEEDS.filter((s) => !universalNames.has(s.name))
-      const pool = nonUniversal.map((_, i) => i)
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]]
-      }
-      const count = Math.floor(4 + rng() * 8)
-      const indices = pool.slice(0, Math.min(count, pool.length))
-      indices.forEach((i) => {
-        const seed = jitterSeed(nonUniversal[i])
-        mentals.push(createMentalFromSeed(seed))
-      })
-    }
-
-    return mentals
-  }
-
-  const [timelineIndex, setTimelineIndex] = useState(0)
-  const [t3HappySelected, setT3HappySelected] = useState(false)
-  const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
-
-  const mentals = useMemo<Mental[]>(
-    () => getMentalsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId),
-    [timelineIndex, t3HappySelected, t5SelectedId]
+  const [mentals, setMentals] = useState<Mental[]>(() =>
+    getMentalVariantsForTimelineStop(0, false, null).map((variant) => getOrCreateMental(variant))
   )
+
+  useEffect(() => {
+    const variants = getMentalVariantsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId)
+    setMentals(variants.map((variant) => getOrCreateMental(variant)))
+  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex])
+
+  useEffect(() => {
+    return () => {
+      const activeMentals = new Set(mind.getMentals())
+      mind.dispose()
+      mentalCacheRef.current.forEach((mental) => {
+        if (!activeMentals.has(mental)) {
+          mental.dispose()
+        }
+      })
+      mentalCacheRef.current.clear()
+    }
+  }, [mind])
 
   const searchHighlight = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
