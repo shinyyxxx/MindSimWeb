@@ -861,6 +861,91 @@ function MentalsLayer({
   const stagedOriginalScaleRef = useRef<THREE.Vector3 | null>(null)
   const stagedTargetWorldRef = useRef<THREE.Vector3 | null>(null)
   const appliedMentalsRef = useRef<Set<Mental>>(new Set())
+  type DissolveBurst = {
+    id: number
+    positions: Float32Array
+    velocities: Float32Array
+    age: number
+    lifetime: number
+    color: number
+    size: number
+  }
+  const [bursts, setBursts] = useState<DissolveBurst[]>([])
+  const burstsRef = useRef<DissolveBurst[]>([])
+  const burstPointRefs = useRef<Map<number, THREE.Object3D>>(new Map())
+  const nextBurstIdRef = useRef(1)
+  const particleSpriteTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return new THREE.CanvasTexture(canvas)
+
+    const center = canvas.width / 2
+    const grad = ctx.createRadialGradient(center, center, 2, center, center, center)
+    grad.addColorStop(0, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.3, 'rgba(255,255,255,0.95)')
+    grad.addColorStop(0.7, 'rgba(255,255,255,0.55)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.needsUpdate = true
+    tex.minFilter = THREE.LinearFilter
+    tex.magFilter = THREE.LinearFilter
+    tex.generateMipmaps = false
+    return tex
+  }, [])
+
+  useEffect(() => {
+    burstsRef.current = bursts
+  }, [bursts])
+
+  const spawnDissolveBurst = useCallback((origin: THREE.Vector3, color: number) => {
+    const particleCount = 46
+    const positions = new Float32Array(particleCount * 3)
+    const velocities = new Float32Array(particleCount * 3)
+
+    for (let i = 0; i < particleCount; i += 1) {
+      const i3 = i * 3
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(1 - 2 * Math.random())
+      const spread = 0.06 + Math.random() * 0.62
+      const spawnRadius = Math.random() * 0.02
+
+      const dirX = Math.sin(phi) * Math.cos(theta)
+      const dirY = Math.cos(phi)
+      const dirZ = Math.sin(phi) * Math.sin(theta)
+
+      positions[i3] = origin.x + dirX * spawnRadius
+      positions[i3 + 1] = origin.y + dirY * spawnRadius
+      positions[i3 + 2] = origin.z + dirZ * spawnRadius
+
+      velocities[i3] = dirX * spread
+      velocities[i3 + 1] = dirY * spread
+      velocities[i3 + 2] = dirZ * spread
+    }
+
+    const burst: DissolveBurst = {
+      id: nextBurstIdRef.current,
+      positions,
+      velocities,
+      age: 0,
+      lifetime: 0.72 + Math.random() * 0.16,
+      color,
+      size: 0.042 + Math.random() * 0.02,
+    }
+    nextBurstIdRef.current += 1
+
+    setBursts((prev) => {
+      const next = [...prev, burst]
+      burstsRef.current = next
+      return next
+    })
+  }, [])
 
   const collectMentalTargets = useCallback((list: Mental[]): THREE.Object3D[] => {
     const targets: THREE.Object3D[] = []
@@ -1007,6 +1092,14 @@ function MentalsLayer({
 
     previous.forEach((mental) => {
       if (next.has(mental)) return
+      const worldPos = new THREE.Vector3()
+      const mesh = mental.getMesh()
+      if (mesh) {
+        mesh.getWorldPosition(worldPos)
+      } else {
+        worldPos.set(mind.position.x, mind.position.y, mind.position.z)
+      }
+      spawnDissolveBurst(worldPos, mental.color)
       mind.removeMental(mental)
       mental.detachModel()
     })
@@ -1020,7 +1113,7 @@ function MentalsLayer({
     })
 
     appliedMentalsRef.current = next
-  }, [gl, mentals, mind])
+  }, [gl, mentals, mind, spawnDissolveBurst])
 
   useEffect(() => {
     return () => {
@@ -1217,6 +1310,58 @@ function MentalsLayer({
     mesh.updateMatrixWorld(true)
   })
 
+  useFrame((_, delta) => {
+    const list = burstsRef.current
+    if (!list.length) return
+
+    const expiredIds: number[] = []
+
+    list.forEach((burst) => {
+      burst.age += delta
+      const drag = Math.max(0, 1 - delta * 2.7)
+      const gravity = 0.65
+      const count = burst.positions.length / 3
+
+      for (let i = 0; i < count; i += 1) {
+        const i3 = i * 3
+        burst.velocities[i3 + 1] -= gravity * delta * 0.35
+        burst.positions[i3] += burst.velocities[i3] * delta
+        burst.positions[i3 + 1] += burst.velocities[i3 + 1] * delta
+        burst.positions[i3 + 2] += burst.velocities[i3 + 2] * delta
+        burst.velocities[i3] *= drag
+        burst.velocities[i3 + 1] *= drag
+        burst.velocities[i3 + 2] *= drag
+      }
+
+      const points = burstPointRefs.current.get(burst.id) as THREE.Points | undefined
+      if (points) {
+        const geometry = points.geometry as THREE.BufferGeometry
+        const positionAttr = geometry.getAttribute('position') as THREE.BufferAttribute
+        if (positionAttr) positionAttr.needsUpdate = true
+
+        const material = points.material as THREE.PointsMaterial
+        if (material) {
+          const t = Math.min(1, burst.age / burst.lifetime)
+          material.opacity = Math.max(0, 0.95 * (1 - t))
+          material.size = burst.size * (1 + t * 0.55)
+          material.needsUpdate = true
+        }
+      }
+
+      if (burst.age >= burst.lifetime) {
+        expiredIds.push(burst.id)
+      }
+    })
+
+    if (!expiredIds.length) return
+    const expiredSet = new Set(expiredIds)
+    setBursts((prev) => {
+      const next = prev.filter((burst) => !expiredSet.has(burst.id))
+      burstsRef.current = next
+      return next
+    })
+  })
+
   // When entering detail mode, restore the staged sphere back into the mind sphere.
   useEffect(() => {
     if (!inspectOpen || !stagedMentalRef.current) return
@@ -1265,7 +1410,54 @@ function MentalsLayer({
     }
   }, [sendMode, onSendMeshSelection])
 
-  return null
+  useEffect(() => {
+    return () => {
+      burstPointRefs.current.forEach((obj) => {
+        const points = obj as THREE.Points
+        points.geometry?.dispose()
+        const material = points.material
+        if (Array.isArray(material)) {
+          material.forEach((m) => m.dispose())
+        } else {
+          material?.dispose()
+        }
+      })
+      burstPointRefs.current.clear()
+      burstsRef.current = []
+      particleSpriteTexture.dispose()
+    }
+  }, [particleSpriteTexture])
+
+  return (
+    <>
+      {bursts.map((burst) => (
+        <points
+          key={burst.id}
+          frustumCulled={false}
+          ref={(node) => {
+            if (node) burstPointRefs.current.set(burst.id, node)
+            else burstPointRefs.current.delete(burst.id)
+          }}
+        >
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[burst.positions, 3]} />
+          </bufferGeometry>
+          <pointsMaterial
+            color={burst.color}
+            size={burst.size}
+            sizeAttenuation
+            map={particleSpriteTexture}
+            alphaMap={particleSpriteTexture}
+            alphaTest={0.08}
+            transparent
+            opacity={0.95}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
+        </points>
+      ))}
+    </>
+  )
 }
 
 function GroundPlane() {
