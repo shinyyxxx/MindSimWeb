@@ -11,7 +11,7 @@ export type MentalTableRow = {
 }
 
 export async function loadMentalTableRows(): Promise<MentalTableRow[]> {
-  const response = await fetch('/MentalTable.xlsx')
+  const response = await fetch(`${import.meta.env.BASE_URL}MentalTable.xlsx`)
   if (!response.ok) {
     throw new Error(`Failed to fetch MentalTable.xlsx (status ${response.status})`)
   }

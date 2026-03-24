@@ -13,7 +13,7 @@ export type MindElementRow = {
 export const toMindIdSlug = (value: string): string => toMindSlug(value)
 
 export async function loadMindElementRows(): Promise<MindElementRow[]> {
-  const response = await fetch('/MindElement.xlsx')
+  const response = await fetch(`${import.meta.env.BASE_URL}MindElement.xlsx`)
   if (!response.ok) {
     throw new Error(`Failed to fetch MindElement.xlsx (status ${response.status})`)
   }
