@@ -8,7 +8,9 @@ COPY . .
 
 # Build for subpath deployment (example: /mindillustrate/frontend/)
 ARG VITE_BASE_PATH=/mindillustrate/frontend/
+ARG VITE_GOOGLE_TTS_KEY=
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+ENV VITE_GOOGLE_TTS_KEY=${VITE_GOOGLE_TTS_KEY}
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime

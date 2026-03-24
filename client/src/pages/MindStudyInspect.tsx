@@ -71,12 +71,6 @@ import { BlendFunction } from 'postprocessing'
 import InspectPanel from '../components/InspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 
-const apiKey = import.meta.env.VITE_GOOGLE_TTS_KEY
-
-if (!apiKey) {
-  throw new Error("Missing VITE_GOOGLE_TTS_KEY for Google TTS")
-}
-
 
 type MindStudyInspectParams = {
   mindId?: string
