@@ -2308,7 +2308,6 @@ export function Simulation(): React.ReactElement {
 
   useEffect(() => {
     if (activeXrMode !== 'ar') return
-    setShowHumanModel(true)
     setSendMode(false)
     setSelected(null)
     setProfile(null)
