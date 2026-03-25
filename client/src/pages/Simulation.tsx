@@ -662,8 +662,8 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   if (index === 0) {
     // T0: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
-    // Temporary visual check: force Tranquility (body) into the first stage.
-    pushUnique('tranquility_body')
+    // Temp to check visual, i will remove this later
+    pushUnique('recklessness')
   } else if (index === 2) {
     // T2: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
@@ -2249,7 +2249,7 @@ function ThreeScene({
         />
       )}
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
-      {showMentalsLayer && (
+      {showMentalsLayer && !isXrActive && (
         <EffectComposer multisampling={2} autoClear={false}>
           <Outline
             selection={outlineSelection}
@@ -2312,6 +2312,50 @@ export function Simulation(): React.ReactElement {
     setSendMode(false)
     setSelected(null)
     setProfile(null)
+  }, [activeXrMode])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const body = document.body
+    body.classList.add('simulation-no-scroll')
+
+    const updateNavHeight = () => {
+      const nav = document.querySelector('.nav') as HTMLElement | null
+      const shouldReserveNavSpace = activeXrMode === null
+      const navHeight = nav && shouldReserveNavSpace ? nav.getBoundingClientRect().height : 0
+      root.style.setProperty('--mindsim-nav-height', `${Math.round(navHeight)}px`)
+    }
+
+    updateNavHeight()
+    window.addEventListener('resize', updateNavHeight)
+    return () => {
+      window.removeEventListener('resize', updateNavHeight)
+      body.classList.remove('simulation-no-scroll')
+      root.style.removeProperty('--mindsim-nav-height')
+    }
+  }, [activeXrMode])
+
+  useEffect(() => {
+    const nav = document.querySelector('.nav') as HTMLElement | null
+    const body = document.body
+    if (!nav) return
+
+    const isXrActive = activeXrMode !== null
+    if (isXrActive) {
+      nav.dataset.preXrDisplay = nav.style.display
+      nav.style.display = 'none'
+      body.classList.add('xr-active')
+    } else {
+      nav.style.display = nav.dataset.preXrDisplay ?? ''
+      delete nav.dataset.preXrDisplay
+      body.classList.remove('xr-active')
+    }
+
+    return () => {
+      nav.style.display = nav.dataset.preXrDisplay ?? ''
+      delete nav.dataset.preXrDisplay
+      body.classList.remove('xr-active')
+    }
   }, [activeXrMode])
 
   const mind = useMemo(() => {
