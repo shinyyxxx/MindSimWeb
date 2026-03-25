@@ -46,6 +46,12 @@ const mainTopic: Topic = {
   ],
 }
 
+const GOOD_MENTAL_ACCENT = '#22c55e'
+const BAD_MENTAL_ACCENT = '#ef4444'
+const GOOD_MENTAL_TEXT = '#14532d'
+const BAD_MENTAL_TEXT = '#7f1d1d'
+const NEUTRAL_MENTAL_TEXT = '#1f2937'
+
 const defaultAggregates: DhammaObject[] = [
   new DhammaObject({
     id: 'calm',
@@ -427,18 +433,18 @@ export function MindStudy(): React.ReactElement {
                   onClick={() => setBadNavOpen((o) => !o)}
                   aria-expanded={badNavOpen}
                 >
-                  <span>Cetasikas — Bad (14)</span>
+                  <span style={{ color: BAD_MENTAL_TEXT }}>Cetasikas — Bad (14)</span>
                   <span className={`mindstudy-caret ${badNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
                 </button>
                 <div
                   className={`mindstudy-nav-children mindstudy-nav-children-nested ${badNavOpen ? 'open' : ''}`}
                   style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
                 >
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-moha">โมหจตุกกะ (4)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-lobha">โลภจตุกกะ (3)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-dosa">โทจตุกกะ (4)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-thinamiddha">ถีนมิทธะ (2)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-vicikiccha">วิจิกิจฉา (1)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-moha" style={{ color: BAD_MENTAL_TEXT }}>โมหจตุกกะ (4)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-lobha" style={{ color: BAD_MENTAL_TEXT }}>โลภจตุกกะ (3)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-dosa" style={{ color: BAD_MENTAL_TEXT }}>โทจตุกกะ (4)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-thinamiddha" style={{ color: BAD_MENTAL_TEXT }}>ถีนมิทธะ (2)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-vicikiccha" style={{ color: BAD_MENTAL_TEXT }}>วิจิกิจฉา (1)</a>
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -449,17 +455,17 @@ export function MindStudy(): React.ReactElement {
                   onClick={() => setGoodNavOpen((o) => !o)}
                   aria-expanded={goodNavOpen}
                 >
-                  <span>Cetasikas — Good (25)</span>
+                  <span style={{ color: GOOD_MENTAL_TEXT }}>Cetasikas — Good (25)</span>
                   <span className={`mindstudy-caret ${goodNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
                 </button>
                 <div
                   className={`mindstudy-nav-children mindstudy-nav-children-nested ${goodNavOpen ? 'open' : ''}`}
                   style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
                 >
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-sobhana">โสภณสาธารณ (19)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-virati">วิรตี (3)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-appamanna">อัปปมัญญา (2)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-panna">ปัญญา (1)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-sobhana" style={{ color: GOOD_MENTAL_TEXT }}>โสภณสาธารณ (19)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-virati" style={{ color: GOOD_MENTAL_TEXT }}>วิรตี (3)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-appamanna" style={{ color: GOOD_MENTAL_TEXT }}>อัปปมัญญา (2)</a>
+                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-panna" style={{ color: GOOD_MENTAL_TEXT }}>ปัญญา (1)</a>
                 </div>
               </div>
               {aggregates.map((topic) => (
@@ -530,7 +536,12 @@ export function MindStudy(): React.ReactElement {
           {CETASIKA_CATEGORIES.map((cat) => {
             const isNeutral = cat.titleEn.startsWith('Neutral')
             const isGood = cat.titleEn.startsWith('Good')
-            const accentColor = isGood ? '#22c55e' : isNeutral ? '#94a3b8' : '#ef4444'
+            const accentColor = isGood
+              ? GOOD_MENTAL_ACCENT
+              : isNeutral
+                ? '#94a3b8'
+                : BAD_MENTAL_ACCENT
+            const topicTextColor = isNeutral ? NEUTRAL_MENTAL_TEXT : isGood ? GOOD_MENTAL_TEXT : BAD_MENTAL_TEXT
             const sectionId = isNeutral ? 'cetasikas-neutral' : isGood ? 'cetasikas-good' : 'cetasikas-bad'
 
             if (cat.subcategories?.length) {
@@ -549,8 +560,8 @@ export function MindStudy(): React.ReactElement {
                     <span className="mindstudy-badge" style={{ background: accentColor }}>
                       {cat.titleEn}
                     </span>
-                    <h2 style={{ color: 'var(--mindstudy-fg, #e2e8f0)' }}>{cat.title}</h2>
-                    <p className="mindstudy-section-desc">
+                    <h2 style={{ color: topicTextColor }}>{cat.title}</h2>
+                    <p className="mindstudy-section-desc" style={{ color: topicTextColor }}>
                       {cat.count} factors in {cat.subcategories.length} sub-categories. Tap a card to inspect.
                     </p>
                   </div>
@@ -568,7 +579,7 @@ export function MindStudy(): React.ReactElement {
                           border: `2px solid ${accentColor}`,
                         }}
                       >
-                        <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--mindstudy-fg, #e2e8f0)', marginBottom: 12 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 600, color: topicTextColor, marginBottom: 12 }}>
                           {sub.title} — {sub.titleEn}
                         </h3>
                         <div className="mindstudy-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
@@ -635,8 +646,8 @@ export function MindStudy(): React.ReactElement {
                   <span className="mindstudy-badge" style={{ background: accentColor }}>
                     {cat.titleEn}
                   </span>
-                  <h2 style={{ color: 'var(--mindstudy-fg, #e2e8f0)' }}>{cat.title}</h2>
-                  <p className="mindstudy-section-desc">
+                  <h2 style={{ color: topicTextColor }}>{cat.title}</h2>
+                  <p className="mindstudy-section-desc" style={{ color: topicTextColor }}>
                     {cat.count} factors. Tap a card to inspect.
                   </p>
                 </div>
@@ -888,10 +899,9 @@ export function MindStudy(): React.ReactElement {
                 className="mindstudy-btn primary"
                 onClick={() => {
                   setModalOpen(false)
-                  navigate(`/mind-study/${selectedMind.id}`)
                 }}
               >
-                Inspect this mind →
+                Got it
               </button>
             </div>
           </div>
@@ -931,11 +941,10 @@ export function MindStudy(): React.ReactElement {
                 className="mindstudy-btn primary"
                 onClick={() => {
                   setCetasikaModalOpen(false)
-                  navigate(`/mind-study/${selectedCetasika.id}`)
                   setSelectedCetasika(null)
                 }}
               >
-                Inspect this cetasika →
+                Got it
               </button>
             </div>
           </div>
