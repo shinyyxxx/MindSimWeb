@@ -861,6 +861,10 @@ function MentalsLayer({
   const stagedOriginalScaleRef = useRef<THREE.Vector3 | null>(null)
   const stagedTargetWorldRef = useRef<THREE.Vector3 | null>(null)
   const appliedMentalsRef = useRef<Set<Mental>>(new Set())
+  const hasHydratedMentalsRef = useRef(false)
+  const enteringMentalsRef = useRef<Map<Mental, { elapsed: number; duration: number; startScale: number; targetScale: number }>>(new Map())
+  const pendingModelLoadMentalsRef = useRef<Set<Mental>>(new Set())
+  const basisPath = 'https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'
   type DissolveBurst = {
     id: number
     positions: Float32Array
@@ -1086,12 +1090,13 @@ function MentalsLayer({
   }, [camera, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
 
   useEffect(() => {
-    const basisPath = 'https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'
     const previous = appliedMentalsRef.current
     const next = new Set(mentals)
 
     previous.forEach((mental) => {
       if (next.has(mental)) return
+      enteringMentalsRef.current.delete(mental)
+      pendingModelLoadMentalsRef.current.delete(mental)
       const worldPos = new THREE.Vector3()
       const mesh = mental.getMesh()
       if (mesh) {
@@ -1107,22 +1112,43 @@ function MentalsLayer({
     next.forEach((mental) => {
       if (previous.has(mental)) return
       mind.addMental(mental)
-      mental.loadModel(gl, { basisPath }).catch((err) => {
-        console.error('Failed to load mental model', err)
-      })
+      if (hasHydratedMentalsRef.current) {
+        const targetScale = mental.scale
+        const startScale = Math.max(0.01, targetScale * 0.14)
+        const mesh = mental.getMesh()
+        if (mesh) {
+          mesh.scale.set(startScale, startScale, startScale)
+          mesh.updateMatrixWorld(true)
+        }
+        enteringMentalsRef.current.set(mental, {
+          elapsed: 0,
+          duration: 0.38 + Math.random() * 0.14,
+          startScale,
+          targetScale,
+        })
+        pendingModelLoadMentalsRef.current.add(mental)
+      } else {
+        mental.loadModel(gl, { basisPath }).catch((err) => {
+          console.error('Failed to load mental model', err)
+        })
+      }
     })
 
     appliedMentalsRef.current = next
+    hasHydratedMentalsRef.current = true
   }, [gl, mentals, mind, spawnDissolveBurst])
 
   useEffect(() => {
     return () => {
       const applied = appliedMentalsRef.current
       applied.forEach((mental) => {
+        enteringMentalsRef.current.delete(mental)
+        pendingModelLoadMentalsRef.current.delete(mental)
         mind.removeMental(mental)
         mental.detachModel()
       })
       appliedMentalsRef.current = new Set()
+      hasHydratedMentalsRef.current = false
     }
   }, [mind])
 
@@ -1311,6 +1337,36 @@ function MentalsLayer({
   })
 
   useFrame((_, delta) => {
+    enteringMentalsRef.current.forEach((anim, mental) => {
+      if (!appliedMentalsRef.current.has(mental)) {
+        enteringMentalsRef.current.delete(mental)
+        pendingModelLoadMentalsRef.current.delete(mental)
+        return
+      }
+      anim.elapsed += delta
+      const t = Math.min(1, anim.elapsed / anim.duration)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const nextScale = THREE.MathUtils.lerp(anim.startScale, anim.targetScale, eased)
+      const mesh = mental.getMesh()
+      if (mesh) {
+        mesh.scale.set(nextScale, nextScale, nextScale)
+        mesh.updateMatrixWorld(true)
+      }
+      if (t >= 1) {
+        if (mesh) {
+          mesh.scale.set(anim.targetScale, anim.targetScale, anim.targetScale)
+          mesh.updateMatrixWorld(true)
+        }
+        if (pendingModelLoadMentalsRef.current.has(mental)) {
+          pendingModelLoadMentalsRef.current.delete(mental)
+          mental.loadModel(gl, { basisPath }).catch((err) => {
+            console.error('Failed to load mental model', err)
+          })
+        }
+        enteringMentalsRef.current.delete(mental)
+      }
+    })
+
     const list = burstsRef.current
     if (!list.length) return
 
@@ -1424,6 +1480,8 @@ function MentalsLayer({
       })
       burstPointRefs.current.clear()
       burstsRef.current = []
+      enteringMentalsRef.current.clear()
+      pendingModelLoadMentalsRef.current.clear()
       particleSpriteTexture.dispose()
     }
   }, [particleSpriteTexture])
