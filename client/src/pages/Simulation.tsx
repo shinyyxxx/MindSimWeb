@@ -24,6 +24,7 @@ import NonGreedMental from '../mindwebsite/classes/good/NonGreedMental'
 import NonHatredMental from '../mindwebsite/classes/good/NonHatredMental'
 import EquanimityMental from '../mindwebsite/classes/good/EquanimityMental'
 import AppreciativeJoyMental from '../mindwebsite/classes/good/AppreciativeJoyMental'
+import TranquilityBodyMental from '../mindwebsite/classes/good/TranquilityBodyMental'
 import TranquilityMindMental from '../mindwebsite/classes/good/TranquilityMindMental'
 import LightnessBodyMental from '../mindwebsite/classes/good/LightnessBodyMental'
 import LightnessMindMental from '../mindwebsite/classes/good/LightnessMindMental'
@@ -168,6 +169,7 @@ const RAPTURE_TIMELINE_SEED: MentalSeed = {
 
 /** Seeds for Beautiful Universals (missing body/mind), Abstinences, Illimitables, Wisdom */
 const WHOLESOME_SEEDS: MentalSeed[] = [
+  { name: 'Tranquility (Body)', color: '#22c55e', scale: 0.12, position: [-0.64, 0.10, -0.04], variant: 'tranquility_body' },
   { name: 'Wieldiness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.52, -0.04, -0.08], variant: 'wieldiness_mind' },
   { name: 'Proficiency (Body)', color: '#22c55e', scale: 0.12, position: [-0.66, -0.08, 0.14], variant: 'proficiency_body' },
   { name: 'Rectitude (Body)', color: '#22c55e', scale: 0.12, position: [-0.44, -0.14, -0.18], variant: 'rectitude_body' },
@@ -378,6 +380,9 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   }
   if (m.variant === 'equanimity') {
     return new EquanimityMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
+  }
+  if (m.variant === 'tranquility_body') {
+    return new TranquilityBodyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
   }
   if (m.variant === 'appreciative_joy') {
     return new AppreciativeJoyMental({ name: m.name, detail: m.detail ?? '', color: m.color, scale: m.scale, position: m.position, labelEnabled: false, motionSpeed: 0.002 })
@@ -654,8 +659,13 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   // Universal 7 — exist in all timeline steps
   pushUnique(...UNIVERSAL_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
 
-  if (index === 0 || index === 2) {
-    // T0 and T2: add Initial Application, Sustained Application, Decision
+  if (index === 0) {
+    // T0: add Initial Application, Sustained Application, Decision
+    pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
+    // Temporary visual check: force Tranquility (body) into the first stage.
+    pushUnique('tranquility_body')
+  } else if (index === 2) {
+    // T2: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
   } else if (index === 1) {
     // T1: Universal 7 only
