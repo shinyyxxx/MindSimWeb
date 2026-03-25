@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import winkTongueEmojiModel from '../../../assets/emoji/winkTongue_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Recklessness (Anottappa)
@@ -14,6 +15,10 @@ export class RecklessnessMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Recklessness has its own model; keep same framing as other featured mentals.
+      modelPath: options.modelPath ?? winkTongueEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 6.506,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: -0.1 },
     })
   }
 

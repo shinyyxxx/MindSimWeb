@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import smileDevilEmojiModel from '../../../assets/emoji/smileDevil_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Shamelessness (Ahirika)
@@ -14,6 +15,10 @@ export class ShamelessnessMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Shamelessness has its own model; keep same framing as other featured mentals.
+      modelPath: options.modelPath ?? smileDevilEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 6.506,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.80, z: 0 },
     })
   }
 
