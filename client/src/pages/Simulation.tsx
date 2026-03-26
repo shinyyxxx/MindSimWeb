@@ -840,7 +840,6 @@ function MentalsLayer({
   mind,
   mentals,
   selectedMentalName,
-  inspectOpen,
   onSelectMental,
   focusTargetRef,
   planeModelPath,
@@ -852,7 +851,6 @@ function MentalsLayer({
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
-  inspectOpen: boolean
   onSelectMental: (info: InspectSelection) => void
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   planeModelPath: string
@@ -866,10 +864,6 @@ function MentalsLayer({
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const senderRef = useRef<Mental | null>(null)
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
-  const stagedMentalRef = useRef<Mental | null>(null)
-  const stagedOriginalPosRef = useRef<THREE.Vector3 | null>(null)
-  const stagedOriginalScaleRef = useRef<THREE.Vector3 | null>(null)
-  const stagedTargetWorldRef = useRef<THREE.Vector3 | null>(null)
   const appliedMentalsRef = useRef<Set<Mental>>(new Set())
   const hasHydratedMentalsRef = useRef(false)
   const enteringMentalsRef = useRef<Map<Mental, { elapsed: number; duration: number; startScale: number; targetScale: number }>>(new Map())
@@ -1050,40 +1044,15 @@ function MentalsLayer({
       return
     }
 
-    // Stop motion while inspecting.
-    if (stagedMentalRef.current && stagedMentalRef.current !== found) {
-      const prevMesh = stagedMentalRef.current.getMesh()
-      if (prevMesh && stagedOriginalPosRef.current) {
-        prevMesh.position.copy(stagedOriginalPosRef.current)
-      }
-      if (prevMesh && stagedOriginalScaleRef.current) {
-        prevMesh.scale.copy(stagedOriginalScaleRef.current)
-      }
-      prevMesh?.updateMatrixWorld(true)
-      stagedMentalRef.current.setFrozen(false)
-      stagedMentalRef.current = null
-      stagedOriginalPosRef.current = null
-      stagedOriginalScaleRef.current = null
-      stagedTargetWorldRef.current = null
-    }
-
+    mind.getMentals().forEach((m) => m.setFrozen(m === found))
     found.setFrozen(true)
     const foundMesh = found.getMesh()
     const worldPos = new THREE.Vector3()
     foundMesh?.getWorldPosition(worldPos)
 
-    // Stage selected sphere in front-center of camera.
+    // Keep selected sphere in place and expose its world position for overlay anchoring.
     if (foundMesh) {
-      if (stagedMentalRef.current !== found) {
-        stagedMentalRef.current = found
-        stagedOriginalPosRef.current = foundMesh.position.clone()
-        stagedOriginalScaleRef.current = foundMesh.scale.clone()
-      }
-      const cameraForward = new THREE.Vector3()
-      camera.getWorldDirection(cameraForward)
-      const targetWorld = camera.position.clone().add(cameraForward.multiplyScalar(1.3))
-      stagedTargetWorldRef.current = targetWorld
-      focusTargetRef.current = targetWorld
+      focusTargetRef.current = worldPos
     } else {
       focusTargetRef.current = worldPos
     }
@@ -1097,7 +1066,7 @@ function MentalsLayer({
       screenPosition: screenPos,
       modelPath: found.getModelPath?.(),
     })
-  }, [camera, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
+  }, [focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
 
   useEffect(() => {
     const previous = appliedMentalsRef.current
@@ -1328,24 +1297,6 @@ function MentalsLayer({
     }
   })
 
-  useFrame(() => {
-    const staged = stagedMentalRef.current
-    const targetWorld = stagedTargetWorldRef.current
-    if (!staged || !targetWorld) return
-    const mesh = staged.getMesh()
-    if (!mesh) return
-
-    const targetLocal = mesh.parent ? mesh.parent.worldToLocal(targetWorld.clone()) : targetWorld
-    mesh.position.lerp(targetLocal, 0.18)
-
-    const originalScale = stagedOriginalScaleRef.current
-    if (originalScale) {
-      const targetScale = originalScale.clone().multiplyScalar(2.35)
-      mesh.scale.lerp(targetScale, 0.18)
-    }
-    mesh.updateMatrixWorld(true)
-  })
-
   useFrame((_, delta) => {
     enteringMentalsRef.current.forEach((anim, mental) => {
       if (!appliedMentalsRef.current.has(mental)) {
@@ -1428,42 +1379,10 @@ function MentalsLayer({
     })
   })
 
-  // When entering detail mode, restore the staged sphere back into the mind sphere.
-  useEffect(() => {
-    if (!inspectOpen || !stagedMentalRef.current) return
-    const stagedMesh = stagedMentalRef.current.getMesh()
-    if (stagedMesh && stagedOriginalPosRef.current) {
-      stagedMesh.position.copy(stagedOriginalPosRef.current)
-    }
-    if (stagedMesh && stagedOriginalScaleRef.current) {
-      stagedMesh.scale.copy(stagedOriginalScaleRef.current)
-    }
-    stagedMesh?.updateMatrixWorld(true)
-    stagedMentalRef.current.setFrozen(false)
-    stagedMentalRef.current = null
-    stagedOriginalPosRef.current = null
-    stagedOriginalScaleRef.current = null
-    stagedTargetWorldRef.current = null
-  }, [inspectOpen])
-
   useEffect(() => {
     if (!selectedMentalName) {
       // Unfreeze all when selection is cleared
       mind.getMentals().forEach((m) => m.setFrozen(false))
-      if (stagedMentalRef.current) {
-        const stagedMesh = stagedMentalRef.current.getMesh()
-        if (stagedMesh && stagedOriginalPosRef.current) {
-          stagedMesh.position.copy(stagedOriginalPosRef.current)
-        }
-        if (stagedMesh && stagedOriginalScaleRef.current) {
-          stagedMesh.scale.copy(stagedOriginalScaleRef.current)
-        }
-        stagedMesh?.updateMatrixWorld(true)
-      }
-      stagedMentalRef.current = null
-      stagedOriginalPosRef.current = null
-      stagedOriginalScaleRef.current = null
-      stagedTargetWorldRef.current = null
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
@@ -2122,7 +2041,6 @@ function ThreeScene({
   mind,
   mentals,
   selectedMentalName,
-  inspectOpen,
   onSelectMental,
   onUpdatePanelPosition,
   sendMode,
@@ -2133,11 +2051,11 @@ function ThreeScene({
   defaultMindScale,
   onRendererReady,
   searchHighlight,
+  explainHighlight,
 }: {
   mind: Mind
   mentals: Mental[]
   selectedMentalName: string | null
-  inspectOpen: boolean
   onSelectMental: (info: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
@@ -2148,6 +2066,7 @@ function ThreeScene({
   defaultMindScale: number
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
   searchHighlight?: THREE.Object3D[]
+  explainHighlight?: THREE.Object3D[]
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -2160,15 +2079,17 @@ function ThreeScene({
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
   const selectedOutlineSelection = useMemo(() => {
-    if (!inspectOpen || !selectedMentalName) return [] as THREE.Object3D[]
+    if (!selectedMentalName) return [] as THREE.Object3D[]
     const selectedMental = mentals.find((m) => m.getName() === selectedMentalName)
     const mesh = selectedMental?.getMesh()
     return mesh ? [mesh] : []
-  }, [inspectOpen, mentals, selectedMentalName])
+  }, [mentals, selectedMentalName])
 
-  // Use search highlight when active, else send mesh when in send mode, else selected sphere in detail mode, else hover selection
+  // Priority: active explanation sphere, search results, send mode picks, selected sphere, then hover.
   const outlineSelection =
-    (searchHighlight?.length ?? 0) > 0
+    (explainHighlight?.length ?? 0) > 0
+      ? explainHighlight!
+      : (searchHighlight?.length ?? 0) > 0
       ? searchHighlight!
       : sendMode && sendMeshSelection.length > 0
         ? sendMeshSelection
@@ -2238,7 +2159,6 @@ function ThreeScene({
           mind={mind}
           mentals={mentals}
           selectedMentalName={selectedMentalName}
-          inspectOpen={inspectOpen}
           onSelectMental={onSelectMental}
           focusTargetRef={focusTargetRef}
           planeModelPath={paperPlaneModel}
@@ -2277,6 +2197,12 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
+  const [isMindExplaining, setIsMindExplaining] = useState(false)
+  const [explainOverlay, setExplainOverlay] = useState<{ name: string; detail: string; progressLabel: string } | null>(null)
+  const [explainHighlight, setExplainHighlight] = useState<THREE.Object3D[]>([])
+  const [focusScreenPosition, setFocusScreenPosition] = useState<{ x: number; y: number } | null>(null)
+  const [menuRevealReady, setMenuRevealReady] = useState(false)
+  const [menuLineProgress, setMenuLineProgress] = useState(1)
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
@@ -2285,6 +2211,7 @@ export function Simulation(): React.ReactElement {
 
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const menuRevealFrameRef = useRef<number | null>(null)
   const mentalCacheRef = useRef<Map<MentalVariant, Mental>>(new Map())
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
     status: 'Idle',
@@ -2397,6 +2324,7 @@ export function Simulation(): React.ReactElement {
 
   useEffect(() => {
     return () => {
+      mind.stopMentalExplanationAnimation()
       const activeMentals = new Set(mind.getMentals())
       mind.dispose()
       mentalCacheRef.current.forEach((mental) => {
@@ -2420,27 +2348,97 @@ export function Simulation(): React.ReactElement {
   }, [searchTerm, mentals])
 
   const handleSelect = (info: InspectSelection) => {
+    if (menuRevealFrameRef.current !== null) {
+      cancelAnimationFrame(menuRevealFrameRef.current)
+      menuRevealFrameRef.current = null
+    }
+
     setSelected(info)
     setInspectOpen(false)
-    if (typeof window !== 'undefined') {
+    setFocusScreenPosition(info.screenPosition ?? null)
+    setMenuRevealReady(false)
+    setMenuLineProgress(0)
+    if (info.screenPosition) {
+      const src = info.screenPosition
+      if (typeof window !== 'undefined' && overlayRootRef.current) {
+        const rect = overlayRootRef.current.getBoundingClientRect()
+        const overlayCenter = {
+          x: rect.left + window.scrollX + rect.width / 2,
+          y: rect.top + window.scrollY + rect.height / 2,
+        }
+
+        const outward = {
+          x: src.x - overlayCenter.x,
+          y: src.y - overlayCenter.y,
+        }
+        const length = Math.hypot(outward.x, outward.y)
+        const nx = length > 1e-5 ? outward.x / length : 0.9
+        const ny = length > 1e-5 ? outward.y / length : -0.4
+        const pushDistance = 210
+
+        const desiredX = src.x + nx * pushDistance
+        const desiredY = src.y + ny * pushDistance
+
+        const menuWidth = 260
+        const menuHeight = 210
+        const margin = 12
+
+        const minX = rect.left + window.scrollX + menuWidth / 2 + margin
+        const maxX = rect.left + window.scrollX + rect.width - menuWidth / 2 - margin
+        // Menu uses translate(-50%, -100%), so anchor Y is bottom edge.
+        const minY = rect.top + window.scrollY + menuHeight + margin
+        const maxY = rect.top + window.scrollY + rect.height - margin
+
+        setPanelPosition({
+          x: THREE.MathUtils.clamp(desiredX, minX, maxX) - 28,
+          y: THREE.MathUtils.clamp(desiredY, minY, maxY),
+        })
+      } else {
+        setPanelPosition({ x: src.x - 28, y: src.y })
+      }
+    } else if (typeof window !== 'undefined') {
       setPanelPosition({
-        x: window.scrollX + window.innerWidth - 210,
+        x: window.scrollX + window.innerWidth - 238,
         y: window.scrollY + window.innerHeight * 0.52,
       })
     } else {
-      setPanelPosition(info.screenPosition ?? null)
+      setPanelPosition(null)
     }
-  }
 
-  const handleClose = () => {
-    setSelected(null)
-    setInspectOpen(false)
-    setPanelPosition(null)
+    const startTs = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const durationMs = 360
+    const step = (nowTs: number) => {
+      const elapsed = nowTs - startTs
+      const t = THREE.MathUtils.clamp(elapsed / durationMs, 0, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setMenuLineProgress(eased)
+      if (t < 1) {
+        menuRevealFrameRef.current = requestAnimationFrame(step)
+        return
+      }
+      menuRevealFrameRef.current = null
+      setMenuRevealReady(true)
+    }
+    menuRevealFrameRef.current = requestAnimationFrame(step)
   }
 
   const handleViewDetail = (info: InspectSelection) => {
     setSelected(info)
+    setFocusScreenPosition((prev) => prev ?? info.screenPosition ?? null)
     setInspectOpen(true)
+  }
+
+  const handleClose = () => {
+    if (menuRevealFrameRef.current !== null) {
+      cancelAnimationFrame(menuRevealFrameRef.current)
+      menuRevealFrameRef.current = null
+    }
+    setSelected(null)
+    setInspectOpen(false)
+    setPanelPosition(null)
+    setFocusScreenPosition(null)
+    setMenuRevealReady(false)
+    setMenuLineProgress(1)
   }
 
   const handleShowProfile = (info: InspectSelection) => {
@@ -2476,9 +2474,125 @@ export function Simulation(): React.ReactElement {
     }
   }
 
+  const handleExplainMind = useCallback(async () => {
+    if (isMindExplaining) return
+    setIsMindExplaining(true)
+    setSendMode(false)
+    setSelected(null)
+    setInspectOpen(false)
+    setPanelPosition(null)
+    setFocusScreenPosition(null)
+    setExplainHighlight([])
+    setExplainOverlay({
+      name: mind.getName() || 'Mind',
+      detail: mind.getDetail() || 'Introducing the mind and its mentals.',
+      progressLabel: 'Starting explanation...',
+    })
+
+    try {
+      await mind.explainMindMentalsAnimation({
+        outDurationMs: 620,
+        holdDurationMs: 440,
+        returnDurationMs: 520,
+        outDistanceWorld: 0.62,
+        // Present spheres in front of the mind (camera-facing view).
+        presentationDirectionLocal: { x: 0, y: 0.14, z: 1 },
+        presentationSpread: 0.024,
+        onStart: () => {
+          const mindMesh = mind.getMesh()
+          setExplainHighlight(mindMesh ? [mindMesh] : [])
+          setExplainOverlay({
+            name: mind.getName() || 'Mind',
+            detail: mind.getDetail() || 'Introducing the mind and its mentals.',
+            progressLabel: 'Mind overview',
+          })
+        },
+        onMentalFocus: ({ mental, index, total }) => {
+          const mesh = mental.getMesh()
+          setExplainHighlight(mesh ? [mesh] : [])
+          setExplainOverlay({
+            name: mental.getName(),
+            detail: mental.getDetail() || 'No detail provided.',
+            progressLabel: `Mental ${index + 1} / ${total}`,
+          })
+        },
+        onComplete: () => {
+          setExplainHighlight([])
+          setExplainOverlay(null)
+        },
+      })
+    } catch (error) {
+      console.error('Failed to run mind explanation animation', error)
+    } finally {
+      setExplainHighlight([])
+      setExplainOverlay(null)
+      setIsMindExplaining(false)
+    }
+  }, [isMindExplaining, mind])
+
+  const getOverlayPoint = useCallback((point: { x: number; y: number } | null): { x: number; y: number } | null => {
+    if (!point || !overlayRootRef.current || typeof window === 'undefined') return null
+    const rect = overlayRootRef.current.getBoundingClientRect()
+    return {
+      x: point.x - (rect.left + window.scrollX),
+      y: point.y - (rect.top + window.scrollY),
+    }
+  }, [])
+
+  const menuConnectorStart = getOverlayPoint(focusScreenPosition ?? selected?.screenPosition ?? null)
+  const menuConnectorEnd = getOverlayPoint(panelPosition)
+  const showMenuConnector = Boolean(selected && menuConnectorStart && menuConnectorEnd)
+  const connectorProgress = menuRevealReady ? 1 : menuLineProgress
+  const connectorAnimatedEnd =
+    menuConnectorStart && menuConnectorEnd
+      ? {
+          x: menuConnectorStart.x + (menuConnectorEnd.x - menuConnectorStart.x) * connectorProgress,
+          y: menuConnectorStart.y + (menuConnectorEnd.y - menuConnectorStart.y) * connectorProgress,
+        }
+      : null
+
+  useEffect(() => {
+    return () => {
+      if (menuRevealFrameRef.current !== null) {
+        cancelAnimationFrame(menuRevealFrameRef.current)
+        menuRevealFrameRef.current = null
+      }
+    }
+  }, [])
+
   return (
     <main className="page simulation-page">
       <div ref={overlayRootRef} className="simulation-full" style={{ position: 'relative' }}>
+        {showMenuConnector && menuConnectorStart && connectorAnimatedEnd && (
+          <svg
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 19,
+              pointerEvents: 'none',
+              overflow: 'visible',
+            }}
+          >
+            <defs>
+              <linearGradient id="inspect-menu-connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(56,189,248,0.95)" />
+                <stop offset="100%" stopColor="rgba(167,139,250,0.95)" />
+              </linearGradient>
+            </defs>
+            <line
+              x1={menuConnectorStart.x}
+              y1={menuConnectorStart.y}
+              x2={connectorAnimatedEnd.x}
+              y2={connectorAnimatedEnd.y}
+              stroke="url(#inspect-menu-connector-gradient)"
+              strokeWidth={2.8}
+              strokeLinecap="round"
+              strokeDasharray="7 5"
+            />
+          </svg>
+        )}
         <div
           className="send-toolbar"
           style={{
@@ -2518,6 +2632,23 @@ export function Simulation(): React.ReactElement {
             }}
           >
             {sendMode ? 'Exit Send Mode' : 'Send Paper Plane'}
+          </button>
+          <button
+            type="button"
+            onClick={handleExplainMind}
+            disabled={isMindExplaining}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: isMindExplaining ? '#22c55e' : '#64748b',
+              color: 'white',
+              cursor: isMindExplaining ? 'wait' : 'pointer',
+              fontWeight: 600,
+              opacity: isMindExplaining ? 0.9 : 1,
+            }}
+          >
+            {isMindExplaining ? 'Explaining Mind...' : 'Explain Mind'}
           </button>
           <button
             type="button"
@@ -2647,6 +2778,61 @@ export function Simulation(): React.ReactElement {
             {arMessage && <span style={{ color: '#fbbf24' }}>{arMessage}</span>}
           </div>
         </div>
+        {isMindExplaining && explainOverlay && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 26,
+              top: 68,
+              zIndex: 14,
+              width: 280,
+              pointerEvents: 'none',
+              color: '#0f172a',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                border: '2px solid rgba(15,23,42,0.8)',
+                background: 'rgba(255,255,255,0.58)',
+                backdropFilter: 'blur(3px)',
+                padding: '8px 10px',
+                marginBottom: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  border: '3px solid rgba(15,23,42,0.9)',
+                  background: 'rgba(255,255,255,0.35)',
+                  flexShrink: 0,
+                }}
+              />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.75 }}>{explainOverlay.progressLabel}</div>
+                <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.08 }}>{explainOverlay.name}</div>
+              </div>
+            </div>
+            <div
+              style={{
+                border: '2px solid rgba(15,23,42,0.8)',
+                background: 'rgba(255,255,255,0.58)',
+                backdropFilter: 'blur(3px)',
+                minHeight: 122,
+                padding: '12px 14px',
+                fontSize: 16,
+                lineHeight: 1.35,
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {explainOverlay.detail}
+            </div>
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
@@ -2668,7 +2854,7 @@ export function Simulation(): React.ReactElement {
             onT5Change={setT5SelectedId}
           />
         </div>
-        {selected && !inspectOpen && (
+        {selected && !inspectOpen && menuRevealReady && (
           <InspectOptionMenu
             selection={selected}
             panelPosition={panelPosition}
@@ -2701,9 +2887,8 @@ export function Simulation(): React.ReactElement {
           mind={mind}
           mentals={mentals}
           selectedMentalName={selected?.name ?? null}
-          inspectOpen={inspectOpen}
           onSelectMental={handleSelect}
-          onUpdatePanelPosition={undefined}
+          onUpdatePanelPosition={inspectOpen ? undefined : setFocusScreenPosition}
           sendMode={sendMode}
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}
@@ -2711,6 +2896,7 @@ export function Simulation(): React.ReactElement {
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
           searchHighlight={searchHighlight}
+          explainHighlight={explainHighlight}
           onRendererReady={(gl) => {
             rendererRef.current = gl
           }}

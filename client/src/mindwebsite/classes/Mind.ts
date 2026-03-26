@@ -10,6 +10,9 @@ import * as THREE from 'three'
  */
 export class Mind extends AbstractMind {
   mentals: Mental[] = []
+  private explanationRunId = 0
+  private explanationPromise: Promise<void> | null = null
+  private explanationSuspendPhysics = false
 
   constructor(options: MindBaseOptions = {}) {
     super(options)
@@ -347,6 +350,8 @@ export class Mind extends AbstractMind {
     if (this.material) {
       this.material.envMap = null
     }
+
+    if (this.explanationSuspendPhysics) return
     
     const mindRadius = this.getRadius()
     const speedMultiplier = deltaTime * 60
@@ -532,10 +537,185 @@ export class Mind extends AbstractMind {
     return this.mentals.length
   }
 
+  private waitMs(ms: number, runId: number): Promise<void> {
+    if (ms <= 0) return Promise.resolve()
+    return new Promise((resolve) => {
+      const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      const step = (now: number) => {
+        if (runId !== this.explanationRunId) {
+          resolve()
+          return
+        }
+        if (now - startedAt >= ms) {
+          resolve()
+          return
+        }
+        requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    })
+  }
+
+  private animateMentalTo(
+    mental: Mental,
+    from: THREE.Vector3,
+    to: THREE.Vector3,
+    durationMs: number,
+    runId: number
+  ): Promise<void> {
+    if (durationMs <= 0) {
+      mental.setPosition(to.x, to.y, to.z)
+      return Promise.resolve()
+    }
+
+    return new Promise((resolve) => {
+      const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      const step = (now: number) => {
+        if (runId !== this.explanationRunId) {
+          resolve()
+          return
+        }
+
+        const rawT = Math.min(1, (now - startedAt) / durationMs)
+        const easedT = 1 - Math.pow(1 - rawT, 3)
+        const nextX = THREE.MathUtils.lerp(from.x, to.x, easedT)
+        const nextY = THREE.MathUtils.lerp(from.y, to.y, easedT)
+        const nextZ = THREE.MathUtils.lerp(from.z, to.z, easedT)
+        mental.setPosition(nextX, nextY, nextZ)
+
+        if (rawT >= 1) {
+          resolve()
+          return
+        }
+        requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    })
+  }
+
+  stopMentalExplanationAnimation(): void {
+    this.explanationRunId += 1
+    this.explanationSuspendPhysics = false
+    this.explanationPromise = null
+  }
+
+  async explainMindMentalsAnimation(options?: {
+    outDurationMs?: number
+    holdDurationMs?: number
+    returnDurationMs?: number
+    outDistanceWorld?: number
+    presentationDirectionLocal?: THREE.Vector3 | { x: number; y: number; z: number }
+    presentationSpread?: number
+    onStart?: () => void
+    onMentalFocus?: (payload: { mental: Mental; index: number; total: number }) => void
+    onComplete?: () => void
+  }): Promise<void> {
+    this.stopMentalExplanationAnimation()
+    const runId = this.explanationRunId
+
+    const outDurationMs = options?.outDurationMs ?? 650
+    const holdDurationMs = options?.holdDurationMs ?? 420
+    const returnDurationMs = options?.returnDurationMs ?? 560
+    const outDistanceWorld = options?.outDistanceWorld ?? 0.45
+    const presentationSpread = options?.presentationSpread ?? 0.08
+
+    const mentals = this.getMentals()
+    if (!mentals.length) return
+
+    const customDirection = options?.presentationDirectionLocal
+      ? new THREE.Vector3(
+          options.presentationDirectionLocal.x,
+          options.presentationDirectionLocal.y,
+          options.presentationDirectionLocal.z
+        )
+      : null
+    if (customDirection && customDirection.lengthSq() < 1e-8) customDirection.set(-1, 0.18, 0.24)
+    customDirection?.normalize()
+
+    const spreadSide = new THREE.Vector3()
+    const spreadLift = new THREE.Vector3()
+    if (customDirection) {
+      const refUp = Math.abs(customDirection.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0)
+      spreadSide.crossVectors(customDirection, refUp).normalize()
+      spreadLift.crossVectors(spreadSide, customDirection).normalize()
+    }
+
+    const snapshots = mentals.map((mental, index) => {
+      const p = mental.getPosition()
+      const v = mental.getVelocity()
+      const dir = new THREE.Vector3()
+      if (customDirection) {
+        const centered = mentals.length > 1 ? (index / (mentals.length - 1)) - 0.5 : 0
+        const fan = centered * presentationSpread
+        const bob = Math.sin(index * 1.7) * presentationSpread * 0.3
+        dir
+          .copy(customDirection)
+          .addScaledVector(spreadSide, fan)
+          .addScaledVector(spreadLift, bob)
+      } else {
+        dir.set(p.x, p.y, p.z)
+        if (dir.lengthSq() < 1e-8) {
+          const angle = (index / Math.max(1, mentals.length)) * Math.PI * 2
+          dir.set(Math.cos(angle), 0.2, Math.sin(angle))
+        }
+      }
+      dir.normalize()
+      return {
+        mental,
+        start: new THREE.Vector3(p.x, p.y, p.z),
+        velocity: v,
+        wasFrozen: mental.isFrozen(),
+        outwardDir: dir,
+      }
+    })
+
+    this.explanationSuspendPhysics = true
+    snapshots.forEach(({ mental }) => {
+      mental.setFrozen(true)
+      mental.setVelocity(0, 0, 0)
+    })
+
+    this.explanationPromise = (async () => {
+      try {
+        options?.onStart?.()
+        const outDistanceLocal = outDistanceWorld / Math.max(0.00001, this.scale)
+
+        for (let i = 0; i < snapshots.length; i += 1) {
+          const snapshot = snapshots[i]
+          if (runId !== this.explanationRunId) return
+          options?.onMentalFocus?.({ mental: snapshot.mental, index: i, total: snapshots.length })
+
+          const bubbleRadiusLocal = snapshot.mental.getRadius()
+          const targetRadiusLocal = 1 + bubbleRadiusLocal + outDistanceLocal
+          const target = snapshot.outwardDir.clone().multiplyScalar(targetRadiusLocal)
+
+          await this.animateMentalTo(snapshot.mental, snapshot.start, target, outDurationMs, runId)
+          await this.waitMs(holdDurationMs, runId)
+          await this.animateMentalTo(snapshot.mental, target, snapshot.start, returnDurationMs, runId)
+          await this.waitMs(120, runId)
+        }
+        options?.onComplete?.()
+      } finally {
+        snapshots.forEach(({ mental, start, velocity, wasFrozen }) => {
+          mental.setPosition(start.x, start.y, start.z)
+          mental.setVelocity(velocity.x, velocity.y, velocity.z)
+          mental.setFrozen(wasFrozen)
+        })
+        if (runId === this.explanationRunId) {
+          this.explanationSuspendPhysics = false
+          this.explanationPromise = null
+        }
+      }
+    })()
+
+    await this.explanationPromise
+  }
+
   /**
    * Override dispose to also dispose all mentals
    */
   dispose(): void {
+    this.stopMentalExplanationAnimation()
     // Dispose all mentals first
     this.clearMentals()
     
