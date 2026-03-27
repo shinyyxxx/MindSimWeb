@@ -1,0 +1,11 @@
+services:
+  mindillu_vite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mindillu-scenecreator
+    ports:
+      - "3004:80"
+
+volumes:
+  postgres_data:

@@ -1,21 +1,21 @@
-FROM node:20-alpine AS build
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
-# Build for subpath deployment (example: /mindillustrate/frontend/)
-ARG VITE_BASE_PATH=/mindillustrate/frontend/
-ARG VITE_GOOGLE_TTS_KEY=
-ENV VITE_BASE_PATH=${VITE_BASE_PATH}
-ENV VITE_GOOGLE_TTS_KEY=${VITE_GOOGLE_TTS_KEY}
+ARG VITE_API_BASE_URL=/
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build
 
-FROM nginx:1.27-alpine AS runtime
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html/mindillustrate/frontend
+FROM nginx:stable-alpine
 
-EXPOSE 3004
+# Copy built frontend files
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose port 80 for serving
+EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
