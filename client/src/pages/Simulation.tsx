@@ -62,6 +62,8 @@ import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
+import XRInspectPanel from '../components/XRInspectPanel'
+import XRProfilePanel from '../components/XRProfilePanel'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
@@ -1172,6 +1174,9 @@ function MentalsLayer({
 
     const handleXrSelect = (event: unknown) => {
       if (!gl.xr.isPresenting) return
+      // Avoid click-through: while a mental is already selected in XR,
+      // panel interactions should not also re-pick underlying mentals.
+      if (selectedMentalName && !sendMode) return
 
       const controller = (event as { target?: unknown }).target as THREE.Object3D | undefined
       if (!controller) return
@@ -1201,7 +1206,7 @@ function MentalsLayer({
         controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
-  }, [collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind])
+  }, [collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind, selectedMentalName, sendMode])
 
   useEffect(() => {
     if (!onHoverSelection) return
@@ -2040,8 +2045,17 @@ function InspectOptionMenu({
 function ThreeScene({
   mind,
   mentals,
+  selected,
+  profile,
+  profileAttrs,
   selectedMentalName,
+  inspectOpen,
   onSelectMental,
+  onViewDetail,
+  onBackFromDetail,
+  onShowProfile,
+  onCloseProfile,
+  onCloseSelection,
   onUpdatePanelPosition,
   sendMode,
   onSendSelection,
@@ -2055,8 +2069,17 @@ function ThreeScene({
 }: {
   mind: Mind
   mentals: Mental[]
+  selected: InspectSelection | null
+  profile: InspectSelection | null
+  profileAttrs: Array<{ key: string; value: string }>
   selectedMentalName: string | null
+  inspectOpen: boolean
   onSelectMental: (info: InspectSelection) => void
+  onViewDetail: (selection: InspectSelection) => void
+  onBackFromDetail: () => void
+  onShowProfile: (selection: InspectSelection) => void
+  onCloseProfile: () => void
+  onCloseSelection: () => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
@@ -2168,6 +2191,24 @@ function ThreeScene({
           onSendMeshSelection={setSendMeshSelection}
         />
       )}
+      {isXrActive && selected && !profile && (
+        <XRInspectPanel
+          selection={selected}
+          inspectOpen={inspectOpen}
+          onViewDetail={onViewDetail}
+          onBack={onBackFromDetail}
+          onShowProfile={onShowProfile}
+          onClose={onCloseSelection}
+        />
+      )}
+      {isXrActive && profile && (
+        <XRProfilePanel
+          profile={profile}
+          attrs={profileAttrs}
+          onBack={onCloseProfile}
+          onClose={onCloseSelection}
+        />
+      )}
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       {showMentalsLayer && !isXrActive && (
         <EffectComposer multisampling={2} autoClear={false}>
@@ -2232,6 +2273,7 @@ export function Simulation(): React.ReactElement {
     renderer: rendererRef.current,
     overlayRoot: overlayRootRef.current,
   })
+  const isXrActive = activeXrMode !== null
 
   useEffect(() => {
     if (activeXrMode !== 'ar') return
@@ -2245,10 +2287,18 @@ export function Simulation(): React.ReactElement {
     const body = document.body
     body.classList.add('simulation-no-scroll')
 
+    if (activeXrMode !== null) {
+      // Keep XR layout stable and avoid resize-driven renderer warnings while presenting.
+      root.style.setProperty('--mindsim-nav-height', '0px')
+      return () => {
+        body.classList.remove('simulation-no-scroll')
+        root.style.removeProperty('--mindsim-nav-height')
+      }
+    }
+
     const updateNavHeight = () => {
       const nav = document.querySelector('.nav') as HTMLElement | null
-      const shouldReserveNavSpace = activeXrMode === null
-      const navHeight = nav && shouldReserveNavSpace ? nav.getBoundingClientRect().height : 0
+      const navHeight = nav ? nav.getBoundingClientRect().height : 0
       root.style.setProperty('--mindsim-nav-height', `${Math.round(navHeight)}px`)
     }
 
@@ -2426,6 +2476,10 @@ export function Simulation(): React.ReactElement {
     setSelected(info)
     setFocusScreenPosition((prev) => prev ?? info.screenPosition ?? null)
     setInspectOpen(true)
+  }
+
+  const handleBackFromDetail = () => {
+    setInspectOpen(false)
   }
 
   const handleClose = () => {
@@ -2854,7 +2908,7 @@ export function Simulation(): React.ReactElement {
             onT5Change={setT5SelectedId}
           />
         </div>
-        {selected && !inspectOpen && menuRevealReady && (
+        {selected && !isXrActive && !inspectOpen && menuRevealReady && (
           <InspectOptionMenu
             selection={selected}
             panelPosition={panelPosition}
@@ -2862,7 +2916,7 @@ export function Simulation(): React.ReactElement {
             onViewDetail={handleViewDetail}
           />
         )}
-        {selected && inspectOpen && (
+        {selected && !isXrActive && inspectOpen && (
           <InspectPanel
             selection={selected}
             panelPosition={panelPosition}
@@ -2870,7 +2924,7 @@ export function Simulation(): React.ReactElement {
             onShowProfile={handleShowProfile}
           />
         )}
-        {profile && (
+        {profile && !isXrActive && (
           <ProfilePanel
             profile={profile}
             attrs={profileAttrs}
@@ -2886,8 +2940,17 @@ export function Simulation(): React.ReactElement {
         <ThreeScene
           mind={mind}
           mentals={mentals}
+          selected={selected}
+          profile={profile}
+          profileAttrs={profileAttrs}
           selectedMentalName={selected?.name ?? null}
+          inspectOpen={inspectOpen}
           onSelectMental={handleSelect}
+          onViewDetail={handleViewDetail}
+          onBackFromDetail={handleBackFromDetail}
+          onShowProfile={handleShowProfile}
+          onCloseProfile={handleCloseProfile}
+          onCloseSelection={handleClose}
           onUpdatePanelPosition={inspectOpen ? undefined : setFocusScreenPosition}
           sendMode={sendMode}
           onSendSelection={setSendInfo}
