@@ -8,7 +8,7 @@ export class ContactMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Contact',
-      detail: options.detail ?? 'Contact between sense base, object, and consciousness',
+      detail: options.detail ?? 'Brings together sense organ, object, and consciousness to initiate experience.',
       color: options.color ?? '#ff6b6b',
       opacity: options.opacity ?? 0.55,
       // Universal mentals are frozen in MindWebsiteScene; keep a low default here too.

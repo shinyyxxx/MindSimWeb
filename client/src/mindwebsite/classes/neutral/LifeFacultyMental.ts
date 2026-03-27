@@ -8,9 +8,7 @@ export class LifeFacultyMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Life Faculty',
-      detail:
-        options.detail ??
-        'Life faculty (jīvitindriya): the vital force sustaining associated mental factors',
+      detail: options.detail ?? 'Sustains and maintains the life of mental states during each moment.',
       color: options.color ?? '#a78bfa',
       opacity: options.opacity ?? 0.55,
       motionSpeed: options.motionSpeed ?? 0,

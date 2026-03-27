@@ -17,7 +17,7 @@ export class PerceptionMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Perception',
-      detail: options.detail ?? 'Perceptual processing',
+      detail: options.detail ?? 'Recognizes and labels the object, helping memory and identification.',
       color: options.color ?? '#60a5fa',
       motionSpeed: options.motionSpeed ?? 0.002,
       opacity: options.opacity ?? 0.55,
