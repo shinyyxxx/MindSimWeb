@@ -68,7 +68,11 @@ export function XRControllers() {
       const ray = new THREE.Line(rayGeometry, rayMaterial)
       ray.name = `xr-controller-ray-${index}`
       ray.scale.z = 1.6
-      ray.visible = false
+      // Fallback: keep visible by default because some runtimes/emulators
+      // don't reliably emit the "connected" event payload.
+      ray.visible = true
+      ray.renderOrder = 999
+      ;(ray.material as THREE.LineBasicMaterial).depthTest = false
       controller.add(ray)
 
       const onConnected = (event: { data: XRInputSource }) => {
@@ -85,15 +89,26 @@ export function XRControllers() {
       controllerGrip.add(controllerModel)
       scene.add(controllerGrip)
 
+      // Add a tiny glow marker so controller direction is always obvious in VR.
+      const tipGeometry = new THREE.SphereGeometry(0.01, 12, 12)
+      const tipMaterial = new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      const tip = new THREE.Mesh(tipGeometry, tipMaterial)
+      tip.position.set(0, 0, -0.06)
+      tip.renderOrder = 999
+      controller.add(tip)
+
       detach.push(() => {
         controller.removeEventListener('connected', onConnected)
         controller.removeEventListener('disconnected', onDisconnected)
         controller.remove(ray)
+        controller.remove(tip)
         scene.remove(controller)
         controllerGrip.remove(controllerModel)
         scene.remove(controllerGrip)
         rayGeometry.dispose()
         rayMaterial.dispose()
+        tipGeometry.dispose()
+        tipMaterial.dispose()
       })
     }
 
