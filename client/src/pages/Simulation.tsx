@@ -2209,7 +2209,6 @@ function ThreeScene({
           profile={profile}
           attrs={profileAttrs}
           onBack={onCloseProfile}
-          onClose={onCloseSelection}
         />
       )}
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />

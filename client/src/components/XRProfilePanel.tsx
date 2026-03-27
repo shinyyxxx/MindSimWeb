@@ -4,32 +4,26 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { InspectSelection } from '../types/InspectSelection'
 
-type XRProfileAction = 'back' | 'close'
+type XRProfileAction = 'back'
 
 type XRProfilePanelProps = {
   profile: InspectSelection
   attrs: Array<{ key: string; value: string }>
   onBack: () => void
-  onClose: () => void
 }
 
 export function XRProfilePanel({
   profile,
   attrs,
   onBack,
-  onClose,
 }: XRProfilePanelProps) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
   const backButtonRef = useRef<THREE.Mesh | null>(null)
-  const closeHeaderButtonRef = useRef<THREE.Mesh | null>(null)
-  const closeActionButtonRef = useRef<THREE.Mesh | null>(null)
 
   const resolveActionForHit = useCallback((hitObject: THREE.Object3D): XRProfileAction | null => {
     const targets: Array<{ ref: React.RefObject<THREE.Mesh | null>; action: XRProfileAction }> = [
       { ref: backButtonRef, action: 'back' },
-      { ref: closeHeaderButtonRef, action: 'close' },
-      { ref: closeActionButtonRef, action: 'close' },
     ]
 
     for (const target of targets) {
@@ -45,12 +39,8 @@ export function XRProfilePanel({
   }, [])
 
   const runAction = useCallback((action: XRProfileAction) => {
-    if (action === 'back') {
-      onBack()
-      return
-    }
-    onClose()
-  }, [onBack, onClose])
+    if (action === 'back') onBack()
+  }, [onBack])
 
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
@@ -59,8 +49,6 @@ export function XRProfilePanel({
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
     const clickTargets = [
       backButtonRef.current,
-      closeHeaderButtonRef.current,
-      closeActionButtonRef.current,
     ].filter(Boolean) as THREE.Object3D[]
 
     const handleXrSelect = (event: Event) => {
@@ -124,14 +112,6 @@ export function XRProfilePanel({
         <planeGeometry args={[1.5, 0.005]} />
         <meshBasicMaterial color={0xe2e8f0} />
       </mesh>
-
-      <mesh ref={closeHeaderButtonRef} position={[0.68, 0.44, 0.005]} onPointerDown={() => runAction('close')}>
-        <planeGeometry args={[0.12, 0.12]} />
-        <meshBasicMaterial color={0xe2e8f0} />
-      </mesh>
-      <Text position={[0.68, 0.44, 0.008]} anchorX="center" anchorY="middle" fontSize={0.05} color="#334155">
-        x
-      </Text>
 
       <mesh position={[-0.39, 0.03, 0.002]}>
         <planeGeometry args={[0.62, 0.8]} />
@@ -197,24 +177,16 @@ export function XRProfilePanel({
       )}
 
       <mesh position={[0.26, -0.47, 0.004]}>
-        <planeGeometry args={[0.56, 0.14]} />
+        <planeGeometry args={[0.28, 0.14]} />
         <meshBasicMaterial color={0xf1f5f9} />
       </mesh>
 
-      <mesh ref={backButtonRef} position={[0.12, -0.47, 0.004]} onPointerDown={() => runAction('back')}>
+      <mesh ref={backButtonRef} position={[0.26, -0.47, 0.004]} onPointerDown={() => runAction('back')}>
         <planeGeometry args={[0.24, 0.1]} />
         <meshBasicMaterial color={0x64748b} />
       </mesh>
-      <Text position={[0.12, -0.47, 0.006]} anchorX="center" anchorY="middle" fontSize={0.035} color="#f8fafc">
+      <Text position={[0.26, -0.47, 0.006]} anchorX="center" anchorY="middle" fontSize={0.035} color="#f8fafc">
         Back
-      </Text>
-
-      <mesh ref={closeActionButtonRef} position={[0.41, -0.47, 0.004]} onPointerDown={() => runAction('close')}>
-        <planeGeometry args={[0.24, 0.1]} />
-        <meshBasicMaterial color={0xfca5a5} />
-      </mesh>
-      <Text position={[0.41, -0.47, 0.006]} anchorX="center" anchorY="middle" fontSize={0.035} color="#7f1d1d">
-        Close
       </Text>
 
       {/* Keep extra attributes compact to prevent text overlap in XR. */}
