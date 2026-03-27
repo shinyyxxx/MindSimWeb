@@ -8,7 +8,7 @@ export class AttentionMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Attention',
-      detail: options.detail ?? 'Attention / directing the mind toward an object',
+      detail: options.detail ?? 'Turns the mind toward an object, making awareness possible.',
       color: options.color ?? '#aa96da',
       opacity: options.opacity ?? 0.55,
       motionSpeed: options.motionSpeed ?? 0,

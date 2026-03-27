@@ -8,7 +8,7 @@ export class ConcentrationMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Concentration',
-      detail: options.detail ?? 'One-pointedness (ekaggatā): unifying the mind on a single object',
+      detail: options.detail ?? 'Focuses and stabilizes the mind on a single object.',
       color: options.color ?? '#38bdf8',
       opacity: options.opacity ?? 0.55,
       motionSpeed: options.motionSpeed ?? 0,

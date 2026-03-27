@@ -68,6 +68,7 @@ import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 import { useXRSession } from './simulation/useXRSession'
+import { cancelNarration, speakNarration } from './simulation/narration'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -99,7 +100,7 @@ const TIMELINE_STOPS: { label: string; description: string }[] = [
 const UNIVERSAL_SEEDS: MentalSeed[] = [
   { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Meeting of sense base and object', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
   { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
-  { name: 'Perception', color: '#60a5fa', scale: 0.18, position: [-0.14, 0.08, 0.18], detail: 'Perception mental with bowl model', modelPath: perceptionBowlModel, modelTargetWorldSize: 0.022, modelOffset: { x: 0, y: -0.28, z: 0.42 }, variant: 'perception' },
+  { name: 'Perception', color: '#60a5fa', scale: 0.18, position: [-0.14, 0.08, 0.18], modelPath: perceptionBowlModel, modelTargetWorldSize: 0.022, modelOffset: { x: 0, y: -0.28, z: 0.42 }, variant: 'perception' },
   { name: 'Intention', color: '#a1a1aa', scale: 0.14, position: [0.05, -0.52, 0.05], variant: 'intention' },
   { name: 'Attention', color: '#a1a1aa', scale: 0.14, position: [-0.1, -0.5, -0.15], variant: 'attention' },
   { name: 'Concentration', color: '#a1a1aa', scale: 0.14, position: [-0.18, -0.42, 0.02], variant: 'concentration' },
@@ -192,10 +193,12 @@ function getSeedForVariant(variant: string): MentalSeed | undefined {
 }
 
 function createMentalFromSeed(m: MentalSeed): Mental {
+  const detailProps = m.detail?.trim() ? { detail: m.detail } : {}
+
   if (m.variant === 'perception') {
     return new PerceptionMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -210,7 +213,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'contact') {
     return new ContactMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -225,7 +228,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'feeling') {
     return new FeelingMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -237,7 +240,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'intention') {
     return new IntentionMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -249,7 +252,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'attention') {
     return new AttentionMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -261,7 +264,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'concentration') {
     return new ConcentrationMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -273,7 +276,7 @@ function createMentalFromSeed(m: MentalSeed): Mental {
   if (m.variant === 'life_faculty') {
     return new LifeFacultyMental({
       name: m.name,
-      detail: m.detail ?? '',
+      ...detailProps,
       color: m.color,
       scale: m.scale,
       position: m.position,
@@ -2374,6 +2377,7 @@ export function Simulation(): React.ReactElement {
 
   useEffect(() => {
     return () => {
+      cancelNarration()
       mind.stopMentalExplanationAnimation()
       const activeMentals = new Set(mind.getMentals())
       mind.dispose()
@@ -2546,29 +2550,33 @@ export function Simulation(): React.ReactElement {
     try {
       await mind.explainMindMentalsAnimation({
         outDurationMs: 620,
-        holdDurationMs: 440,
+        holdDurationMs: 220,
         returnDurationMs: 520,
         outDistanceWorld: 0.62,
         // Present spheres in front of the mind (camera-facing view).
         presentationDirectionLocal: { x: 0, y: 0.14, z: 1 },
         presentationSpread: 0.024,
-        onStart: () => {
+        onStart: async () => {
           const mindMesh = mind.getMesh()
           setExplainHighlight(mindMesh ? [mindMesh] : [])
+          const overviewDetail = mind.getDetail() || 'Static demo mind'
           setExplainOverlay({
             name: mind.getName() || 'Mind',
-            detail: mind.getDetail() || 'Introducing the mind and its mentals.',
+            detail: overviewDetail,
             progressLabel: 'Mind overview',
           })
+          await speakNarration(`${mind.getName() || 'Mind'}. ${overviewDetail}`)
         },
-        onMentalFocus: ({ mental, index, total }) => {
+        onMentalFocus: async ({ mental, index, total }) => {
           const mesh = mental.getMesh()
           setExplainHighlight(mesh ? [mesh] : [])
+          const detail = mental.getDetail() || 'No detail provided.'
           setExplainOverlay({
             name: mental.getName(),
-            detail: mental.getDetail() || 'No detail provided.',
+            detail,
             progressLabel: `Mental ${index + 1} / ${total}`,
           })
+          await speakNarration(`${mental.getName()}. ${detail}`)
         },
         onComplete: () => {
           setExplainHighlight([])
@@ -2578,6 +2586,7 @@ export function Simulation(): React.ReactElement {
     } catch (error) {
       console.error('Failed to run mind explanation animation', error)
     } finally {
+      cancelNarration()
       setExplainHighlight([])
       setExplainOverlay(null)
       setIsMindExplaining(false)

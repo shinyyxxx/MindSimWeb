@@ -9,7 +9,7 @@ export class FeelingMental extends NeutralMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Feeling',
-      detail: options.detail ?? 'Feeling tone: pleasant, unpleasant, or neutral',
+      detail: options.detail ?? 'Experiences the emotional tone of the object as pleasant, unpleasant, or neutral.',
       color: options.color ?? '#4ecdc4',
       opacity: options.opacity ?? 0.55,
       motionSpeed: options.motionSpeed ?? 0,

@@ -606,9 +606,9 @@ export class Mind extends AbstractMind {
     outDistanceWorld?: number
     presentationDirectionLocal?: THREE.Vector3 | { x: number; y: number; z: number }
     presentationSpread?: number
-    onStart?: () => void
-    onMentalFocus?: (payload: { mental: Mental; index: number; total: number }) => void
-    onComplete?: () => void
+    onStart?: () => void | Promise<void>
+    onMentalFocus?: (payload: { mental: Mental; index: number; total: number }) => void | Promise<void>
+    onComplete?: () => void | Promise<void>
   }): Promise<void> {
     this.stopMentalExplanationAnimation()
     const runId = this.explanationRunId
@@ -677,24 +677,27 @@ export class Mind extends AbstractMind {
 
     this.explanationPromise = (async () => {
       try {
-        options?.onStart?.()
+        await options?.onStart?.()
+        if (runId !== this.explanationRunId) return
         const outDistanceLocal = outDistanceWorld / Math.max(0.00001, this.scale)
 
         for (let i = 0; i < snapshots.length; i += 1) {
           const snapshot = snapshots[i]
           if (runId !== this.explanationRunId) return
-          options?.onMentalFocus?.({ mental: snapshot.mental, index: i, total: snapshots.length })
 
           const bubbleRadiusLocal = snapshot.mental.getRadius()
           const targetRadiusLocal = 1 + bubbleRadiusLocal + outDistanceLocal
           const target = snapshot.outwardDir.clone().multiplyScalar(targetRadiusLocal)
 
           await this.animateMentalTo(snapshot.mental, snapshot.start, target, outDurationMs, runId)
+          if (runId !== this.explanationRunId) return
+          await options?.onMentalFocus?.({ mental: snapshot.mental, index: i, total: snapshots.length })
+          if (runId !== this.explanationRunId) return
           await this.waitMs(holdDurationMs, runId)
           await this.animateMentalTo(snapshot.mental, target, snapshot.start, returnDurationMs, runId)
           await this.waitMs(120, runId)
         }
-        options?.onComplete?.()
+        await options?.onComplete?.()
       } finally {
         snapshots.forEach(({ mental, start, velocity, wasFrozen }) => {
           mental.setPosition(start.x, start.y, start.z)
