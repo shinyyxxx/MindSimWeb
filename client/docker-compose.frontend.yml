@@ -8,5 +8,5 @@ services:
         VITE_GOOGLE_TTS_KEY: ${VITE_GOOGLE_TTS_KEY:-}
     container_name: mindillustrate-frontend
     ports:
-      - "3004:3004"
+      - "3004:80"
     restart: unless-stopped

@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
+import { Environment, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { MeshSurfaceSampler } from 'three/examples/jsm/math/MeshSurfaceSampler.js'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
 import PerceptionMental from '../mindwebsite/classes/neutral/PerceptionMental'
@@ -728,103 +730,322 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   return variants
 }
 
+const MORPH_PARTICLE_COUNT = 2200
+type MorphShapeKey = 'sphere' | 'cube' | 'human'
+
+function makeParticleSpriteTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = 128
+  canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return new THREE.CanvasTexture(canvas)
+
+  const center = canvas.width / 2
+  const grad = ctx.createRadialGradient(center, center, 1, center, center, center)
+  grad.addColorStop(0, 'rgba(255,255,255,1)')
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.9)')
+  grad.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.needsUpdate = true
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.generateMipmaps = false
+  return tex
+}
+
+function sampleSpherePoints(count: number, radius: number): Float32Array {
+  const out = new Float32Array(count * 3)
+  for (let i = 0; i < count; i += 1) {
+    const i3 = i * 3
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(1 - 2 * Math.random())
+    // Shell-only distribution to keep the particle body hollow.
+    const r = radius * (0.94 + Math.random() * 0.06)
+    out[i3] = r * Math.sin(phi) * Math.cos(theta)
+    out[i3 + 1] = r * Math.cos(phi)
+    out[i3 + 2] = r * Math.sin(phi) * Math.sin(theta)
+  }
+  return out
+}
+
+function sampleCubePoints(count: number, halfExtent: number): Float32Array {
+  const out = new Float32Array(count * 3)
+  for (let i = 0; i < count; i += 1) {
+    const i3 = i * 3
+    // Cube shell (sample on faces only), not the solid volume.
+    const face = Math.floor(Math.random() * 6)
+    const u = (Math.random() * 2 - 1) * halfExtent
+    const v = (Math.random() * 2 - 1) * halfExtent
+    if (face === 0) {
+      out[i3] = halfExtent
+      out[i3 + 1] = u
+      out[i3 + 2] = v
+    } else if (face === 1) {
+      out[i3] = -halfExtent
+      out[i3 + 1] = u
+      out[i3 + 2] = v
+    } else if (face === 2) {
+      out[i3] = u
+      out[i3 + 1] = halfExtent
+      out[i3 + 2] = v
+    } else if (face === 3) {
+      out[i3] = u
+      out[i3 + 1] = -halfExtent
+      out[i3 + 2] = v
+    } else if (face === 4) {
+      out[i3] = u
+      out[i3 + 1] = v
+      out[i3 + 2] = halfExtent
+    } else {
+      out[i3] = u
+      out[i3 + 1] = v
+      out[i3 + 2] = -halfExtent
+    }
+  }
+  return out
+}
+
+function normalizePointsToHeight(points: Float32Array, targetHeight: number): Float32Array {
+  const out = points.slice()
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let minZ = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  let maxZ = Number.NEGATIVE_INFINITY
+
+  for (let i = 0; i < out.length; i += 3) {
+    const x = out[i]
+    const y = out[i + 1]
+    const z = out[i + 2]
+    if (x < minX) minX = x
+    if (y < minY) minY = y
+    if (z < minZ) minZ = z
+    if (x > maxX) maxX = x
+    if (y > maxY) maxY = y
+    if (z > maxZ) maxZ = z
+  }
+
+  const centerX = (minX + maxX) / 2
+  const centerZ = (minZ + maxZ) / 2
+  const safeHeight = Math.max(0.0001, maxY - minY)
+  const scale = targetHeight / safeHeight
+  const groundOffsetY = minY * scale
+
+  for (let i = 0; i < out.length; i += 3) {
+    out[i] = (out[i] - centerX) * scale
+    // Keep body feet on ground (minY = 0) instead of centering vertically.
+    out[i + 1] = out[i + 1] * scale - groundOffsetY
+    out[i + 2] = (out[i + 2] - centerZ) * scale
+  }
+  return out
+}
+
+function samplePointsFromObj(root: THREE.Object3D, count: number, targetHeight: number): Float32Array {
+  const samplers: MeshSurfaceSampler[] = []
+  const meshes: THREE.Mesh[] = []
+  const weights: number[] = []
+  root.updateMatrixWorld(true)
+  root.traverse((obj) => {
+    const mesh = obj as THREE.Mesh
+    if (!mesh.isMesh || !mesh.geometry) return
+    const sampler = new MeshSurfaceSampler(mesh).build()
+    samplers.push(sampler)
+    meshes.push(mesh)
+    const attr = mesh.geometry.getAttribute('position')
+    weights.push(Math.max(1, attr?.count ?? 1))
+  })
+
+  const totalWeight = weights.reduce((acc, w) => acc + w, 0)
+  if (!samplers.length || totalWeight <= 0) return sampleSpherePoints(count, targetHeight * 0.2)
+
+  const cumulative: number[] = []
+  let run = 0
+  weights.forEach((w) => {
+    run += w / totalWeight
+    cumulative.push(run)
+  })
+
+  const temp = new THREE.Vector3()
+  const world = new THREE.Vector3()
+  const points = new Float32Array(count * 3)
+  for (let i = 0; i < count; i += 1) {
+    const pick = Math.random()
+    let idx = cumulative.findIndex((c) => pick <= c)
+    if (idx < 0) idx = cumulative.length - 1
+    samplers[idx].sample(temp)
+    world.copy(temp)
+    meshes[idx].localToWorld(world)
+    const i3 = i * 3
+    points[i3] = world.x
+    points[i3 + 1] = world.y
+    points[i3 + 2] = world.z
+  }
+  return normalizePointsToHeight(points, targetHeight)
+}
+
 function HumanBody({
   mind,
   controlsRef,
-  url = `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`,
-  targetHeight = 1.7,
-  groundY = 0,
-  bodyOpacity = 0.12,
+  selectedShape = 'human',
+  targetHeight = 2.25,
+  groundY = -2,
   mindWorldScale = 0.1,
-  mindFollowsHumanOffset = true,
-  mindYOffsetWorld = 0.02,
-  mindZOffsetWorld = -0.03,
-  humanZOffsetWorld = -1.2,
+  mindYOffsetWorld = 0.26,
+  mindZOffsetWorld = -0.06,
+  humanZOffsetWorld = -0.6,
 }: {
   mind: Mind
   controlsRef?: React.RefObject<OrbitControlsImpl | null>
-  url?: string
+  selectedShape?: MorphShapeKey
   targetHeight?: number
   groundY?: number
-  bodyOpacity?: number
   mindWorldScale?: number
-  mindFollowsHumanOffset?: boolean
   mindYOffsetWorld?: number
   mindZOffsetWorld?: number
   humanZOffsetWorld?: number
 }) {
-  const gltf = useGLTF(url) as unknown as { scene: THREE.Group }
+  const pointsRef = useRef<THREE.Points | null>(null)
+  const geometryRef = useRef<THREE.BufferGeometry | null>(null)
+  const currentPositionsRef = useRef<Float32Array>(new Float32Array(MORPH_PARTICLE_COUNT * 3))
+  const targetPositionsRef = useRef<Float32Array | null>(null)
+  const shapePointsRef = useRef<Partial<Record<MorphShapeKey, Float32Array>>>({})
+  const chestLocalRef = useRef<THREE.Vector3>(new THREE.Vector3(0, targetHeight * 0.66, 0))
 
-  // Clone so we can safely tweak materials without affecting Drei's GLTF cache.
-  const humanScene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
-
-  const { scaleFactor, humanPosition, chestWorld } = useMemo(() => {
-    const bbox = new THREE.Box3().setFromObject(humanScene)
-    const size = bbox.getSize(new THREE.Vector3())
-    const center = bbox.getCenter(new THREE.Vector3())
-
-    const safeHeight = Math.max(0.00001, size.y)
-    const s = targetHeight / safeHeight
-
-    // Center the model in X/Z and put its lowest point on the ground plane.
-    const posX = -center.x * s
-    // Base Z used for the "true" chest anchor (desktop keeps the mind fixed).
-    const posZBase = -center.z * s
-    // Visual-only Z offset: moves the human mesh without dragging the mind along.
-    // Positive Z moves the model toward the camera (forward).
-    const posZ = posZBase + humanZOffsetWorld
-    const posY = groundY - bbox.min.y * s
-
-    // Chest anchor: higher in the torso so the mind sits more naturally in the chest.
-    const chestLocal = new THREE.Vector3(center.x, bbox.min.y + size.y * 0.68, center.z + size.z * 0.06)
-    const chestAnchorZ = mindFollowsHumanOffset ? posZ : posZBase
-    const chestW = new THREE.Vector3(posX, posY, chestAnchorZ).add(chestLocal.multiplyScalar(s))
-
-    return {
-      scaleFactor: s,
-      humanPosition: new THREE.Vector3(posX, posY, posZ),
-      chestWorld: chestW,
-    }
-  }, [groundY, humanScene, humanZOffsetWorld, mindFollowsHumanOffset, targetHeight])
+  const spriteTexture = useMemo(() => makeParticleSpriteTexture(), [])
+  const hasAppliedHumanCameraRef = useRef(false)
+  const anchorWorld = useMemo(
+    () => new THREE.Vector3(0, groundY, humanZOffsetWorld),
+    [groundY, humanZOffsetWorld]
+  )
 
   useLayoutEffect(() => {
-    // Fit the mind comfortably inside the torso, then place it in the chest.
+    const chest = chestLocalRef.current
     mind.setScale(mindWorldScale)
-    mind.setPosition(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z + mindZOffsetWorld)
+    mind.setPosition(
+      anchorWorld.x + chest.x,
+      anchorWorld.y + chest.y + mindYOffsetWorld,
+      anchorWorld.z + chest.z + mindZOffsetWorld
+    )
 
-    // Keep orbit pivot aligned with the mind/chest without relying on a React re-render.
     const ctl = controlsRef?.current
     if (ctl) {
-      ctl.target.set(chestWorld.x, chestWorld.y + mindYOffsetWorld, chestWorld.z + mindZOffsetWorld)
+      const targetX = anchorWorld.x + chest.x
+      const targetY = anchorWorld.y + chest.y + mindYOffsetWorld
+      const targetZ = anchorWorld.z + chest.z + mindZOffsetWorld
+
+      ctl.target.set(
+        targetX,
+        targetY,
+        targetZ
+      )
+
+      // When entering human mode, move camera closer once so the morph body is readable.
+      if (!hasAppliedHumanCameraRef.current) {
+        const camera = ctl.object as THREE.PerspectiveCamera
+        camera.position.set(targetX + 0.05, targetY + 0.08, targetZ + 2.75)
+        hasAppliedHumanCameraRef.current = true
+      }
       ctl.update()
     }
-  }, [chestWorld.x, chestWorld.y, chestWorld.z, mind, mindWorldScale, mindYOffsetWorld, mindZOffsetWorld])
+  }, [anchorWorld, controlsRef, mind, mindWorldScale, mindYOffsetWorld, mindZOffsetWorld, targetHeight])
 
-  useMemo(() => {
-    // Make the body easy to see through so the mind is visible "inside".
-    humanScene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
-      if (!mesh.isMesh) return
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-      const mat = mesh.material
-      const apply = (m: THREE.Material) => {
-        const pm = m as THREE.MeshStandardMaterial
-        pm.transparent = true
-        // Explicit opacity so the body is more visible (user-requested).
-        pm.opacity = THREE.MathUtils.clamp(bodyOpacity, 0, 1)
-        pm.depthWrite = false
-        pm.needsUpdate = true
+  useEffect(() => {
+    const sphere = normalizePointsToHeight(sampleSpherePoints(MORPH_PARTICLE_COUNT, 0.52), targetHeight)
+    const cube = normalizePointsToHeight(sampleCubePoints(MORPH_PARTICLE_COUNT, 0.58), targetHeight)
+    shapePointsRef.current.sphere = sphere
+    shapePointsRef.current.cube = cube
+    currentPositionsRef.current.set(sphere)
+    targetPositionsRef.current = sphere
+
+    const geometry = geometryRef.current
+    if (geometry) {
+      const attr = geometry.getAttribute('position') as THREE.BufferAttribute | undefined
+      if (attr) attr.needsUpdate = true
+    }
+
+    let cancelled = false
+    const loader = new GLTFLoader()
+    loader.load(
+      `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`,
+      (gltf: { scene: THREE.Object3D }) => {
+        if (cancelled) return
+        const human = samplePointsFromObj(gltf.scene, MORPH_PARTICLE_COUNT, targetHeight)
+        shapePointsRef.current.human = human
+        if (selectedShape === 'human') {
+          targetPositionsRef.current = human
+        }
+        // Derive a chest anchor from the normalized particle body.
+        let minY = Number.POSITIVE_INFINITY
+        let maxY = Number.NEGATIVE_INFINITY
+        for (let i = 1; i < human.length; i += 3) {
+          const y = human[i]
+          if (y < minY) minY = y
+          if (y > maxY) maxY = y
+        }
+        const height = Math.max(0.0001, maxY - minY)
+        chestLocalRef.current.set(0, minY + height * 0.78, 0)
+      },
+      undefined,
+      () => {
+        // Keep sphere/cube fallback if model loading fails.
       }
-      if (Array.isArray(mat)) mat.forEach(apply)
-      else if (mat) apply(mat)
-    })
-    return humanScene
-  }, [bodyOpacity, humanScene])
+    )
+
+    return () => {
+      cancelled = true
+      spriteTexture.dispose()
+    }
+  }, [selectedShape, spriteTexture, targetHeight])
+
+  useEffect(() => {
+    const next = shapePointsRef.current[selectedShape]
+    if (!next) return
+    targetPositionsRef.current = next
+  }, [selectedShape])
+
+  useFrame((_, delta) => {
+    const target = targetPositionsRef.current
+    const current = currentPositionsRef.current
+    const geometry = geometryRef.current
+    const points = pointsRef.current
+    if (!target || !geometry) return
+
+    const blend = Math.min(1, delta * 2.4)
+    for (let i = 0; i < current.length; i += 1) {
+      current[i] += (target[i] - current[i]) * blend
+    }
+    const attr = geometry.getAttribute('position') as THREE.BufferAttribute | undefined
+    if (attr) attr.needsUpdate = true
+    geometry.computeBoundingSphere()
+
+    if (points) points.rotation.y += delta * 0.08
+  })
 
   return (
-    <group position={[humanPosition.x, humanPosition.y, humanPosition.z]} scale={scaleFactor}>
-      <primitive object={humanScene} />
+    <group position={[anchorWorld.x, anchorWorld.y, anchorWorld.z]}>
+      <points ref={pointsRef} frustumCulled={false}>
+        <bufferGeometry ref={geometryRef}>
+          <bufferAttribute attach="attributes-position" args={[currentPositionsRef.current, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          color={0xd7e0f2}
+          size={0.026}
+          transparent
+          opacity={0.38}
+          depthWrite={false}
+          depthTest
+          map={spriteTexture}
+          alphaMap={spriteTexture}
+          alphaTest={0.02}
+          blending={THREE.NormalBlending}
+          sizeAttenuation
+        />
+      </points>
     </group>
   )
 }
@@ -2049,6 +2270,7 @@ function ThreeScene({
   sendMode,
   onSendSelection,
   showHumanModel,
+  humanShape,
   xrMode,
   defaultMindPosition,
   defaultMindScale,
@@ -2064,6 +2286,7 @@ function ThreeScene({
   sendMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   showHumanModel: boolean
+  humanShape: MorphShapeKey
   xrMode: 'vr' | 'ar' | null
   defaultMindPosition: Vec3
   defaultMindScale: number
@@ -2153,6 +2376,7 @@ function ThreeScene({
           <HumanBody
             mind={mind}
             controlsRef={controlsRef}
+            selectedShape={humanShape}
           />
         </React.Suspense>
       )}
@@ -2200,6 +2424,7 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
+  const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
   const [isMindExplaining, setIsMindExplaining] = useState(false)
   const [explainOverlay, setExplainOverlay] = useState<{ name: string; detail: string; progressLabel: string } | null>(null)
   const [explainHighlight, setExplainHighlight] = useState<THREE.Object3D[]>([])
@@ -2680,6 +2905,26 @@ export function Simulation(): React.ReactElement {
           >
             Switch Model
           </button>
+          {showHumanModel && (
+            <select
+              value={humanShape}
+              onChange={(e) => setHumanShape(e.target.value as MorphShapeKey)}
+              style={{
+                padding: '6px 8px',
+                borderRadius: 6,
+                border: '1px solid rgba(255,255,255,0.3)',
+                background: 'rgba(15,23,42,0.75)',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <option value="sphere">Sphere</option>
+              <option value="cube">Cube</option>
+              <option value="human">Human</option>
+            </select>
+          )}
           <button
             type="button"
             onClick={() => setSearchOpen((prev) => !prev)}
@@ -2901,6 +3146,7 @@ export function Simulation(): React.ReactElement {
           sendMode={sendMode}
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}
+          humanShape={humanShape}
           xrMode={activeXrMode}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
