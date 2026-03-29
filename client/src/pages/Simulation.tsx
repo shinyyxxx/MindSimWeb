@@ -2482,7 +2482,7 @@ export function Simulation(): React.ReactElement {
   const [searchOpen, setSearchOpen] = useState(false)
 
   const overlayRootRef = useRef<HTMLDivElement | null>(null)
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const [renderer, setRenderer] = useState<THREE.WebGLRenderer | null>(null)
   const menuRevealFrameRef = useRef<number | null>(null)
   const mentalCacheRef = useRef<Map<MentalVariant, Mental>>(new Map())
   const [sendInfo, setSendInfo] = useState<{ sender?: string | null; receiver?: string | null; status?: string }>({
@@ -2501,7 +2501,7 @@ export function Simulation(): React.ReactElement {
     handleToggleVr,
     handleToggleAr,
   } = useXRSession({
-    renderer: rendererRef.current,
+    renderer,
     overlayRoot: overlayRootRef.current,
   })
   const isXrActive = activeXrMode !== null
@@ -3219,7 +3219,7 @@ export function Simulation(): React.ReactElement {
           searchHighlight={searchHighlight}
           explainHighlight={explainHighlight}
           onRendererReady={(gl) => {
-            rendererRef.current = gl
+            setRenderer(gl)
           }}
         />
       </div>
