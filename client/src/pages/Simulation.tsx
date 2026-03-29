@@ -2475,6 +2475,8 @@ export function Simulation(): React.ReactElement {
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
+  const [scriptMatchedDefaultMentals, setScriptMatchedDefaultMentals] = useState<Mental[]>([])
+  const [scriptResultActive, setScriptResultActive] = useState(false)
   const scriptMentalMapRef = useRef<Map<string, Mental>>(new Map())
   const [codeRunnerOpen, setCodeRunnerOpen] = useState(false)
   const [codeRunnerCode, setCodeRunnerCode] = useState(CODE_RUNNER_TEMPLATE)
@@ -2493,6 +2495,7 @@ export function Simulation(): React.ReactElement {
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+  const timelineSignatureRef = useRef<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -2619,12 +2622,36 @@ export function Simulation(): React.ReactElement {
   }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex])
 
   const allMentals = useMemo(() => {
-    const next = [...mentals]
+    const base = scriptResultActive ? [...scriptMatchedDefaultMentals] : [...mentals]
     scriptMentals.forEach((m) => {
-      if (!next.includes(m)) next.push(m)
+      if (!base.includes(m)) base.push(m)
     })
-    return next
-  }, [mentals, scriptMentals])
+    return base
+  }, [mentals, scriptMatchedDefaultMentals, scriptMentals, scriptResultActive])
+
+  useEffect(() => {
+    const signature = `${timelineIndex}|${t3HappySelected ? '1' : '0'}|${t5SelectedId ?? ''}`
+    if (!timelineSignatureRef.current) {
+      timelineSignatureRef.current = signature
+      return
+    }
+    if (signature === timelineSignatureRef.current) return
+    timelineSignatureRef.current = signature
+    if (!scriptResultActive && scriptMentals.length === 0 && scriptMatchedDefaultMentals.length === 0) return
+    scriptMentalMapRef.current.forEach((mental) => mental.dispose())
+    scriptMentalMapRef.current.clear()
+    setScriptMentals([])
+    setScriptMatchedDefaultMentals([])
+    setScriptResultActive(false)
+    setCodeRunnerStatus((prev) => (prev ? 'Timeline changed: script result cleared.' : prev))
+  }, [
+    scriptMatchedDefaultMentals.length,
+    scriptMentals.length,
+    scriptResultActive,
+    t3HappySelected,
+    t5SelectedId,
+    timelineIndex,
+  ])
 
   useEffect(() => {
     return () => {
@@ -2875,6 +2902,7 @@ export function Simulation(): React.ReactElement {
     }
 
     const scriptMindVars = new Set<string>()
+    const linkedMentalVars = new Set<string>()
     const newMentalsByVar = new Map<string, Mental>()
     const nowMentalsByVar = new Map<string, Mental>()
     const usedDefaultMentals = new Set<Mental>()
@@ -2886,6 +2914,8 @@ export function Simulation(): React.ReactElement {
         plannedMentalNameByVar.set(action.variable, action.data.name || '')
       } else if (action.type === 'update_mental_attribute' && action.attribute === 'name') {
         plannedMentalNameByVar.set(action.variable, action.value)
+      } else if (action.type === 'add_mental_to_mind') {
+        linkedMentalVars.add(action.mentalVariable)
       }
     })
 
@@ -2907,6 +2937,7 @@ export function Simulation(): React.ReactElement {
         mind.setScale(action.data.scale || DEFAULT_MIND_SCALE)
         mind.setPosition(action.data.position || DEFAULT_MIND_POSITION)
       } else if (action.type === 'create_mental') {
+        if (!linkedMentalVars.has(action.variable)) return
         const targetName = plannedMentalNameByVar.get(action.variable) || action.data.name || ''
         const maybeName = normalizeMentalName(targetName)
         const matchedDefault =
@@ -2947,6 +2978,7 @@ export function Simulation(): React.ReactElement {
           if (vec) mind.setPosition(vec)
         }
       } else if (action.type === 'update_mental_attribute') {
+        if (!linkedMentalVars.has(action.variable)) return
         const mental = nowMentalsByVar.get(action.variable)
         if (!mental) return
         if (action.attribute === 'name') mental.setName(action.value)
@@ -2975,9 +3007,10 @@ export function Simulation(): React.ReactElement {
     })
 
     setScriptMentals(Array.from(newMentalsByVar.values()))
-    setCodeRunnerDirty(false)
+    setScriptMatchedDefaultMentals(Array.from(usedDefaultMentals))
+    setScriptResultActive(true)
     setCodeRunnerStatus(
-      `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
+      `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${linkedMentalVars.size} linked mental var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
     )
   }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList])
 
@@ -2985,6 +3018,8 @@ export function Simulation(): React.ReactElement {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
     scriptMentalMapRef.current.clear()
     setScriptMentals([])
+    setScriptMatchedDefaultMentals([])
+    setScriptResultActive(false)
     setCodeRunnerErrorLine(null)
     setCodeRunnerStatus('Cleared scripted mentals.')
   }, [])
