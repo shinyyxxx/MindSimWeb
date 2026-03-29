@@ -125,11 +125,13 @@ export function XRMovement({
   moveSpeed = 1.8,
   sprintMultiplier = 1.8,
   turnSpeed = 1.8,
+  initialOffset = [0, 0, 0],
 }: {
   enabled: boolean
   moveSpeed?: number
   sprintMultiplier?: number
   turnSpeed?: number
+  initialOffset?: [number, number, number]
 }) {
   const { gl, camera } = useThree()
   const keysRef = useRef<Record<string, boolean>>({})
@@ -162,11 +164,14 @@ export function XRMovement({
     if (!enabled || !gl.xr.isPresenting) {
       baseReferenceSpaceRef.current = null
       locomotionOffsetRef.current.set(0, 0, 0)
+      yawRef.current = 0
       return
     }
 
     if (!baseReferenceSpaceRef.current) {
       baseReferenceSpaceRef.current = gl.xr.getReferenceSpace()
+      locomotionOffsetRef.current.set(initialOffset[0], initialOffset[1], initialOffset[2])
+      yawRef.current = 0
     }
     const baseReferenceSpace = baseReferenceSpaceRef.current
     if (!baseReferenceSpace) return
@@ -239,7 +244,9 @@ export function XRMovement({
       }
     }
 
-    if (!hasMovement && Math.abs(turn) <= 0.12) return
+    const shouldUpdateReferenceSpace =
+      hasMovement || Math.abs(turn) > 0.12 || locomotionOffsetRef.current.lengthSq() > 1e-8
+    if (!shouldUpdateReferenceSpace) return
 
     const offset = locomotionOffsetRef.current
     orientationRef.current.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yawRef.current)

@@ -2323,6 +2323,10 @@ function ThreeScene({
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const isXrActive = xrMode !== null
   const isArMode = xrMode === 'ar'
+  const xrInitialOffset = useMemo<[number, number, number]>(() => {
+    // Push XR start position backward so the mind is visible in front on enter.
+    return [0, 0, 4]
+  }, [])
   // Keep mentals interactable in AR so controller trigger/tap can pick them.
   const showMentalsLayer = true
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
@@ -2373,7 +2377,7 @@ function ThreeScene({
         onRendererReady={onRendererReady}
       />
       <XRControllers />
-      <XRMovement enabled={isXrActive} />
+      <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
       <OrbitControls
