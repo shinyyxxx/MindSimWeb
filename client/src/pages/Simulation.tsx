@@ -71,6 +71,7 @@ import { BlendFunction } from 'postprocessing'
 import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 import { useXRSession } from './simulation/useXRSession'
 import { cancelNarration, speakNarration } from './simulation/narration'
+import { CodeParser, type ParsedAction } from '../utils/codeParser'
 import violinModel from '../assets/violin.glb?url'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -80,6 +81,10 @@ type Vec3 = [number, number, number]
 
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
+const CODE_RUNNER_TEMPLATE = `m = Mind()
+m.name = "Mind"
+m.color = "#3b82f6"
+m.scale = 1.6`
 
 function seededRandom(seed: number): () => number {
   return () => {
@@ -2469,6 +2474,16 @@ export function Simulation(): React.ReactElement {
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
+  const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
+  const scriptMentalMapRef = useRef<Map<string, Mental>>(new Map())
+  const [codeRunnerOpen, setCodeRunnerOpen] = useState(false)
+  const [codeRunnerCode, setCodeRunnerCode] = useState(CODE_RUNNER_TEMPLATE)
+  const [codeRunnerStatus, setCodeRunnerStatus] = useState<string | null>(null)
+  const [codeRunnerErrorLine, setCodeRunnerErrorLine] = useState<number | null>(null)
+  const [codeRunnerDirty, setCodeRunnerDirty] = useState(false)
+  const [codeRunnerPos, setCodeRunnerPos] = useState<{ x: number; y: number }>({ x: 38, y: 104 })
+  const codeRunnerDragRef = useRef<{ active: boolean; dx: number; dy: number }>({ active: false, dx: 0, dy: 0 })
+  const codeRunnerHydratedRef = useRef(false)
   const [isMindExplaining, setIsMindExplaining] = useState(false)
   const [explainOverlay, setExplainOverlay] = useState<{ name: string; detail: string; progressLabel: string } | null>(null)
   const [explainHighlight, setExplainHighlight] = useState<THREE.Object3D[]>([])
@@ -2603,12 +2618,24 @@ export function Simulation(): React.ReactElement {
     setMentals(variants.map((variant) => getOrCreateMental(variant)))
   }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex])
 
+  const allMentals = useMemo(() => {
+    const next = [...mentals]
+    scriptMentals.forEach((m) => {
+      if (!next.includes(m)) next.push(m)
+    })
+    return next
+  }, [mentals, scriptMentals])
+
   useEffect(() => {
     return () => {
       cancelNarration()
       mind.stopMentalExplanationAnimation()
       const activeMentals = new Set(mind.getMentals())
       mind.dispose()
+      scriptMentalMapRef.current.forEach((mental) => {
+        if (!activeMentals.has(mental)) mental.dispose()
+      })
+      scriptMentalMapRef.current.clear()
       mentalCacheRef.current.forEach((mental) => {
         if (!activeMentals.has(mental)) {
           mental.dispose()
@@ -2621,13 +2648,13 @@ export function Simulation(): React.ReactElement {
   const searchHighlight = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     if (!term) return [] as THREE.Object3D[]
-    return mentals
+    return allMentals
       .filter((m) => m.getName().toLowerCase().includes(term))
       .flatMap((m) => {
         const mesh = m.getMesh()
         return mesh ? [mesh] : []
       })
-  }, [searchTerm, mentals])
+  }, [allMentals, searchTerm])
 
   const handleSelect = (info: InspectSelection) => {
     if (menuRevealFrameRef.current !== null) {
@@ -2729,7 +2756,7 @@ export function Simulation(): React.ReactElement {
 
   const handleShowProfile = (info: InspectSelection) => {
     setProfile(info)
-    const mental = mentals.find((m) => m.getName() === info.name && m.getType?.() === 'perception_mental')
+    const mental = allMentals.find((m) => m.getName() === info.name && m.getType?.() === 'perception_mental')
     if (mental && mental instanceof PerceptionMental) {
       setProfileAttrs(mental.getAttributes())
       setProfileMarkers(mental.getAttributeMarkers())
@@ -2750,7 +2777,7 @@ export function Simulation(): React.ReactElement {
   const handleAddAttribute = () => {
     const key = attrKey.trim()
     if (!key) return
-    const mental = mentals.find((m) => m.getName() === profile?.name && m.getType?.() === 'perception_mental')
+    const mental = allMentals.find((m) => m.getName() === profile?.name && m.getType?.() === 'perception_mental')
     if (mental && mental instanceof PerceptionMental) {
       mental.addAttribute(key, attrValue)
       setProfileAttrs(mental.getAttributes())
@@ -2759,6 +2786,229 @@ export function Simulation(): React.ReactElement {
       setAttrValue('')
     }
   }
+
+  const parseNumberList = useCallback((value: string): [number, number, number] | null => {
+    const match = value.match(/\[([^\]]+)\]/)
+    if (!match) return null
+    const parts = match[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    if (parts.length !== 3 || parts.some((v) => Number.isNaN(v))) return null
+    return [parts[0], parts[1], parts[2]]
+  }, [])
+
+  const stringifyCodeText = useCallback((value: string): string => {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  }, [])
+
+  const toHexColor = useCallback((color: string): string => {
+    const normalized = color.trim()
+    if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized.toLowerCase()
+    const parsed = Number.parseInt(normalized, 10)
+    if (!Number.isNaN(parsed)) return `#${(parsed & 0xffffff).toString(16).padStart(6, '0')}`
+    return '#3b82f6'
+  }, [])
+
+  const formatVec = useCallback((vec: [number, number, number]): string => {
+    return `[${vec[0].toFixed(3)}, ${vec[1].toFixed(3)}, ${vec[2].toFixed(3)}]`
+  }, [])
+
+  const normalizeMentalName = useCallback((value: string): string => {
+    return value
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+  }, [])
+
+  const generateCodeFromCurrentScene = useCallback((): string => {
+    const lines: string[] = []
+    const mindName = mind.getName() || 'Mind'
+    const mindColor = toHexColor(`#${(mind.color & 0xffffff).toString(16).padStart(6, '0')}`)
+    const mindScale = mind.scale
+    lines.push('m = Mind()')
+    lines.push(`m.name = ${stringifyCodeText(mindName)}`)
+    lines.push(`m.color = ${stringifyCodeText(mindColor)}`)
+    lines.push(`m.scale = ${Number.isFinite(mindScale) ? mindScale.toFixed(3) : DEFAULT_MIND_SCALE.toFixed(3)}`)
+    lines.push('')
+
+    mentals.forEach((mental, index) => {
+      const varName = `mt${index + 1}`
+      const pos = mental.getPosition()
+      const ctorName =
+        (mental as unknown as { constructor?: { name?: string } }).constructor?.name ?? 'Mental'
+      const scriptCtor = ctorName.endsWith('Mental') ? ctorName : 'Mental'
+      lines.push(`${varName} = ${scriptCtor}()`)
+      lines.push(`${varName}.name = ${stringifyCodeText(mental.getName())}`)
+      lines.push(`${varName}.color = ${stringifyCodeText(toHexColor(`#${(mental.color & 0xffffff).toString(16).padStart(6, '0')}`))}`)
+      lines.push(`${varName}.scale = ${mental.scale.toFixed(3)}`)
+      lines.push(`${varName}.position = ${formatVec([pos.x, pos.y, pos.z])}`)
+      lines.push(`m.add(${varName})`)
+      lines.push('')
+    })
+
+    return lines.join('\n').trim() || CODE_RUNNER_TEMPLATE
+  }, [formatVec, mentals, mind, stringifyCodeText, toHexColor])
+
+  useEffect(() => {
+    if (codeRunnerDirty) return
+    const nextCode = generateCodeFromCurrentScene()
+    setCodeRunnerCode(nextCode)
+    codeRunnerHydratedRef.current = true
+    if (codeRunnerOpen) {
+      setCodeRunnerStatus('Code synced to current timeline.')
+      setCodeRunnerErrorLine(null)
+    }
+  }, [codeRunnerDirty, codeRunnerOpen, generateCodeFromCurrentScene, t3HappySelected, t5SelectedId, timelineIndex])
+
+  const handleRunCodeRunner = useCallback(() => {
+    const parser = new CodeParser()
+    let actions: ParsedAction[]
+    try {
+      actions = parser.parse(codeRunnerCode)
+      setCodeRunnerErrorLine(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Parse error'
+      const lineMatch = message.match(/Line\s+(\d+)/i)
+      setCodeRunnerErrorLine(lineMatch ? Number.parseInt(lineMatch[1], 10) : null)
+      setCodeRunnerStatus(message)
+      return
+    }
+
+    const scriptMindVars = new Set<string>()
+    const newMentalsByVar = new Map<string, Mental>()
+    const nowMentalsByVar = new Map<string, Mental>()
+    const usedDefaultMentals = new Set<Mental>()
+    const defaultMentalsByName = new Map<string, Mental>()
+    const plannedMentalNameByVar = new Map<string, string>()
+
+    actions.forEach((action) => {
+      if (action.type === 'create_mental') {
+        plannedMentalNameByVar.set(action.variable, action.data.name || '')
+      } else if (action.type === 'update_mental_attribute' && action.attribute === 'name') {
+        plannedMentalNameByVar.set(action.variable, action.value)
+      }
+    })
+
+    mentals.forEach((mental) => {
+      const key = normalizeMentalName(mental.getName())
+      if (!key || defaultMentalsByName.has(key)) return
+      defaultMentalsByName.set(key, mental)
+    })
+
+    // Keep default mentals, but reset previously scripted output each run.
+    scriptMentalMapRef.current.forEach((mental) => mental.dispose())
+    scriptMentalMapRef.current.clear()
+
+    actions.forEach((action) => {
+      if (action.type === 'create_mind') {
+        scriptMindVars.add(action.variable)
+        mind.setName(action.data.name || mind.getName())
+        mind.setColor(action.data.color || '#3b82f6')
+        mind.setScale(action.data.scale || DEFAULT_MIND_SCALE)
+        mind.setPosition(action.data.position || DEFAULT_MIND_POSITION)
+      } else if (action.type === 'create_mental') {
+        const targetName = plannedMentalNameByVar.get(action.variable) || action.data.name || ''
+        const maybeName = normalizeMentalName(targetName)
+        const matchedDefault =
+          maybeName.length > 0 ? defaultMentalsByName.get(maybeName) ?? null : null
+        const canReuseDefault = Boolean(matchedDefault && !usedDefaultMentals.has(matchedDefault))
+        const mental =
+          canReuseDefault && matchedDefault
+            ? matchedDefault
+            : new Mental({
+                name: action.data.name || 'Mental Sphere',
+                detail: '',
+                color: action.data.color || '#ff6b9d',
+                scale: action.data.scale || 0.12,
+                position: action.data.position || [0, 0, 0],
+                labelEnabled: false,
+                motionSpeed: 0.0012,
+                opacity: 0.55,
+              })
+        mental.setName(action.data.name || mental.getName())
+        mental.setColor(action.data.color || '#ff6b9d')
+        mental.setScale(action.data.scale || 0.12)
+        mental.setPosition(action.data.position || [0, 0, 0])
+        mental.setFrozen(false)
+        if (canReuseDefault && matchedDefault) {
+          usedDefaultMentals.add(matchedDefault)
+        } else {
+          newMentalsByVar.set(action.variable, mental)
+        }
+        nowMentalsByVar.set(action.variable, mental)
+      } else if (action.type === 'update_mind_attribute') {
+        if (action.attribute === 'name') mind.setName(action.value)
+        else if (action.attribute === 'color') mind.setColor(action.value)
+        else if (action.attribute === 'scale') {
+          const scale = Number.parseFloat(action.value)
+          if (!Number.isNaN(scale)) mind.setScale(scale)
+        } else if (action.attribute === 'position') {
+          const vec = parseNumberList(action.value)
+          if (vec) mind.setPosition(vec)
+        }
+      } else if (action.type === 'update_mental_attribute') {
+        const mental = nowMentalsByVar.get(action.variable)
+        if (!mental) return
+        if (action.attribute === 'name') mental.setName(action.value)
+        else if (action.attribute === 'color') mental.setColor(action.value)
+        else if (action.attribute === 'scale') {
+          const scale = Number.parseFloat(action.value)
+          if (!Number.isNaN(scale)) mental.setScale(scale)
+        } else if (action.attribute === 'position') {
+          const vec = parseNumberList(action.value)
+          if (vec) mental.setPosition(vec)
+        } else if (action.attribute === 'detail') {
+          mental.setDetail(action.value)
+        }
+        nowMentalsByVar.set(action.variable, mental)
+      } else if (action.type === 'add_mental_to_mind') {
+        const linked = nowMentalsByVar.get(action.mentalVariable)
+        if (linked) {
+          nowMentalsByVar.set(action.mentalVariable, linked)
+          scriptMindVars.add(action.mindVariable)
+        }
+      }
+    })
+
+    newMentalsByVar.forEach((mental, variable) => {
+      scriptMentalMapRef.current.set(variable, mental)
+    })
+
+    setScriptMentals(Array.from(newMentalsByVar.values()))
+    setCodeRunnerDirty(false)
+    setCodeRunnerStatus(
+      `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
+    )
+  }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList])
+
+  const handleClearCodeRunnerMentals = useCallback(() => {
+    scriptMentalMapRef.current.forEach((mental) => mental.dispose())
+    scriptMentalMapRef.current.clear()
+    setScriptMentals([])
+    setCodeRunnerErrorLine(null)
+    setCodeRunnerStatus('Cleared scripted mentals.')
+  }, [])
+
+  const handleCodeRunnerPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-cr-drag-handle]') === null) return
+    codeRunnerDragRef.current.active = true
+    codeRunnerDragRef.current.dx = e.clientX - codeRunnerPos.x
+    codeRunnerDragRef.current.dy = e.clientY - codeRunnerPos.y
+    const handleMove = (ev: PointerEvent) => {
+      if (!codeRunnerDragRef.current.active) return
+      setCodeRunnerPos({
+        x: Math.max(8, ev.clientX - codeRunnerDragRef.current.dx),
+        y: Math.max(8, ev.clientY - codeRunnerDragRef.current.dy),
+      })
+    }
+    const handleUp = () => {
+      codeRunnerDragRef.current.active = false
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+    window.addEventListener('pointermove', handleMove, { passive: true })
+    window.addEventListener('pointerup', handleUp)
+  }, [codeRunnerPos.x, codeRunnerPos.y])
 
   const handleExplainMind = useCallback(async () => {
     if (isMindExplaining) return
@@ -3027,6 +3277,29 @@ export function Simulation(): React.ReactElement {
           )}
           <button
             type="button"
+            onClick={() => {
+              if (!codeRunnerOpen && !codeRunnerDirty) {
+                setCodeRunnerCode(generateCodeFromCurrentScene())
+                codeRunnerHydratedRef.current = true
+                setCodeRunnerStatus('Loaded script from current mind and mentals.')
+                setCodeRunnerErrorLine(null)
+              }
+              setCodeRunnerOpen((prev) => !prev)
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: codeRunnerOpen ? '#7c3aed' : '#475569',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {codeRunnerOpen ? 'Hide Code Runner' : 'Code Runner'}
+          </button>
+          <button
+            type="button"
             onClick={handleToggleVr}
             disabled={vrButtonDisabled}
             title={vrButtonTitle}
@@ -3144,6 +3417,163 @@ export function Simulation(): React.ReactElement {
             </div>
           </div>
         )}
+        {codeRunnerOpen && (
+          <div
+            onPointerDown={handleCodeRunnerPointerDown}
+            style={{
+              position: 'absolute',
+              left: codeRunnerPos.x,
+              top: codeRunnerPos.y,
+              zIndex: 16,
+              width: 420,
+              borderRadius: 12,
+              border: '1px solid rgba(148,163,184,0.4)',
+              background: 'rgba(2,6,23,0.92)',
+              boxShadow: '0 18px 48px rgba(2, 6, 23, 0.45)',
+              color: '#e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              data-cr-drag-handle
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '9px 10px',
+                background: 'rgba(15,23,42,0.88)',
+                borderBottom: '1px solid rgba(148,163,184,0.3)',
+                cursor: 'grab',
+                userSelect: 'none',
+              }}
+            >
+              <strong style={{ fontSize: 13, letterSpacing: 0.2 }}>Code Runner</strong>
+              <button
+                type="button"
+                onClick={() => setCodeRunnerOpen(false)}
+                style={{
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '2px 8px',
+                  background: 'rgba(148,163,184,0.2)',
+                  color: '#e2e8f0',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ padding: 10, display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 12, opacity: 0.86 }}>
+                Use `Mind()`, `Mental()` or class names like `RecklessnessMental()`, then call `mind.add(mental)`.
+              </div>
+              <textarea
+                value={codeRunnerCode}
+                onChange={(e) => {
+                  setCodeRunnerCode(e.target.value)
+                  setCodeRunnerDirty(true)
+                  if (codeRunnerErrorLine !== null) setCodeRunnerErrorLine(null)
+                }}
+                spellCheck={false}
+                style={{
+                  width: '100%',
+                  minHeight: 220,
+                  resize: 'vertical',
+                  background: 'rgba(15,23,42,0.72)',
+                  color: '#e2e8f0',
+                  border:
+                    codeRunnerErrorLine !== null
+                      ? '1px solid rgba(239,68,68,0.95)'
+                      : '1px solid rgba(148,163,184,0.35)',
+                  borderRadius: 8,
+                  padding: '10px 11px',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  boxShadow:
+                    codeRunnerErrorLine !== null
+                      ? 'inset 0 -2px 0 rgba(239,68,68,0.85)'
+                      : 'none',
+                }}
+              />
+              {codeRunnerErrorLine !== null && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#fca5a5',
+                    borderLeft: '3px solid #ef4444',
+                    paddingLeft: 8,
+                  }}
+                >
+                  Error on line {codeRunnerErrorLine}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleRunCodeRunner}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#3b82f6',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Run Script
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCodeRunnerCode(generateCodeFromCurrentScene())
+                    setCodeRunnerDirty(false)
+                    setCodeRunnerErrorLine(null)
+                    setCodeRunnerStatus('Reset to current default mind script.')
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(148,163,184,0.45)',
+                    background: 'transparent',
+                    color: '#cbd5e1',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reset Template
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearCodeRunnerMentals}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#b91c1c',
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Clear Scripted
+                </button>
+                {codeRunnerStatus && (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      color: codeRunnerErrorLine !== null ? '#fca5a5' : '#cbd5e1',
+                    }}
+                  >
+                    {codeRunnerStatus}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div
           style={{
             position: 'absolute',
@@ -3196,7 +3626,7 @@ export function Simulation(): React.ReactElement {
         )}
         <ThreeScene
           mind={mind}
-          mentals={mentals}
+          mentals={allMentals}
           selected={selected}
           profile={profile}
           profileAttrs={profileAttrs}

@@ -60,20 +60,23 @@ export class CodeParser {
     this.minds.clear()
     this.mentals.clear()
 
-    const lines = code
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
+    const lines = code.split('\n')
 
     const actions: ParsedAction[] = []
 
-    for (const trimmed of lines) {
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+      const lineNo = lineIndex + 1
+      const trimmed = lines[lineIndex].trim()
+      if (trimmed.length === 0) continue
       try {
         // Parse: x = Mind()
         if (/^\w+\s*=\s*Mind\(\)/.test(trimmed)) {
           const match = trimmed.match(/^(\w+)\s*=\s*Mind\(\)/)
           if (!match) continue
           const varName = match[1]
+          if (this.variables.has(varName)) {
+            throw new Error(`Line ${lineNo}: variable "${varName}" is already declared`)
+          }
           this.variables.set(varName, { type: 'mind', id: null })
           actions.push({
             type: 'create_mind',
@@ -87,16 +90,34 @@ export class CodeParser {
             },
           })
         }
-        // Parse: y = Mental()
-        else if (/^\w+\s*=\s*Mental\(\)/.test(trimmed)) {
-          const match = trimmed.match(/^(\w+)\s*=\s*Mental\(\)/)
+        // Parse: y = Mental() or y = SomeMental()
+        else if (/^\w+\s*=\s*\w+\(\)/.test(trimmed)) {
+          const match = trimmed.match(/^(\w+)\s*=\s*(\w+)\(\)/)
           if (!match) continue
           const varName = match[1]
+          const className = match[2]
+          const isMentalCtor = className === 'Mental' || className.endsWith('Mental')
+          if (!isMentalCtor) continue
+          const constructorNameAliases: Record<string, string> = {
+            DeterminationMental: 'Decision',
+          }
+          if (this.variables.has(varName)) {
+            throw new Error(`Line ${lineNo}: variable "${varName}" is already declared`)
+          }
+          const inferredName =
+            className === 'Mental'
+              ? 'Mental Sphere'
+              : constructorNameAliases[className] ?? (
+                className
+                  .replace(/Mental$/, '')
+                  .replace(/([a-z])([A-Z])/g, '$1 $2')
+                  .trim() || 'Mental Sphere'
+              )
           this.variables.set(varName, { type: 'mental', id: null })
           actions.push({
             type: 'create_mental',
             variable: varName,
-            data: { name: 'Mental Sphere', color: '#ff6b9d', scale: 0.1, position: [0, 0, 0] },
+            data: { name: inferredName, color: '#ff6b9d', scale: 0.1, position: [0, 0, 0] },
           })
         }
         // Parse: x.attribute = value
@@ -117,7 +138,7 @@ export class CodeParser {
 
           const varInfo = this.variables.get(varName)
           if (!varInfo) {
-            throw new Error(`Variable ${varName} not found`)
+            throw new Error(`Line ${lineNo}: variable "${varName}" not found`)
           }
 
           if (varInfo.type === 'mind') {
@@ -147,10 +168,10 @@ export class CodeParser {
           const mentalInfo = this.variables.get(mentalVar)
 
           if (!mindInfo || mindInfo.type !== 'mind') {
-            throw new Error(`Variable ${mindVar} is not a Mind`)
+            throw new Error(`Line ${lineNo}: variable "${mindVar}" is not a Mind`)
           }
           if (!mentalInfo || mentalInfo.type !== 'mental') {
-            throw new Error(`Variable ${mentalVar} is not a Mental`)
+            throw new Error(`Line ${lineNo}: variable "${mentalVar}" is not a Mental`)
           }
 
           actions.push({
@@ -160,9 +181,8 @@ export class CodeParser {
           })
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error(`Error parsing line: ${trimmed}`, error)
-        throw error
+        if (error instanceof Error) throw error
+        throw new Error(`Line ${lineNo}: parse error`)
       }
     }
 
