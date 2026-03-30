@@ -13,6 +13,7 @@ export class Mental extends AbstractMental {
   private nameTexture: THREE.CanvasTexture | null
   private attachedModel: THREE.Object3D | null
   private frozen: boolean
+  private modelVisible: boolean
 
   constructor(options: MentalBaseOptions = {}) {
     // Default: no floating labels for mentals unless explicitly enabled
@@ -33,6 +34,7 @@ export class Mental extends AbstractMental {
     this.nameTexture = null
     this.attachedModel = null
     this.frozen = false
+    this.modelVisible = true
     
     this.normalizeVelocityToMotionSpeed()
   }
@@ -96,6 +98,22 @@ export class Mental extends AbstractMental {
       y: offset.y ?? this.modelOffset.y,
       z: offset.z ?? this.modelOffset.z
     }
+  }
+
+  setModelVisible(visible: boolean): void {
+    this.modelVisible = visible
+    if (this.attachedModel) {
+      this.attachedModel.visible = visible
+    }
+  }
+
+  toggleModelVisible(): boolean {
+    this.setModelVisible(!this.modelVisible)
+    return this.modelVisible
+  }
+
+  isModelVisible(): boolean {
+    return this.modelVisible
   }
 
   override setName(name: string): void {
@@ -229,6 +247,7 @@ export class Mental extends AbstractMental {
           })
 
           this.mesh?.add(obj)
+          obj.visible = this.modelVisible
           this.attachedModel = obj
           ktx2Loader.dispose()
           dracoLoader.dispose()

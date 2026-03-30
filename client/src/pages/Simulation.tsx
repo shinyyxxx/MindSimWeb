@@ -1075,6 +1075,7 @@ function MentalsLayer({
   focusTargetRef,
   planeModelPath,
   sendMode,
+  emojiMode,
   onSendSelection,
   onHoverSelection,
   onSendMeshSelection,
@@ -1086,6 +1087,7 @@ function MentalsLayer({
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   planeModelPath: string
   sendMode: boolean
+  emojiMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   onHoverSelection?: (objects: THREE.Object3D[]) => void
   onSendMeshSelection?: (meshes: THREE.Object3D[]) => void
@@ -1274,6 +1276,10 @@ function MentalsLayer({
       senderRef.current = null
       return
     }
+    if (emojiMode) {
+      found.toggleModelVisible()
+      return
+    }
 
     mind.getMentals().forEach((m) => m.setFrozen(m === found))
     found.setFrozen(true)
@@ -1297,7 +1303,7 @@ function MentalsLayer({
       screenPosition: screenPos,
       modelPath: found.getModelPath?.(),
     })
-  }, [focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
+  }, [emojiMode, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
 
   useEffect(() => {
     const previous = appliedMentalsRef.current
@@ -1405,7 +1411,7 @@ function MentalsLayer({
       if (!gl.xr.isPresenting) return
       // Avoid click-through: while a mental is already selected in XR,
       // panel interactions should not also re-pick underlying mentals.
-      if (selectedMentalName && !sendMode) return
+      if (selectedMentalName && !sendMode && !emojiMode) return
 
       const controller = (event as { target?: unknown }).target as THREE.Object3D | undefined
       if (!controller) return
@@ -1435,7 +1441,7 @@ function MentalsLayer({
         controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
-  }, [collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind, selectedMentalName, sendMode])
+  }, [collectMentalTargets, emojiMode, findMentalForHitObject, gl, handleMentalPick, mind, selectedMentalName, sendMode])
 
   useEffect(() => {
     if (!onHoverSelection) return
@@ -2287,6 +2293,7 @@ function ThreeScene({
   onCloseSelection,
   onUpdatePanelPosition,
   sendMode,
+  emojiMode,
   onSendSelection,
   showHumanModel,
   humanShape,
@@ -2312,6 +2319,7 @@ function ThreeScene({
   onCloseSelection: () => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
+  emojiMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   showHumanModel: boolean
   humanShape: MorphShapeKey
@@ -2422,6 +2430,7 @@ function ThreeScene({
           focusTargetRef={focusTargetRef}
           planeModelPath={paperPlaneModel}
           sendMode={sendMode}
+          emojiMode={emojiMode}
           onSendSelection={onSendSelection}
           onHoverSelection={setHoverSelection}
           onSendMeshSelection={setSendMeshSelection}
@@ -2472,6 +2481,7 @@ export function Simulation(): React.ReactElement {
   const [attrKey, setAttrKey] = useState('')
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
+  const [emojiMode, setEmojiMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
@@ -3158,6 +3168,7 @@ export function Simulation(): React.ReactElement {
               setSendMode((prev) => {
                 const next = !prev
                 if (activeXrMode === 'ar') setShowHumanModel(!next)
+                if (next) setEmojiMode(false)
                 return next
               })
               setSendInfo({ status: 'Idle', sender: null, receiver: null })
@@ -3173,6 +3184,32 @@ export function Simulation(): React.ReactElement {
             }}
           >
             {sendMode ? 'Exit Send Mode' : 'Send Paper Plane'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEmojiMode((prev) => {
+                const next = !prev
+                if (next) {
+                  setSendMode(false)
+                  setSelected(null)
+                  setInspectOpen(false)
+                  setProfile(null)
+                }
+                return next
+              })
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: emojiMode ? '#22c55e' : '#64748b',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            {emojiMode ? 'Exit Emoji' : 'Emoji'}
           </button>
           <button
             type="button"
@@ -3640,6 +3677,7 @@ export function Simulation(): React.ReactElement {
           onCloseSelection={handleClose}
           onUpdatePanelPosition={inspectOpen ? undefined : setFocusScreenPosition}
           sendMode={sendMode}
+          emojiMode={emojiMode}
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}
           humanShape={humanShape}
