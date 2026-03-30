@@ -8,6 +8,7 @@ import type { MentalBaseOptions } from './AbstractMental'
 export class Mental extends AbstractMental {
   modelPath?: string
   modelTargetWorldSize: number
+  modelOpacity: number
   modelOffset: { x: number; y: number; z: number }
   private nameTexture: THREE.CanvasTexture | null
   private attachedModel: THREE.Object3D | null
@@ -23,6 +24,7 @@ export class Mental extends AbstractMental {
     
     this.modelPath = options.modelPath
     this.modelTargetWorldSize = options.modelTargetWorldSize ?? 0.16
+    this.modelOpacity = THREE.MathUtils.clamp(options.modelOpacity ?? 0.1, 0, 1)
     this.modelOffset = {
       x: options.modelOffset?.x ?? 0,
       y: options.modelOffset?.y ?? 0,
@@ -82,6 +84,10 @@ export class Mental extends AbstractMental {
 
   setModelTargetWorldSize(size: number): void {
     this.modelTargetWorldSize = Math.max(0, size)
+  }
+
+  setModelOpacity(opacity: number): void {
+    this.modelOpacity = THREE.MathUtils.clamp(opacity, 0, 1)
   }
 
   setModelOffset(offset: { x?: number; y?: number; z?: number }): void {
@@ -206,6 +212,19 @@ export class Mental extends AbstractMental {
               // No shadow casting needed inside the bubble
               mesh.castShadow = false
               mesh.receiveShadow = false
+              if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((mat) => {
+                  mat.transparent = true
+                  mat.opacity = this.modelOpacity
+                  mat.depthWrite = false
+                  mat.needsUpdate = true
+                })
+              } else if (mesh.material) {
+                mesh.material.transparent = true
+                mesh.material.opacity = this.modelOpacity
+                mesh.material.depthWrite = false
+                mesh.material.needsUpdate = true
+              }
             }
           })
 
