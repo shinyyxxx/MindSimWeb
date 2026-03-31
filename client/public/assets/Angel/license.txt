@@ -1,0 +1,8 @@
+Model Information:
+* title:	Angel sculpture
+* source:	https://sketchfab.com/3d-models/angel-sculpture-6e12f65e16ba4fe69f7470386811103d
+* author:	Fabian Mohr (https://sketchfab.com/fabianmohr)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

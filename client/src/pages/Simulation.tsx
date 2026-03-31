@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls } from '@react-three/drei'
+import { Environment, OrbitControls, Sky } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -81,6 +81,14 @@ type Vec3 = [number, number, number]
 
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
+type WorldThemeKey = 'default' | 'heaven' | 'human_world' | 'hell'
+
+const WORLD_THEME_OPTIONS: Array<{ key: WorldThemeKey; label: string }> = [
+  { key: 'default', label: 'Default' },
+  { key: 'heaven', label: 'Heaven' },
+  { key: 'human_world', label: 'Human World' },
+  { key: 'hell', label: 'Hell' },
+]
 const CODE_RUNNER_TEMPLATE = `m = Mind()
 m.name = "Mind"
 m.color = "#3b82f6"
@@ -738,7 +746,7 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
 }
 
 const MORPH_PARTICLE_COUNT = 2200
-type MorphShapeKey = 'sphere' | 'cube' | 'human'
+type MorphShapeKey = 'sphere' | 'cube' | 'human' | 'dog' | 'angel'
 
 function makeParticleSpriteTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas')
@@ -977,37 +985,45 @@ function HumanBody({
 
     let cancelled = false
     const loader = new GLTFLoader()
-    loader.load(
-      `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`,
-      (gltf: { scene: THREE.Object3D }) => {
-        if (cancelled) return
-        const human = samplePointsFromObj(gltf.scene, MORPH_PARTICLE_COUNT, targetHeight)
-        shapePointsRef.current.human = human
-        if (selectedShape === 'human') {
-          targetPositionsRef.current = human
+    const loadShapeFromGltf = (shape: MorphShapeKey, url: string, onLoaded?: (points: Float32Array) => void) => {
+      loader.load(
+        url,
+        (gltf: { scene: THREE.Object3D }) => {
+          if (cancelled) return
+          const sampled = samplePointsFromObj(gltf.scene, MORPH_PARTICLE_COUNT, targetHeight)
+          shapePointsRef.current[shape] = sampled
+          if (selectedShape === shape) {
+            targetPositionsRef.current = sampled
+          }
+          onLoaded?.(sampled)
+        },
+        undefined,
+        () => {
+          // Keep fallback if model loading fails.
         }
-        // Derive a chest anchor from the normalized particle body.
-        let minY = Number.POSITIVE_INFINITY
-        let maxY = Number.NEGATIVE_INFINITY
-        for (let i = 1; i < human.length; i += 3) {
-          const y = human[i]
-          if (y < minY) minY = y
-          if (y > maxY) maxY = y
-        }
-        const height = Math.max(0.0001, maxY - minY)
-        chestLocalRef.current.set(0, minY + height * 0.78, 0)
-      },
-      undefined,
-      () => {
-        // Keep sphere/cube fallback if model loading fails.
+      )
+    }
+
+    loadShapeFromGltf('human', `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`, (human) => {
+      // Derive a chest anchor from the normalized particle body.
+      let minY = Number.POSITIVE_INFINITY
+      let maxY = Number.NEGATIVE_INFINITY
+      for (let i = 1; i < human.length; i += 3) {
+        const y = human[i]
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
       }
-    )
+      const height = Math.max(0.0001, maxY - minY)
+      chestLocalRef.current.set(0, minY + height * 0.78, 0)
+    })
+    loadShapeFromGltf('dog', `${import.meta.env.BASE_URL}assets/Dog/scene.gltf`)
+    loadShapeFromGltf('angel', `${import.meta.env.BASE_URL}assets/Angel/scene.gltf`)
 
     return () => {
       cancelled = true
       spriteTexture.dispose()
     }
-  }, [selectedShape, spriteTexture, targetHeight])
+  }, [spriteTexture, targetHeight])
 
   useEffect(() => {
     const next = shapePointsRef.current[selectedShape]
@@ -1030,7 +1046,7 @@ function HumanBody({
     if (attr) attr.needsUpdate = true
     geometry.computeBoundingSphere()
 
-    if (points) points.rotation.y += delta * 0.08
+    if (points) points.rotation.y = 0
   })
 
   return (
@@ -1690,6 +1706,105 @@ function GroundPlane() {
   )
 }
 
+function WorldThemeFx({ theme, isArMode }: { theme: WorldThemeKey; isArMode: boolean }) {
+  const { scene } = useThree()
+
+  useEffect(() => {
+    if (isArMode) {
+      scene.background = null
+      scene.fog = null
+      return
+    }
+    if (theme === 'default') {
+      scene.background = null
+      scene.fog = new THREE.Fog(0xb9c2f2, 16, 38)
+      return
+    }
+    if (theme === 'heaven') {
+      scene.background = new THREE.Color(0xd7ecff)
+      scene.fog = new THREE.Fog(0xe9f5ff, 12, 34)
+      return
+    }
+    if (theme === 'human_world') {
+      scene.background = new THREE.Color(0xc9ddff)
+      scene.fog = new THREE.Fog(0xcfd8ea, 14, 36)
+      return
+    }
+    scene.background = new THREE.Color(0x1c0707)
+    scene.fog = new THREE.Fog(0x2a0a0a, 9, 26)
+  }, [isArMode, scene, theme])
+
+  return null
+}
+
+function ThemedGroundPlane({ theme }: { theme: WorldThemeKey }) {
+  if (theme === 'heaven') {
+    return (
+      <group>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+          <planeGeometry args={[26, 26]} />
+          <meshStandardMaterial color={0xf4f8ff} metalness={0.03} roughness={0.95} />
+        </mesh>
+        {[
+          [-3.2, -1.97, -1.4, 1.8],
+          [1.9, -1.97, -0.6, 1.6],
+          [0.1, -1.97, 1.2, 2.1],
+          [3.3, -1.97, 2.2, 1.5],
+        ].map((p, idx) => (
+          <mesh key={idx} rotation={[-Math.PI / 2, 0, 0]} position={[p[0], p[1], p[2]] as [number, number, number]}>
+            <circleGeometry args={[p[3], 30]} />
+            <meshStandardMaterial color={0xffffff} transparent opacity={0.82} roughness={1} metalness={0} />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+
+  if (theme === 'human_world') {
+    return (
+      <group>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+          <planeGeometry args={[24, 24]} />
+          <meshStandardMaterial color={0x5f6f52} metalness={0.04} roughness={0.9} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.995, 0]}>
+          <planeGeometry args={[24, 24, 20, 20]} />
+          <meshBasicMaterial color={0x90a88a} wireframe transparent opacity={0.2} />
+        </mesh>
+      </group>
+    )
+  }
+
+  if (theme === 'hell') {
+    return (
+      <group>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+          <planeGeometry args={[24, 24]} />
+          <meshStandardMaterial color={0x2b0e0e} emissive={0x4a1111} emissiveIntensity={0.42} metalness={0.02} roughness={0.92} />
+        </mesh>
+        {[
+          [-2.5, -1.985, 1.4, 0.72],
+          [0.8, -1.985, -1.7, 0.92],
+          [2.6, -1.985, 0.9, 0.66],
+          [-0.3, -1.985, 2.6, 0.58],
+        ].map((p, idx) => (
+          <mesh key={idx} rotation={[-Math.PI / 2, 0, 0]} position={[p[0], p[1], p[2]] as [number, number, number]}>
+            <circleGeometry args={[p[3], 28]} />
+            <meshBasicMaterial color={0xff5c00} transparent opacity={0.75} />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+      <planeGeometry args={[20, 20]} />
+      <meshStandardMaterial color={0x808080} metalness={0.1} roughness={0.5} />
+    </mesh>
+  )
+}
+
 function MindZoneBoundaries({ mind }: { mind: Mind }) {
   const mindRadius = mind.getRadius()
   const mindPosition = mind.position
@@ -2173,12 +2288,59 @@ function InspectOptionMenu({
   panelPosition,
   onClose,
   onViewDetail,
+  onDragPositionChange,
 }: {
   selection: InspectSelection
   panelPosition: { x: number; y: number } | null
   onClose: () => void
   onViewDetail: (selection: InspectSelection) => void
+  onDragPositionChange?: (pos: { x: number; y: number }) => void
 }) {
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const dragRef = useRef<{ dragging: boolean; offsetX: number; offsetY: number }>({
+    dragging: false,
+    offsetX: 0,
+    offsetY: 0,
+  })
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!dragRef.current.dragging || !menuRef.current) return
+      const menu = menuRef.current
+      const width = menu.offsetWidth || 240
+      const height = menu.offsetHeight || 200
+      const margin = 12
+      const unclampedLeft = event.clientX - dragRef.current.offsetX
+      const unclampedTop = event.clientY - dragRef.current.offsetY
+      const left = Math.min(window.innerWidth - width - margin, Math.max(margin, unclampedLeft))
+      const top = Math.min(window.innerHeight - height - margin, Math.max(margin, unclampedTop))
+      onDragPositionChange?.({
+        x: left + width / 2,
+        y: top + height + 12,
+      })
+    }
+
+    const handlePointerUp = () => {
+      dragRef.current.dragging = false
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [onDragPositionChange])
+
+  const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    dragRef.current.dragging = true
+    dragRef.current.offsetX = event.clientX - rect.left
+    dragRef.current.offsetY = event.clientY - rect.top
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
     left: panelPosition?.x ?? 24,
@@ -2238,9 +2400,9 @@ function InspectOptionMenu({
   )
 
   return (
-    <div style={menuStyle}>
+    <div ref={menuRef} style={menuStyle} onPointerDown={handleDragStart}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 14, boxShadow: '0 0 0 1px rgba(125,211,252,0.25), inset 0 1px 0 rgba(255,255,255,0.04)' }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, cursor: 'grab' }}>
         <div>
           <div style={{ fontSize: 11, letterSpacing: 1.4, color: '#bfdbfe', textTransform: 'uppercase' }}>Mental Sphere</div>
           <div style={{ fontWeight: 900, fontSize: 18, color: '#f8fafc', textShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{selection.name}</div>
@@ -2290,6 +2452,7 @@ function ThreeScene({
   onSendSelection,
   showHumanModel,
   humanShape,
+  worldTheme,
   xrMode,
   defaultMindPosition,
   defaultMindScale,
@@ -2315,6 +2478,7 @@ function ThreeScene({
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   showHumanModel: boolean
   humanShape: MorphShapeKey
+  worldTheme: WorldThemeKey
   xrMode: 'vr' | 'ar' | null
   defaultMindPosition: Vec3
   defaultMindScale: number
@@ -2378,13 +2542,58 @@ function ThreeScene({
       }}
     >
       <XRClearMode isArMode={isArMode} />
+      <WorldThemeFx theme={worldTheme} isArMode={isArMode} />
       <XRStatusBridge
         onRendererReady={onRendererReady}
       />
       <XRControllers />
       <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
-      {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
+      {!isArMode && (
+        <Environment
+          preset={worldTheme === 'hell' ? 'night' : worldTheme === 'human_world' ? 'park' : 'dawn'}
+          background={worldTheme === 'default'}
+          blur={worldTheme === 'default' ? 1 : 0.35}
+          backgroundIntensity={worldTheme === 'default' ? 0.6 : 0.25}
+          environmentIntensity={worldTheme === 'hell' ? 0.85 : 1.05}
+        />
+      )}
+      {!isArMode && worldTheme === 'heaven' && (
+        <Sky
+          distance={3500}
+          sunPosition={[1.2, 0.8, 0.6]}
+          inclination={0.52}
+          azimuth={0.32}
+          turbidity={2}
+          rayleigh={2.8}
+          mieCoefficient={0.004}
+          mieDirectionalG={0.84}
+        />
+      )}
+      {!isArMode && worldTheme === 'human_world' && (
+        <Sky
+          distance={3200}
+          sunPosition={[0.9, 0.72, 0.35]}
+          inclination={0.56}
+          azimuth={0.25}
+          turbidity={7}
+          rayleigh={1.7}
+          mieCoefficient={0.01}
+          mieDirectionalG={0.9}
+        />
+      )}
+      {!isArMode && worldTheme === 'hell' && (
+        <Sky
+          distance={2600}
+          sunPosition={[-0.7, 0.18, 0.45]}
+          inclination={0.42}
+          azimuth={0.7}
+          turbidity={12}
+          rayleigh={0.5}
+          mieCoefficient={0.035}
+          mieDirectionalG={0.97}
+        />
+      )}
       <OrbitControls
         ref={controlsRef}
         enabled={!isXrActive}
@@ -2402,7 +2611,7 @@ function ThreeScene({
       <directionalLight position={[-5, 3, -5]} intensity={0.85} />
       <pointLight position={[0, 6, 0]} intensity={1.35} distance={15} decay={2} />
       <pointLight position={[0, 0, 5]} intensity={1.0} distance={15} decay={2} />
-      {!isArMode && <GroundPlane />}
+      {!isArMode && <ThemedGroundPlane theme={worldTheme} />}
       {showHumanInScene && (
         <React.Suspense fallback={null}>
           <HumanBody
@@ -2474,6 +2683,7 @@ export function Simulation(): React.ReactElement {
   const [sendMode, setSendMode] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
+  const [worldTheme, setWorldTheme] = useState<WorldThemeKey>('default')
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
   const [scriptMatchedDefaultMentals, setScriptMatchedDefaultMentals] = useState<Mental[]>([])
   const [scriptResultActive, setScriptResultActive] = useState(false)
@@ -3265,8 +3475,30 @@ export function Simulation(): React.ReactElement {
               <option value="sphere">Sphere</option>
               <option value="cube">Cube</option>
               <option value="human">Human</option>
+              <option value="dog">Dog</option>
+              <option value="angel">Angel</option>
             </select>
           )}
+          <select
+            value={worldTheme}
+            onChange={(e) => setWorldTheme(e.target.value as WorldThemeKey)}
+            style={{
+              padding: '6px 8px',
+              borderRadius: 6,
+              border: '1px solid rgba(255,255,255,0.28)',
+              background: 'rgba(15,23,42,0.78)',
+              color: 'white',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+            title="World theme"
+          >
+            {WORLD_THEME_OPTIONS.map((opt) => (
+              <option key={opt.key} value={opt.key}>
+                Theme: {opt.label}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={() => setSearchOpen((prev) => !prev)}
@@ -3636,6 +3868,7 @@ export function Simulation(): React.ReactElement {
             panelPosition={panelPosition}
             onClose={handleClose}
             onViewDetail={handleViewDetail}
+            onDragPositionChange={setPanelPosition}
           />
         )}
         {selected && !isXrActive && inspectOpen && (
@@ -3644,6 +3877,7 @@ export function Simulation(): React.ReactElement {
             panelPosition={panelPosition}
             onClose={handleClose}
             onShowProfile={handleShowProfile}
+            onDragPositionChange={setPanelPosition}
           />
         )}
         {profile && !isXrActive && (
@@ -3678,6 +3912,7 @@ export function Simulation(): React.ReactElement {
           onSendSelection={setSendInfo}
           showHumanModel={showHumanModel}
           humanShape={humanShape}
+          worldTheme={worldTheme}
           xrMode={activeXrMode}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}

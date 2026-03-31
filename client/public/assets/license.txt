@@ -1,0 +1,11 @@
+Model Information:
+* title:	Animated Labrador – 3D Animal Model
+* source:	https://sketchfab.com/3d-models/animated-labrador-3d-animal-model-4d3216da334e4c73a7f55857ff8b1593
+* author:	AnimalMesh 3D (https://sketchfab.com/AnimalMesh3D)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Animated Labrador – 3D Animal Model" (https://sketchfab.com/3d-models/animated-labrador-3d-animal-model-4d3216da334e4c73a7f55857ff8b1593) by AnimalMesh 3D (https://sketchfab.com/AnimalMesh3D) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
