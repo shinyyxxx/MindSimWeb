@@ -7,6 +7,7 @@ export interface MentalBaseOptions {
   scale?: number
   modelPath?: string
   modelTargetWorldSize?: number
+  modelOpacity?: number
   modelOffset?: { x?: number; y?: number; z?: number }
   motionSpeed?: number
   labelEnabled?: boolean
