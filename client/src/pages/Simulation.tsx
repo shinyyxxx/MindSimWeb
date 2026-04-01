@@ -1777,6 +1777,7 @@ function SoundReceiveEffect({
   const earModelRef = useRef<THREE.Object3D | null>(null)
   const senderMentalRef = useRef<Mental | null>(null)
   const sendStartedRef = useRef(false)
+  const runTokenRef = useRef(0)
   const contactRef = useRef<Mental | null>(null)
   const phaseRef = useRef<'idle' | 'move_contact' | 'sending'>('idle')
   const phaseElapsedRef = useRef(0)
@@ -1831,6 +1832,7 @@ function SoundReceiveEffect({
   useEffect(() => {
     if (requestId <= 0 || requestId === prevRequestRef.current) return
     prevRequestRef.current = requestId
+    runTokenRef.current += 1
 
     const contact =
       mentals.find((m) => m.getName().trim().toLowerCase() === 'contact') ||
@@ -1847,7 +1849,6 @@ function SoundReceiveEffect({
     mentalMoveTargetRef.current.clear()
 
     // Freeze and stage all mentals so the receive animation has clear focus.
-    let rightIdx = 0
     mentals.forEach((m) => {
       const p = m.getPosition()
       mentalOriginalRef.current.set(m, {
@@ -1857,16 +1858,8 @@ function SoundReceiveEffect({
       m.setFrozen(true)
       m.setVelocity(0, 0, 0)
       mentalMoveStartRef.current.set(m, new THREE.Vector3(p.x, p.y, p.z))
-      if (m === contact) return
-      const column = rightIdx % 2
-      const row = Math.floor(rightIdx / 2)
-      const target = new THREE.Vector3(
-        0.66 + column * 0.16,
-        0.42 - row * 0.18,
-        -0.18 + column * 0.22
-      )
-      mentalMoveTargetRef.current.set(m, target)
-      rightIdx += 1
+      // Keep default/random spread in place; only Contact will move.
+      if (m !== contact) return
     })
 
     const start = contact.getPosition()
@@ -1890,46 +1883,52 @@ function SoundReceiveEffect({
     setActive(true)
   }, [earWorld, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
 
-  useFrame((_, delta) => {
-    if (!active) return
-    const contact = contactRef.current
-    if (!contact) return
-
-    phaseElapsedRef.current += delta
-
-    if (phaseRef.current === 'move_contact') {
-      const t = THREE.MathUtils.clamp(phaseElapsedRef.current / 0.75, 0, 1)
-      const eased = 1 - Math.pow(1 - t, 3)
-      mentalMoveStartRef.current.forEach((startPos, mental) => {
-        const targetPos = mentalMoveTargetRef.current.get(mental)
-        if (!targetPos) return
-        const p = startPos.clone().lerp(targetPos, eased)
-        mental.setPosition(p.x, p.y, p.z)
-      })
-      const p = tempVecRef.current
-      p.copy(contactStartRef.current).lerp(contactTargetRef.current, eased)
-      contact.setPosition(p.x, p.y, p.z)
-      if (t >= 1) {
-        const mesh = contact.getMesh()
-        onHighlightChange?.(mesh ? [mesh] : [])
-        phaseRef.current = 'sending'
+  const resolveMentalByName = useCallback(
+    (name: string): Mental | null => {
+      const key = name.trim().toLowerCase()
+      if (!key) return null
+      const exact = mentals.find((m) => m.getName().trim().toLowerCase() === key)
+      if (exact) return exact
+      if (key.includes('decision') || key.includes('determination')) {
+        return (
+          mentals.find((m) => {
+            const n = m.getName().toLowerCase()
+            return n.includes('decision') || n.includes('determination')
+          }) ?? null
+        )
       }
-      return
+      return mentals.find((m) => m.getName().toLowerCase().includes(key)) ?? null
+    },
+    [mentals]
+  )
+
+  const cleanupAndRestore = useCallback(() => {
+    mentalOriginalRef.current.forEach((state, mental) => {
+      mental.setPosition(state.pos.x, state.pos.y, state.pos.z)
+      mental.setFrozen(state.frozen)
+    })
+    mentalOriginalRef.current.clear()
+    mentalMoveStartRef.current.clear()
+    mentalMoveTargetRef.current.clear()
+    const sender = senderMentalRef.current
+    if (sender) {
+      const senderMesh = sender.getMesh()
+      if (senderMesh?.parent) senderMesh.parent.remove(senderMesh)
+      sender.dispose()
+      senderMentalRef.current = null
     }
+    onHighlightChange?.([])
+    setEarVisible(false)
+    setActive(false)
+    phaseRef.current = 'idle'
+    onComplete?.()
+  }, [onComplete, onHighlightChange])
 
-    if (phaseRef.current === 'sending') {
-      if (sendStartedRef.current) return
-      sendStartedRef.current = true
-
-      const contactMesh = contact.getMesh()
-      const parent = contactMesh?.parent
-      if (!contactMesh || !parent) {
-        setEarVisible(false)
-        setActive(false)
-        phaseRef.current = 'idle'
-        onComplete?.()
-        return
-      }
+  const sendFromWorldToMental = useCallback(
+    async (startWorld: THREE.Vector3, target: Mental): Promise<void> => {
+      const targetMesh = target.getMesh()
+      const parent = targetMesh?.parent
+      if (!targetMesh || !parent) return
 
       const sender = new Mental({
         name: 'Sound Carrier',
@@ -1944,49 +1943,121 @@ function SoundReceiveEffect({
       const senderMesh = sender.getMesh()
       if (!senderMesh) {
         sender.dispose()
-        setEarVisible(false)
-        setActive(false)
-        phaseRef.current = 'idle'
-        onComplete?.()
         return
       }
-      const startLocal = parent.worldToLocal(planeStartRef.current.clone())
+      const startLocal = parent.worldToLocal(startWorld.clone())
       sender.setPosition(startLocal.x, startLocal.y, startLocal.z)
       senderMesh.visible = false
       parent.add(senderMesh)
       senderMentalRef.current = sender
-
-      sender
-        .sendDataTo(gl, contact, {
+      try {
+        await sender.sendDataTo(gl, target, {
           planeModelPath,
           durationMs: 1050,
           arcHeight: 0.12,
           scale: 0.1,
         })
-        .catch(() => {})
-        .finally(() => {
-          mentalOriginalRef.current.forEach((state, mental) => {
-            mental.setPosition(state.pos.x, state.pos.y, state.pos.z)
-            mental.setFrozen(state.frozen)
-          })
-          mentalOriginalRef.current.clear()
-          mentalMoveStartRef.current.clear()
-          mentalMoveTargetRef.current.clear()
-          const senderMeshNow = sender.getMesh()
-          if (senderMeshNow?.parent) senderMeshNow.parent.remove(senderMeshNow)
-          sender.dispose()
-          senderMentalRef.current = null
-          onHighlightChange?.([])
-          setEarVisible(false)
-          setActive(false)
-          phaseRef.current = 'idle'
-          onComplete?.()
-        })
+      } finally {
+        const senderMeshNow = sender.getMesh()
+        if (senderMeshNow?.parent) senderMeshNow.parent.remove(senderMeshNow)
+        sender.dispose()
+        if (senderMentalRef.current === sender) senderMentalRef.current = null
+      }
+    },
+    [gl, planeModelPath]
+  )
+
+  const sendMentalToMental = useCallback(
+    async (sender: Mental, receiver: Mental): Promise<void> => {
+      await sender.sendDataTo(gl, receiver, {
+        planeModelPath,
+        durationMs: 980,
+        arcHeight: 0.12,
+        scale: 0.1,
+      })
+    },
+    [gl, planeModelPath]
+  )
+
+  useFrame((_, delta) => {
+    if (!active) return
+    const contact = contactRef.current
+    if (!contact) return
+
+    phaseElapsedRef.current += delta
+
+    if (phaseRef.current === 'move_contact') {
+      const t = THREE.MathUtils.clamp(phaseElapsedRef.current / 0.75, 0, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const p = tempVecRef.current
+      p.copy(contactStartRef.current).lerp(contactTargetRef.current, eased)
+      contact.setPosition(p.x, p.y, p.z)
+      if (t >= 1) {
+        const mesh = contact.getMesh()
+        onHighlightChange?.(mesh ? [mesh] : [])
+        phaseRef.current = 'sending'
+      }
+      return
+    }
+
+    if (phaseRef.current === 'sending') {
+      if (sendStartedRef.current) return
+      sendStartedRef.current = true
+      const runToken = runTokenRef.current
+      const runSequence = async () => {
+        try {
+          const chain = [
+            { mental: 'Contact', line: 'Hearing the music. Contact: Sound meets the ear and initiates awareness.' },
+            { mental: 'Attention', line: 'Turning toward the sound. Attention: The mind focuses on the music.' },
+            { mental: 'Feeling', line: 'Feeling it is pleasant. Feeling: A pleasant emotional tone arises.' },
+            { mental: 'Perception', line: 'Recognizing the song. Perception: The mind identifies it as a familiar liked song.' },
+            { mental: 'Initial Application', line: 'Beginning to focus. Initial Application: The mind applies itself to the sound.' },
+            { mental: 'Sustained Application', line: 'Staying with the sound. Sustained Application: The mind remains continuously on it.' },
+            { mental: 'Intention', line: 'Wanting to keep listening and sing along. Intention: Drives the urge to act.' },
+            { mental: 'Decision', line: 'Choosing to continue listening. Decision: Finalizes the choice.' },
+            { mental: 'Concentration', line: 'Fully absorbed in the music. Concentration: The mind becomes stable and unified.' },
+            { mental: 'Life Faculty', line: 'Mental process continues. Life Faculty: Sustains all mental factors in that moment.' },
+          ] as const
+
+          const contactMental = resolveMentalByName('Contact')
+          if (!contactMental) {
+            cleanupAndRestore()
+            return
+          }
+          const contactMesh = contactMental.getMesh()
+          onHighlightChange?.(contactMesh ? [contactMesh] : [])
+          await Promise.all([
+            speakNarration(chain[0].line),
+            sendFromWorldToMental(planeStartRef.current, contactMental),
+          ])
+          if (runToken !== runTokenRef.current) return
+
+          for (let i = 1; i < chain.length; i += 1) {
+            const prev = resolveMentalByName(chain[i - 1].mental)
+            const next = resolveMentalByName(chain[i].mental)
+            if (!prev || !next) continue
+            const mesh = next.getMesh()
+            onHighlightChange?.(mesh ? [mesh] : [])
+            await Promise.all([
+              speakNarration(chain[i].line),
+              sendMentalToMental(prev, next),
+            ])
+            if (runToken !== runTokenRef.current) return
+          }
+        } catch {
+          // keep cleanup flow below
+        } finally {
+          if (runToken !== runTokenRef.current) return
+          cleanupAndRestore()
+        }
+      }
+      void runSequence()
     }
   })
 
   useEffect(() => {
     return () => {
+      runTokenRef.current += 1
       mentalOriginalRef.current.forEach((state, mental) => {
         mental.setPosition(state.pos.x, state.pos.y, state.pos.z)
         mental.setFrozen(state.frozen)
