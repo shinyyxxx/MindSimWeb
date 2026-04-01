@@ -208,6 +208,65 @@ class ExecuteCodeResponse(BaseModel):
     summary: dict
 
 
+# ---------------------------------------------------------------------------
+# Static Abhidhamma reference data
+# ---------------------------------------------------------------------------
+
+class StaticMentalResponse(BaseModel):
+    id: int
+    name: str
+    pali: str
+    thai: str
+    slug: str
+    category: str
+    description: str
+    highlights: List[str]
+
+
+class StaticMentalListResponse(BaseModel):
+    mentals: List[StaticMentalResponse]
+    count: int
+
+
+class StaticMentalGroupResponse(BaseModel):
+    id: int
+    name: str
+    name_thai: str
+    name_en: str
+    mental_ids: List[int]
+
+
+class StaticMentalGroupListResponse(BaseModel):
+    mental_groups: List[StaticMentalGroupResponse]
+    count: int
+
+
+class StaticMindResponse(BaseModel):
+    id: int
+    name: str
+    pali: str
+    thai: str
+    category: str
+    mental_ids: List[int]
+
+
+class StaticMindListResponse(BaseModel):
+    minds: List[StaticMindResponse]
+    count: int
+
+
+class StaticMindGroupResponse(BaseModel):
+    id: int
+    name: str
+    name_thai: str
+    name_en: str
+    mind_ids: List[int]
+
+
+class StaticMindGroupListResponse(BaseModel):
+    mind_groups: List[StaticMindGroupResponse]
+    count: int
+
 
 
 '''
