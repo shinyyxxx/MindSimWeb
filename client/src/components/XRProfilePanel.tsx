@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Text } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -20,6 +20,8 @@ export function XRProfilePanel({
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
   const backButtonRef = useRef<THREE.Mesh | null>(null)
+  const [hoveredAction, setHoveredAction] = useState<XRProfileAction | null>(null)
+  const hoveredActionRef = useRef<XRProfileAction | null>(null)
 
   const resolveActionForHit = useCallback((hitObject: THREE.Object3D): XRProfileAction | null => {
     const targets: Array<{ ref: React.RefObject<THREE.Mesh | null>; action: XRProfileAction }> = [
@@ -91,6 +93,29 @@ export function XRProfilePanel({
 
     groupRef.current.position.lerp(targetPos, 0.14)
     groupRef.current.quaternion.slerp(camera.quaternion, 0.14)
+
+    let nextHovered: XRProfileAction | null = null
+    if (gl.xr.isPresenting && backButtonRef.current) {
+      const xrRaycaster = new THREE.Raycaster()
+      const rayOrigin = new THREE.Vector3()
+      const rayDirection = new THREE.Vector3()
+      const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+      const hoverTargets = [backButtonRef.current]
+
+      for (const controller of controllers) {
+        rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+        rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+        xrRaycaster.set(rayOrigin, rayDirection)
+        const hits = xrRaycaster.intersectObjects(hoverTargets, true)
+        if (!hits.length) continue
+        nextHovered = resolveActionForHit(hits[0].object)
+        if (nextHovered) break
+      }
+    }
+    if (hoveredActionRef.current !== nextHovered) {
+      hoveredActionRef.current = nextHovered
+      setHoveredAction(nextHovered)
+    }
   })
 
   const truncate = (value: string, max = 56) => (value.length > max ? `${value.slice(0, max - 1)}...` : value)
@@ -181,9 +206,15 @@ export function XRProfilePanel({
         <meshBasicMaterial color={0xf1f5f9} />
       </mesh>
 
-      <mesh ref={backButtonRef} position={[0.26, -0.47, 0.004]} onPointerDown={() => runAction('back')}>
+      <mesh
+        ref={backButtonRef}
+        position={[0.26, -0.47, 0.004]}
+        onPointerDown={() => runAction('back')}
+        onPointerOver={() => setHoveredAction('back')}
+        onPointerOut={() => setHoveredAction(null)}
+      >
         <planeGeometry args={[0.24, 0.1]} />
-        <meshBasicMaterial color={0x64748b} />
+        <meshBasicMaterial color={hoveredAction === 'back' ? 0x475569 : 0x64748b} />
       </mesh>
       <Text position={[0.26, -0.47, 0.006]} anchorX="center" anchorY="middle" fontSize={0.035} color="#f8fafc">
         Back

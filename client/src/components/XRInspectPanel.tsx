@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Text } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
@@ -26,24 +26,20 @@ export function XRInspectPanel({
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
   const panelRef = useRef<THREE.Mesh | null>(null)
-  const detailHitRef = useRef<THREE.Mesh | null>(null)
-  const voiceHitRef = useRef<THREE.Mesh | null>(null)
-  const howHitRef = useRef<THREE.Mesh | null>(null)
   const detailButtonRef = useRef<THREE.Mesh | null>(null)
   const voiceButtonRef = useRef<THREE.Mesh | null>(null)
   const howButtonRef = useRef<THREE.Mesh | null>(null)
   const backButtonRef = useRef<THREE.Mesh | null>(null)
   const profileButtonRef = useRef<THREE.Mesh | null>(null)
   const closeButtonRef = useRef<THREE.Mesh | null>(null)
+  const [hoveredAction, setHoveredAction] = useState<XRInspectAction | null>(null)
+  const hoveredActionRef = useRef<XRInspectAction | null>(null)
 
   const resolveActionForHit = useCallback((hitObject: THREE.Object3D): XRInspectAction | null => {
     const targets: Array<{ ref: React.RefObject<THREE.Mesh | null>; action: XRInspectAction }> = [
       { ref: detailButtonRef, action: 'detail' },
-      { ref: detailHitRef, action: 'detail' },
       { ref: voiceButtonRef, action: 'voice' },
-      { ref: voiceHitRef, action: 'voice' },
       { ref: howButtonRef, action: 'how' },
-      { ref: howHitRef, action: 'how' },
       { ref: backButtonRef, action: 'back' },
       { ref: profileButtonRef, action: 'profile' },
       { ref: closeButtonRef, action: 'close' },
@@ -87,11 +83,8 @@ export function XRInspectPanel({
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
     const clickTargets = [
       detailButtonRef.current,
-      detailHitRef.current,
       voiceButtonRef.current,
-      voiceHitRef.current,
       howButtonRef.current,
-      howHitRef.current,
       backButtonRef.current,
       profileButtonRef.current,
       closeButtonRef.current,
@@ -137,6 +130,36 @@ export function XRInspectPanel({
 
     groupRef.current.position.lerp(targetPos, 0.14)
     groupRef.current.quaternion.slerp(camera.quaternion, 0.14)
+
+    let nextHovered: XRInspectAction | null = null
+    if (gl.xr.isPresenting) {
+      const xrRaycaster = new THREE.Raycaster()
+      const rayOrigin = new THREE.Vector3()
+      const rayDirection = new THREE.Vector3()
+      const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+      const hoverTargets = [
+        detailButtonRef.current,
+        voiceButtonRef.current,
+        howButtonRef.current,
+        backButtonRef.current,
+        profileButtonRef.current,
+        closeButtonRef.current,
+      ].filter(Boolean) as THREE.Object3D[]
+
+      for (const controller of controllers) {
+        rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+        rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+        xrRaycaster.set(rayOrigin, rayDirection)
+        const hits = xrRaycaster.intersectObjects(hoverTargets, true)
+        if (!hits.length) continue
+        nextHovered = resolveActionForHit(hits[0].object)
+        if (nextHovered) break
+      }
+    }
+    if (hoveredActionRef.current !== nextHovered) {
+      hoveredActionRef.current = nextHovered
+      setHoveredAction(nextHovered)
+    }
   })
 
   return (
@@ -165,9 +188,9 @@ export function XRInspectPanel({
         {selection.name}
       </Text>
 
-      <mesh ref={closeButtonRef} position={[0.58, 0.26, 0.004]} onPointerDown={() => runAction('close')}>
+      <mesh ref={closeButtonRef} position={[0.58, 0.26, 0.004]}>
         <planeGeometry args={[0.12, 0.1]} />
-        <meshBasicMaterial color={0xe2e8f0} />
+        <meshBasicMaterial color={hoveredAction === 'close' ? 0xcbd5e1 : 0xe2e8f0} />
       </mesh>
       <Text position={[0.58, 0.26, 0.006]} anchorX="center" anchorY="middle" fontSize={0.034} color="#334155">
         X
@@ -175,57 +198,72 @@ export function XRInspectPanel({
 
       {!inspectOpen && (
         <>
-          <mesh ref={detailHitRef} position={[0, 0.08, 0.007]}>
-            <planeGeometry args={[1.22, 0.24]} />
-            <meshBasicMaterial transparent opacity={0} />
-          </mesh>
-          <mesh ref={detailButtonRef} position={[0, 0.08, 0.004]} onPointerDown={() => runAction('detail')}>
+          <mesh
+            ref={detailButtonRef}
+            position={[0, 0.08, 0.004]}
+          >
             <planeGeometry args={[1.16, 0.2]} />
-            <meshBasicMaterial color={0xffffff} />
+            <meshBasicMaterial color={hoveredAction === 'detail' ? 0xdbeafe : 0xffffff} />
           </mesh>
           <mesh position={[-0.49, 0.08, 0.006]}>
             <planeGeometry args={[0.1, 0.1]} />
-            <meshBasicMaterial color={0x0ea5e9} />
+            <meshBasicMaterial color={hoveredAction === 'detail' ? 0x0284c7 : 0x0ea5e9} />
           </mesh>
-          <Text position={[-0.36, 0.11, 0.006]} anchorX="left" anchorY="middle" fontSize={0.047} color="#0f172a">
+          <Text
+            position={[-0.36, 0.11, 0.006]}
+            anchorX="left"
+            anchorY="middle"
+            fontSize={0.047}
+            color={hoveredAction === 'detail' ? '#0c4a6e' : '#0f172a'}
+          >
             View Detail
           </Text>
           <Text position={[-0.36, 0.055, 0.006]} anchorX="left" anchorY="middle" fontSize={0.03} color="#475569">
             Inspect this sphere closely
           </Text>
 
-          <mesh ref={voiceHitRef} position={[0, -0.15, 0.007]}>
-            <planeGeometry args={[1.22, 0.24]} />
-            <meshBasicMaterial transparent opacity={0} />
-          </mesh>
-          <mesh ref={voiceButtonRef} position={[0, -0.15, 0.004]} onPointerDown={() => runAction('voice')}>
+          <mesh
+            ref={voiceButtonRef}
+            position={[0, -0.15, 0.004]}
+          >
             <planeGeometry args={[1.16, 0.2]} />
-            <meshBasicMaterial color={0xffffff} />
+            <meshBasicMaterial color={hoveredAction === 'voice' ? 0xdbeafe : 0xffffff} />
           </mesh>
           <mesh position={[-0.49, -0.15, 0.006]}>
             <planeGeometry args={[0.1, 0.1]} />
-            <meshBasicMaterial color={0x0ea5e9} />
+            <meshBasicMaterial color={hoveredAction === 'voice' ? 0x0284c7 : 0x0ea5e9} />
           </mesh>
-          <Text position={[-0.36, -0.12, 0.006]} anchorX="left" anchorY="middle" fontSize={0.047} color="#0f172a">
+          <Text
+            position={[-0.36, -0.12, 0.006]}
+            anchorX="left"
+            anchorY="middle"
+            fontSize={0.047}
+            color={hoveredAction === 'voice' ? '#0c4a6e' : '#0f172a'}
+          >
             Voice
           </Text>
           <Text position={[-0.36, -0.175, 0.006]} anchorX="left" anchorY="middle" fontSize={0.03} color="#475569">
             Hear a narrated explanation
           </Text>
 
-          <mesh ref={howHitRef} position={[0, -0.35, 0.007]}>
-            <planeGeometry args={[1.22, 0.24]} />
-            <meshBasicMaterial transparent opacity={0} />
-          </mesh>
-          <mesh ref={howButtonRef} position={[0, -0.35, 0.004]} onPointerDown={() => runAction('how')}>
+          <mesh
+            ref={howButtonRef}
+            position={[0, -0.35, 0.004]}
+          >
             <planeGeometry args={[1.16, 0.2]} />
-            <meshBasicMaterial color={0xffffff} />
+            <meshBasicMaterial color={hoveredAction === 'how' ? 0xdbeafe : 0xffffff} />
           </mesh>
           <mesh position={[-0.49, -0.35, 0.006]}>
             <planeGeometry args={[0.1, 0.1]} />
-            <meshBasicMaterial color={0x0ea5e9} />
+            <meshBasicMaterial color={hoveredAction === 'how' ? 0x0284c7 : 0x0ea5e9} />
           </mesh>
-          <Text position={[-0.36, -0.32, 0.006]} anchorX="left" anchorY="middle" fontSize={0.047} color="#0f172a">
+          <Text
+            position={[-0.36, -0.32, 0.006]}
+            anchorX="left"
+            anchorY="middle"
+            fontSize={0.047}
+            color={hoveredAction === 'how' ? '#0c4a6e' : '#0f172a'}
+          >
             How it works?
           </Text>
           <Text position={[-0.36, -0.375, 0.006]} anchorX="left" anchorY="middle" fontSize={0.03} color="#475569">
@@ -255,17 +293,17 @@ export function XRInspectPanel({
             Type: {selection.type || 'mental'}
           </Text>
 
-          <mesh ref={backButtonRef} position={[-0.18, -0.39, 0.004]} onPointerDown={() => runAction('back')}>
+          <mesh ref={backButtonRef} position={[-0.18, -0.39, 0.004]}>
             <planeGeometry args={[0.26, 0.1]} />
-            <meshBasicMaterial color={0x64748b} />
+            <meshBasicMaterial color={hoveredAction === 'back' ? 0x475569 : 0x64748b} />
           </mesh>
           <Text position={[-0.18, -0.39, 0.006]} anchorX="center" anchorY="middle" fontSize={0.032} color="#f8fafc">
             Back
           </Text>
 
-          <mesh ref={profileButtonRef} position={[0.18, -0.39, 0.004]} onPointerDown={() => runAction('profile')}>
+          <mesh ref={profileButtonRef} position={[0.18, -0.39, 0.004]}>
             <planeGeometry args={[0.34, 0.1]} />
-            <meshBasicMaterial color={0x0ea5e9} />
+            <meshBasicMaterial color={hoveredAction === 'profile' ? 0x0284c7 : 0x0ea5e9} />
           </mesh>
           <Text position={[0.18, -0.39, 0.006]} anchorX="center" anchorY="middle" fontSize={0.032} color="#f8fbff">
             More detail
