@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, Sky } from '@react-three/drei'
+import { Environment, OrbitControls, Sky, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -2372,6 +2372,220 @@ function TimelineCanvas({
   )
 }
 
+function XRTimelineToggle({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean
+  onToggle: () => void
+}) {
+  const { gl } = useThree()
+  const wasPressedRef = useRef(false)
+  const cooldownRef = useRef(0)
+
+  useFrame((_state, delta) => {
+    if (!enabled || !gl.xr.isPresenting) {
+      wasPressedRef.current = false
+      cooldownRef.current = 0
+      return
+    }
+
+    cooldownRef.current = Math.max(0, cooldownRef.current - delta)
+    const session = gl.xr.getSession()
+    if (!session) return
+
+    let bPressed = false
+    for (const inputSource of session.inputSources) {
+      if (inputSource.handedness !== 'right') continue
+      const gamepad = (inputSource as { gamepad?: Gamepad }).gamepad
+      if (!gamepad || !gamepad.buttons?.length) continue
+      // Runtime mappings differ across browsers/devices; cover common B-slot indices.
+      bPressed = Boolean(
+        gamepad.buttons[5]?.pressed ||
+        gamepad.buttons[4]?.pressed ||
+        gamepad.buttons[3]?.pressed
+      )
+      if (bPressed) break
+    }
+
+    if (bPressed && !wasPressedRef.current && cooldownRef.current <= 0) {
+      onToggle()
+      cooldownRef.current = 0.28
+    }
+    wasPressedRef.current = bPressed
+  })
+
+  return null
+}
+
+function XRTimelinePanel({
+  selectedIndex,
+  onSelect,
+}: {
+  selectedIndex: number
+  onSelect: (index: number) => void
+}) {
+  const { gl, camera } = useThree()
+  const groupRef = useRef<THREE.Group | null>(null)
+  const buttonRefs = useRef<Array<THREE.Mesh | null>>([])
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const hoveredIndexRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const xrRaycaster = new THREE.Raycaster()
+    const rayOrigin = new THREE.Vector3()
+    const rayDirection = new THREE.Vector3()
+    const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+
+    const resolveIndexForHit = (hitObject: THREE.Object3D): number | null => {
+      for (let i = 0; i < TIMELINE_STOPS.length; i += 1) {
+        const mesh = buttonRefs.current[i]
+        if (!mesh) continue
+        let node: THREE.Object3D | null = hitObject
+        while (node) {
+          if (node === mesh) return i
+          node = node.parent
+        }
+      }
+      return null
+    }
+
+    const handleXrSelect = (event: Event) => {
+      if (!gl.xr.isPresenting) return
+      const targets = buttonRefs.current.filter(Boolean) as THREE.Object3D[]
+      if (!targets.length) return
+
+      const controller = event.target as unknown as THREE.Object3D
+      rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+      rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+      xrRaycaster.set(rayOrigin, rayDirection)
+
+      const hits = xrRaycaster.intersectObjects(targets, true)
+      if (!hits.length) return
+      const idx = resolveIndexForHit(hits[0].object)
+      if (idx !== null) onSelect(idx)
+    }
+
+    controllers.forEach((controller) => {
+      controller.addEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
+    })
+
+    return () => {
+      controllers.forEach((controller) => {
+        controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
+      })
+    }
+  }, [gl, onSelect])
+
+  useFrame(() => {
+    if (!groupRef.current) return
+
+    const forward = new THREE.Vector3()
+    const right = new THREE.Vector3()
+    camera.getWorldDirection(forward)
+    right.set(1, 0, 0).applyQuaternion(camera.quaternion)
+
+    const targetPos = camera.position.clone()
+      .add(forward.multiplyScalar(1.02))
+      .add(right.multiplyScalar(0.72))
+    targetPos.y -= 0.06
+
+    groupRef.current.position.lerp(targetPos, 0.16)
+    groupRef.current.quaternion.slerp(camera.quaternion, 0.16)
+
+    let nextHovered: number | null = null
+    if (gl.xr.isPresenting) {
+      const xrRaycaster = new THREE.Raycaster()
+      const rayOrigin = new THREE.Vector3()
+      const rayDirection = new THREE.Vector3()
+      const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+      const targets = buttonRefs.current.filter(Boolean) as THREE.Object3D[]
+      for (const controller of controllers) {
+        if (!targets.length) break
+        rayOrigin.setFromMatrixPosition(controller.matrixWorld)
+        rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
+        xrRaycaster.set(rayOrigin, rayDirection)
+        const hits = xrRaycaster.intersectObjects(targets, true)
+        if (!hits.length) continue
+        for (let i = 0; i < buttonRefs.current.length; i += 1) {
+          const mesh = buttonRefs.current[i]
+          if (!mesh) continue
+          let node: THREE.Object3D | null = hits[0].object
+          while (node) {
+            if (node === mesh) {
+              nextHovered = i
+              break
+            }
+            node = node.parent
+          }
+          if (nextHovered !== null) break
+        }
+        if (nextHovered !== null) break
+      }
+    }
+
+    if (hoveredIndexRef.current !== nextHovered) {
+      hoveredIndexRef.current = nextHovered
+      setHoveredIndex(nextHovered)
+    }
+  })
+
+  return (
+    <group ref={groupRef}>
+      {/* Outer capsule frame */}
+      <mesh position={[0, -0.01, 0]}>
+        <planeGeometry args={[0.074, 0.9]} />
+        <meshBasicMaterial color={0xe2e8f0} transparent opacity={0.82} />
+      </mesh>
+      {/* Inner dark rail */}
+      <mesh position={[0, -0.01, 0.002]}>
+        <planeGeometry args={[0.038, 0.864]} />
+        <meshBasicMaterial color={0x0f172a} />
+      </mesh>
+
+      {TIMELINE_STOPS.map((stop, i) => {
+        const yTop = 0.36
+        const yBottom = -0.38
+        const t = TIMELINE_STOPS.length > 1 ? i / (TIMELINE_STOPS.length - 1) : 0
+        const y = yTop + (yBottom - yTop) * t
+        const isSelected = selectedIndex === i
+        const isHovered = hoveredIndex === i
+        const stopColor = new THREE.Color(TIMELINE_COLORS[i % TIMELINE_COLORS.length])
+        const displayColor = isHovered ? stopColor.clone().lerp(new THREE.Color('#ffffff'), 0.28) : stopColor
+        return (
+          <group key={stop.label}>
+            <mesh
+              ref={(node: THREE.Mesh | null) => {
+                buttonRefs.current[i] = node
+              }}
+              position={[0, y, 0.004]}
+            >
+              <circleGeometry args={[isSelected ? 0.023 : 0.019, 26]} />
+              <meshBasicMaterial color={displayColor.getHex()} />
+            </mesh>
+            {isSelected && (
+              <>
+                <mesh position={[0, y, 0.0034]}>
+                  <circleGeometry args={[0.038, 30]} />
+                  <meshBasicMaterial color={0xf8fafc} transparent opacity={0.92} />
+                </mesh>
+                <mesh position={[0, y, 0.0037]}>
+                  <circleGeometry args={[0.03, 30]} />
+                  <meshBasicMaterial color={0x1e293b} />
+                </mesh>
+              </>
+            )}
+          </group>
+        )
+      })}
+
+      <Text position={[0, -0.5, 0.004]} anchorX="center" anchorY="middle" fontSize={0.026} color="#e2e8f0">
+        B to toggle
+      </Text>
+    </group>
+  )
+}
+
 function InspectOptionMenu({
   selection,
   panelPosition,
@@ -2549,6 +2763,10 @@ function ThreeScene({
   onRendererReady,
   searchHighlight,
   explainHighlight,
+  timelineIndex,
+  onTimelineSelect,
+  xrTimelineOpen,
+  onToggleXrTimeline,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -2576,6 +2794,10 @@ function ThreeScene({
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
   searchHighlight?: THREE.Object3D[]
   explainHighlight?: THREE.Object3D[]
+  timelineIndex: number
+  onTimelineSelect: (index: number) => void
+  xrTimelineOpen: boolean
+  onToggleXrTimeline: () => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -2746,6 +2968,15 @@ function ThreeScene({
           onBack={onCloseProfile}
         />
       )}
+      {isXrActive && (
+        <XRTimelineToggle enabled={isXrActive} onToggle={onToggleXrTimeline} />
+      )}
+      {isXrActive && xrTimelineOpen && (
+        <XRTimelinePanel
+          selectedIndex={timelineIndex}
+          onSelect={onTimelineSelect}
+        />
+      )}
       <XROccludedConnector
         focusTargetRef={focusTargetRef}
         selectedMentalName={selectedMentalName}
@@ -2804,6 +3035,7 @@ export function Simulation(): React.ReactElement {
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+  const [xrTimelineOpen, setXrTimelineOpen] = useState(false)
   const timelineSignatureRef = useRef<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -2832,6 +3064,10 @@ export function Simulation(): React.ReactElement {
     overlayRoot: overlayRootRef.current,
   })
   const isXrActive = activeXrMode !== null
+
+  useEffect(() => {
+    if (!isXrActive) setXrTimelineOpen(false)
+  }, [isXrActive])
 
   useEffect(() => {
     if (activeXrMode !== 'ar') return
@@ -4001,16 +4237,18 @@ export function Simulation(): React.ReactElement {
             pointerEvents: 'auto',
           }}
         >
-          <TimelineCanvas
-            stops={TIMELINE_STOPS}
-            selectedIndex={timelineIndex ?? 0}
-            onSelect={setTimelineIndex}
-            colors={TIMELINE_COLORS}
-            t3HappySelected={t3HappySelected}
-            onT3HappyChange={setT3HappySelected}
-            t5SelectedId={t5SelectedId}
-            onT5Change={setT5SelectedId}
-          />
+          {!isXrActive && (
+            <TimelineCanvas
+              stops={TIMELINE_STOPS}
+              selectedIndex={timelineIndex ?? 0}
+              onSelect={setTimelineIndex}
+              colors={TIMELINE_COLORS}
+              t3HappySelected={t3HappySelected}
+              onT3HappyChange={setT3HappySelected}
+              t5SelectedId={t5SelectedId}
+              onT5Change={setT5SelectedId}
+            />
+          )}
         </div>
         {selected && !isXrActive && !inspectOpen && menuRevealReady && (
           <InspectOptionMenu
@@ -4069,6 +4307,10 @@ export function Simulation(): React.ReactElement {
           defaultMindScale={DEFAULT_MIND_SCALE}
           searchHighlight={searchHighlight}
           explainHighlight={explainHighlight}
+          timelineIndex={timelineIndex}
+          onTimelineSelect={setTimelineIndex}
+          xrTimelineOpen={xrTimelineOpen}
+          onToggleXrTimeline={() => setXrTimelineOpen((prev) => !prev)}
           onRendererReady={(gl) => {
             setRenderer(gl)
           }}
