@@ -68,7 +68,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import XRProfilePanel from '../components/XRProfilePanel'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
-import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
+import { XRClearMode, XRControllers, XRExitByGrip, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 import { useXRSession } from './simulation/useXRSession'
 import { cancelNarration, speakNarration } from './simulation/narration'
 import { CodeParser, type ParsedAction } from '../utils/codeParser'
@@ -2618,6 +2618,7 @@ function ThreeScene({
         onRendererReady={onRendererReady}
       />
       <XRControllers />
+      <XRExitByGrip enabled={isXrActive} />
       <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && (
