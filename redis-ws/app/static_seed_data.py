@@ -1,0 +1,267 @@
+# ---------------------------------------------------------------------------
+# id | name | pali | thai | slug (frontend route id) | category | description | highlights
+# ---------------------------------------------------------------------------
+
+MENTALS_DATA = [
+    # === Neutral — Universal (7) ===
+    {'id': 1,  'name': 'Contact',               'pali': 'Phassa',          'thai': 'ผัสสะ',         'slug': 'contact',               'category': 'neutral', 'description': 'Contact – meeting of sense base and object',               'highlights': ['Occurs in every citta']},
+    {'id': 2,  'name': 'Feeling',                'pali': 'Vedanā',         'thai': 'เวทนา',         'slug': 'feeling',               'category': 'neutral', 'description': 'Feeling – pleasant, unpleasant, or neutral',               'highlights': ['Occurs in every citta']},
+    {'id': 3,  'name': 'Perception',             'pali': 'Saññā',          'thai': 'สัญญา',         'slug': 'perception',            'category': 'neutral', 'description': 'Perception – recognition and labeling',                    'highlights': ['Occurs in every citta']},
+    {'id': 4,  'name': 'Intention',              'pali': 'Cetanā',         'thai': 'เจตนา',         'slug': 'intention',             'category': 'neutral', 'description': 'Intention – volition / will',                              'highlights': ['Occurs in every citta']},
+    {'id': 5,  'name': 'Concentration',          'pali': 'Ekaggatā',       'thai': 'เอกัคคตา',       'slug': 'concentration',         'category': 'neutral', 'description': 'Concentration – one-pointedness',                          'highlights': ['Occurs in every citta']},
+    {'id': 6,  'name': 'Life Faculty',           'pali': 'Jīvitindriya',   'thai': 'ชีวิตินทรีย์',    'slug': 'life-faculty',          'category': 'neutral', 'description': 'Life faculty – vital factor',                              'highlights': ['Occurs in every citta']},
+    {'id': 7,  'name': 'Attention',              'pali': 'Manasikāra',     'thai': 'มนสิการ',        'slug': 'attention',             'category': 'neutral', 'description': 'Attention – advertence to object',                         'highlights': ['Occurs in every citta']},
+    # === Neutral — Occasional / Pakiṇṇaka (6) ===
+    {'id': 8,  'name': 'Initial Application',    'pali': 'Vitakka',        'thai': 'วิตก',           'slug': 'initial-application',   'category': 'neutral', 'description': 'Initial application – directing thought',                  'highlights': ['Pakiṇṇaka cetasika']},
+    {'id': 9,  'name': 'Sustained Application',  'pali': 'Vicāra',         'thai': 'วิจาร',          'slug': 'sustained-application', 'category': 'neutral', 'description': 'Sustained application – sustaining thought',               'highlights': ['Pakiṇṇaka cetasika']},
+    {'id': 10, 'name': 'Determination',          'pali': 'Adhimokkha',     'thai': 'อธิโมกข์',       'slug': 'decision',              'category': 'neutral', 'description': 'Decision – determination',                                 'highlights': ['Pakiṇṇaka cetasika']},
+    {'id': 11, 'name': 'Energy',                 'pali': 'Vīriya',         'thai': 'วิริยะ',         'slug': 'energy',                'category': 'neutral', 'description': 'Energy – effort',                                          'highlights': ['Pakiṇṇaka cetasika']},
+    {'id': 12, 'name': 'Rapture',                'pali': 'Pīti',           'thai': 'ปีติ',           'slug': 'rapture',               'category': 'neutral', 'description': 'Rapture – joy / zest',                                     'highlights': ['Pakiṇṇaka cetasika']},
+    {'id': 13, 'name': 'Desire',                 'pali': 'Chanda',         'thai': 'ฉันทะ',          'slug': 'desire',                'category': 'neutral', 'description': 'Desire – wish to act',                                     'highlights': ['Pakiṇṇaka cetasika']},
+    # === Bad — Moha catukka (4) ===
+    {'id': 14, 'name': 'Delusion',               'pali': 'Moha',           'thai': 'โมหะ',           'slug': 'delusion',              'category': 'bad',     'description': 'Delusion – confusion, ignorance',                         'highlights': ['Root unwholesome']},
+    {'id': 15, 'name': 'Shamelessness',          'pali': 'Ahirika',        'thai': 'อหิริกะ',        'slug': 'shamelessness',         'category': 'bad',     'description': 'Shamelessness – no moral shame',                          'highlights': ['Universal unwholesome']},
+    {'id': 16, 'name': 'Recklessness',           'pali': 'Anottappa',      'thai': 'อโนตตัปปะ',      'slug': 'recklessness',          'category': 'bad',     'description': 'Recklessness – no moral dread',                           'highlights': ['Universal unwholesome']},
+    {'id': 17, 'name': 'Restlessness',           'pali': 'Uddhacca',       'thai': 'อุทธัจจะ',       'slug': 'restlessness',          'category': 'bad',     'description': 'Restlessness – agitation',                                 'highlights': ['Universal unwholesome']},
+    # === Bad — Lobha catukka (3) ===
+    {'id': 18, 'name': 'Greed',                  'pali': 'Lobha',          'thai': 'โลภะ',           'slug': 'greed',                 'category': 'bad',     'description': 'Greed – craving, attachment',                              'highlights': ['Root unwholesome']},
+    {'id': 19, 'name': 'Wrong View',             'pali': 'Diṭṭhi',        'thai': 'ทิฏฐิ',          'slug': 'wrong-view',            'category': 'bad',     'description': 'Wrong view – distorted view',                              'highlights': ['Greed-rooted']},
+    {'id': 20, 'name': 'Conceit',                'pali': 'Māna',           'thai': 'มานะ',           'slug': 'conceit',               'category': 'bad',     'description': 'Conceit – measuring self against others',                  'highlights': ['Greed-rooted']},
+    # === Bad — Dosa catukka (4) ===
+    {'id': 21, 'name': 'Hatred',                 'pali': 'Dosa',           'thai': 'โทสะ',           'slug': 'hatred',                'category': 'bad',     'description': 'Hatred – aversion, anger',                                 'highlights': ['Root unwholesome']},
+    {'id': 22, 'name': 'Envy',                   'pali': 'Issā',           'thai': 'อิสสา',          'slug': 'envy',                  'category': 'bad',     'description': 'Envy – jealousy',                                          'highlights': ['Hatred group']},
+    {'id': 23, 'name': 'Stinginess',             'pali': 'Macchariya',     'thai': 'มัจฉริยะ',       'slug': 'stinginess',            'category': 'bad',     'description': 'Stinginess – avarice',                                     'highlights': ['Hatred group']},
+    {'id': 24, 'name': 'Worry',                  'pali': 'Kukkucca',       'thai': 'กุกกุจจะ',       'slug': 'worry',                 'category': 'bad',     'description': 'Worry – regret',                                           'highlights': ['Hatred group']},
+    # === Bad — Thīna-middha (2) ===
+    {'id': 25, 'name': 'Sloth',                  'pali': 'Thīna',          'thai': 'ถีนะ',           'slug': 'sloth',                 'category': 'bad',     'description': 'Sloth – laziness',                                         'highlights': ['Sloth-torpor pair']},
+    {'id': 26, 'name': 'Torpor',                 'pali': 'Middha',         'thai': 'มิทธะ',          'slug': 'torpor',                'category': 'bad',     'description': 'Torpor – dullness',                                        'highlights': ['Sloth-torpor pair']},
+    # === Bad — Vicikicchā (1) ===
+    {'id': 27, 'name': 'Doubt',                  'pali': 'Vicikicchā',     'thai': 'วิจิกิจฉา',      'slug': 'doubt',                 'category': 'bad',     'description': 'Doubt – indecision',                                       'highlights': ['Single factor']},
+    # === Good — Sobhana Sādhāraṇa (19) ===
+    {'id': 28, 'name': 'Faith',                  'pali': 'Saddhā',         'thai': 'สัทธา',          'slug': 'faith',                 'category': 'good',    'description': 'Faith – confidence, trust',                                'highlights': ['Beautiful universal']},
+    {'id': 29, 'name': 'Mindfulness',            'pali': 'Sati',           'thai': 'สติ',            'slug': 'mindfulness',           'category': 'good',    'description': 'Mindfulness – awareness',                                  'highlights': ['Beautiful universal']},
+    {'id': 30, 'name': 'Moral Shame',            'pali': 'Hiri',           'thai': 'หิริ',           'slug': 'moral-shame',           'category': 'good',    'description': 'Moral shame – sense of shame',                             'highlights': ['Beautiful universal']},
+    {'id': 31, 'name': 'Moral Dread',            'pali': 'Ottappa',        'thai': 'โอตตัปปะ',       'slug': 'moral-dread',           'category': 'good',    'description': 'Moral dread – fear of blame',                              'highlights': ['Beautiful universal']},
+    {'id': 32, 'name': 'Non-greed',              'pali': 'Alobha',         'thai': 'อโลภะ',          'slug': 'non-greed',             'category': 'good',    'description': 'Non-greed – renunciation',                                 'highlights': ['Beautiful universal']},
+    {'id': 33, 'name': 'Non-hatred',             'pali': 'Adosa',          'thai': 'อโทสะ',          'slug': 'non-hatred',            'category': 'good',    'description': 'Non-hatred – goodwill',                                    'highlights': ['Beautiful universal']},
+    {'id': 34, 'name': 'Equanimity',             'pali': 'Tatramajjhattatā','thai': 'ตัตตรมัชฌัตตตา', 'slug': 'equanimity',            'category': 'good',    'description': 'Equanimity – balance of mind',                             'highlights': ['Beautiful universal']},
+    {'id': 35, 'name': 'Tranquility (Body)',     'pali': 'Kāyapassaddhi',  'thai': 'กายปัสสัทธิ',    'slug': 'tranquility-body',      'category': 'good',    'description': 'Tranquility of body',                                      'highlights': ['Body-mind pair']},
+    {'id': 36, 'name': 'Tranquility (Mind)',     'pali': 'Cittapassaddhi', 'thai': 'จิตตปัสสัทธิ',   'slug': 'tranquility-mind',      'category': 'good',    'description': 'Tranquility of mind',                                      'highlights': ['Body-mind pair']},
+    {'id': 37, 'name': 'Lightness (Body)',       'pali': 'Kāyalahutā',    'thai': 'กายลหุตา',       'slug': 'lightness-body',        'category': 'good',    'description': 'Lightness of body',                                        'highlights': ['Body-mind pair']},
+    {'id': 38, 'name': 'Lightness (Mind)',       'pali': 'Cittalahutā',   'thai': 'จิตตลหุตา',      'slug': 'lightness-mind',        'category': 'good',    'description': 'Lightness of mind',                                        'highlights': ['Body-mind pair']},
+    {'id': 39, 'name': 'Wieldiness (Body)',      'pali': 'Kāyamudutā',    'thai': 'กายมุทุตา',      'slug': 'wieldiness-body',       'category': 'good',    'description': 'Wieldiness of body',                                       'highlights': ['Body-mind pair']},
+    {'id': 40, 'name': 'Wieldiness (Mind)',      'pali': 'Cittamudutā',   'thai': 'จิตตมุทุตา',     'slug': 'wieldiness-mind',       'category': 'good',    'description': 'Wieldiness of mind',                                       'highlights': ['Body-mind pair']},
+    {'id': 41, 'name': 'Proficiency (Body)',     'pali': 'Kāyakammaññatā','thai': 'กายกัมมัญญตา',   'slug': 'proficiency-body',      'category': 'good',    'description': 'Proficiency of body',                                      'highlights': ['Body-mind pair']},
+    {'id': 42, 'name': 'Proficiency (Mind)',     'pali': 'Cittakammaññatā','thai': 'จิตตกัมมัญญตา',  'slug': 'proficiency-mind',      'category': 'good',    'description': 'Proficiency of mind',                                      'highlights': ['Body-mind pair']},
+    {'id': 43, 'name': 'Pliancy (Body)',         'pali': 'Kāyapāguññatā', 'thai': 'กายปาคุญญตา',    'slug': 'pliancy-body',          'category': 'good',    'description': 'Pliancy of body',                                          'highlights': ['Body-mind pair']},
+    {'id': 44, 'name': 'Pliancy (Mind)',         'pali': 'Cittapāguññatā','thai': 'จิตตปาคุญญตา',   'slug': 'pliancy-mind',          'category': 'good',    'description': 'Pliancy of mind',                                          'highlights': ['Body-mind pair']},
+    {'id': 45, 'name': 'Rectitude (Body)',       'pali': 'Kāyujukatā',    'thai': 'กายุชุกตา',      'slug': 'rectitude-body',        'category': 'good',    'description': 'Rectitude of body',                                        'highlights': ['Body-mind pair']},
+    {'id': 46, 'name': 'Rectitude (Mind)',       'pali': 'Cittujukatā',   'thai': 'จิตตุชุกตา',     'slug': 'rectitude-mind',        'category': 'good',    'description': 'Rectitude of mind',                                        'highlights': ['Body-mind pair']},
+    # === Good — Virati (3) ===
+    {'id': 47, 'name': 'Right Speech',           'pali': 'Sammāvācā',     'thai': 'สัมมาวาจา',      'slug': 'right-speech',          'category': 'good',    'description': 'Right speech – abstinence from wrong speech',              'highlights': ['Abstinence']},
+    {'id': 48, 'name': 'Right Action',           'pali': 'Sammākammanta', 'thai': 'สัมมากัมมันตะ',   'slug': 'right-action',          'category': 'good',    'description': 'Right action – abstinence from wrong action',              'highlights': ['Abstinence']},
+    {'id': 49, 'name': 'Right Livelihood',       'pali': 'Sammāājīva',    'thai': 'สัมมาอาชีวะ',    'slug': 'right-livelihood',      'category': 'good',    'description': 'Right livelihood – abstinence from wrong livelihood',      'highlights': ['Abstinence']},
+    # === Good — Appamaññā (2) ===
+    {'id': 50, 'name': 'Compassion',             'pali': 'Karuṇā',        'thai': 'กรุณา',          'slug': 'compassion',            'category': 'good',    'description': "Compassion – wish to remove others' suffering",            'highlights': ['Illimitable']},
+    {'id': 51, 'name': 'Appreciative Joy',       'pali': 'Muditā',        'thai': 'มุทิตา',         'slug': 'appreciative-joy',      'category': 'good',    'description': "Appreciative joy – gladness at others' success",           'highlights': ['Illimitable']},
+    # === Good — Paññā (1) ===
+    {'id': 52, 'name': 'Wisdom',                 'pali': 'Paññā',          'thai': 'ปัญญา',          'slug': 'wisdom',                'category': 'good',    'description': 'Wisdom – discernment, understanding',                      'highlights': ['Single factor']},
+]
+
+# ---------------------------------------------------------------------------
+# MENTAL GROUPS  (cetasika subcategories — matching cetasikaGrid.ts)
+# ---------------------------------------------------------------------------
+
+MENTAL_GROUPS_DATA = [
+    {'id': 1,  'name': 'Universal',        'name_thai': 'สัพพจิตตสาธารณเจตสิก',  'name_en': 'Universal (7)',        'mental_ids': [1, 2, 3, 4, 5, 6, 7]},
+    {'id': 2,  'name': 'Pakinnaka',        'name_thai': 'ปกิณณกเจตสิก',          'name_en': 'Pakiṇṇaka (6)',       'mental_ids': [8, 9, 10, 11, 12, 13]},
+    {'id': 3,  'name': 'Moha catukka',     'name_thai': 'โมหจตุกกะ',             'name_en': 'Moha catukka (4)',     'mental_ids': [14, 15, 16, 17]},
+    {'id': 4,  'name': 'Lobha catukka',    'name_thai': 'โลภจตุกกะ',             'name_en': 'Lobha catukka (3)',    'mental_ids': [18, 19, 20]},
+    {'id': 5,  'name': 'Dosa catukka',     'name_thai': 'โทจตุกกะ',              'name_en': 'Dosa catukka (4)',     'mental_ids': [21, 22, 23, 24]},
+    {'id': 6,  'name': 'Thina-middha',     'name_thai': 'ถีนมิทธะ',              'name_en': 'Thīna-middha (2)',     'mental_ids': [25, 26]},
+    {'id': 7,  'name': 'Vicikiccha',       'name_thai': 'วิจิกิจฉา',             'name_en': 'Vicikicchā (1)',       'mental_ids': [27]},
+    {'id': 8,  'name': 'Sobhana Sadharana','name_thai': 'โสภณสาธารณ',            'name_en': 'Sobhana Sādhāraṇa (19)', 'mental_ids': list(range(28, 47))},
+    {'id': 9,  'name': 'Virati',           'name_thai': 'วิรตี',                 'name_en': 'Virati (3)',           'mental_ids': [47, 48, 49]},
+    {'id': 10, 'name': 'Appamanna',        'name_thai': 'อัปปมัญญา',             'name_en': 'Appamaññā (2)',        'mental_ids': [50, 51]},
+    {'id': 11, 'name': 'Panna',            'name_thai': 'ปัญญา',                 'name_en': 'Paññā (1)',            'mental_ids': [52]},
+]
+
+# ---------------------------------------------------------------------------
+# Cetasika shorthand lists used to compose each citta's mental_ids
+# ---------------------------------------------------------------------------
+
+_UNIVERSAL_7 = [1, 2, 3, 4, 5, 6, 7]
+_PAKINNAKA_ALL = [8, 9, 10, 11, 12, 13]
+_MOHA_4 = [14, 15, 16, 17]
+_LOBHA = [18]
+_WRONG_VIEW = [19]
+_CONCEIT = [20]
+_DOSA = [21]
+_ENVY = [22]
+_STINGINESS = [23]
+_WORRY = [24]
+_SLOTH_TORPOR = [25, 26]
+_DOUBT = [27]
+_SOBHANA_19 = list(range(28, 47))
+_VIRATI_3 = [47, 48, 49]
+_APPAMANNA_2 = [50, 51]
+_WISDOM = [52]
+
+# Common cetasika combos
+_AKUSALA_COMMON = _UNIVERSAL_7 + [8, 9, 10, 11, 13]   # 7 universal + vitakka, vicara, adhimokkha, viriya, chanda
+_LOBHA_COMMON = _AKUSALA_COMMON + _MOHA_4 + _LOBHA     # 16 cetasikas
+_DOSA_COMMON = _AKUSALA_COMMON + _MOHA_4 + _DOSA        # 16 cetasikas
+_MOHA_COMMON = _UNIVERSAL_7 + [10, 11, 13] + _MOHA_4    # without vitakka/vicara for some
+
+_AHETUKA_COMMON = _UNIVERSAL_7                           # only 7 universal for ahetuka
+_KUSALA_COMMON = _UNIVERSAL_7 + [8, 9, 10, 11, 12, 13] + _SOBHANA_19  # 7+6+19 = 32
+
+# ---------------------------------------------------------------------------
+# 89 CITTAS  (Mind)
+# ---------------------------------------------------------------------------
+
+MINDS_DATA = [
+    # ===== AKUSALA CITTA (12) — IDs 1-12 =====
+    # Lobha-rooted (8)
+    {'id': 1,  'name': 'Lobha-diṭṭhi-somanassa-asaṅkhārika',   'pali': 'Lobhamūlacitta 1',  'thai': 'โลภมูลจิต ดวงที่ 1',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _WRONG_VIEW + [12]},
+    {'id': 2,  'name': 'Lobha-diṭṭhi-somanassa-sasaṅkhārika',   'pali': 'Lobhamūlacitta 2',  'thai': 'โลภมูลจิต ดวงที่ 2',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _WRONG_VIEW + [12] + _SLOTH_TORPOR},
+    {'id': 3,  'name': 'Lobha-diṭṭhi-upekkhā-asaṅkhārika',      'pali': 'Lobhamūlacitta 3',  'thai': 'โลภมูลจิต ดวงที่ 3',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _WRONG_VIEW},
+    {'id': 4,  'name': 'Lobha-diṭṭhi-upekkhā-sasaṅkhārika',      'pali': 'Lobhamūlacitta 4',  'thai': 'โลภมูลจิต ดวงที่ 4',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _WRONG_VIEW + _SLOTH_TORPOR},
+    {'id': 5,  'name': 'Lobha-māna-somanassa-asaṅkhārika',       'pali': 'Lobhamūlacitta 5',  'thai': 'โลภมูลจิต ดวงที่ 5',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _CONCEIT + [12]},
+    {'id': 6,  'name': 'Lobha-māna-somanassa-sasaṅkhārika',       'pali': 'Lobhamūlacitta 6',  'thai': 'โลภมูลจิต ดวงที่ 6',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _CONCEIT + [12] + _SLOTH_TORPOR},
+    {'id': 7,  'name': 'Lobha-māna-upekkhā-asaṅkhārika',          'pali': 'Lobhamūlacitta 7',  'thai': 'โลภมูลจิต ดวงที่ 7',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _CONCEIT},
+    {'id': 8,  'name': 'Lobha-māna-upekkhā-sasaṅkhārika',          'pali': 'Lobhamūlacitta 8',  'thai': 'โลภมูลจิต ดวงที่ 8',  'category': 'akusala',
+     'mental_ids': _LOBHA_COMMON + _CONCEIT + _SLOTH_TORPOR},
+    # Dosa-rooted (2)
+    {'id': 9,  'name': 'Dosa-paṭigha-domanassa-asaṅkhārika',     'pali': 'Dosamūlacitta 1',   'thai': 'โทสมูลจิต ดวงที่ 1',  'category': 'akusala',
+     'mental_ids': _DOSA_COMMON + _ENVY + _STINGINESS + _WORRY},
+    {'id': 10, 'name': 'Dosa-paṭigha-domanassa-sasaṅkhārika',     'pali': 'Dosamūlacitta 2',   'thai': 'โทสมูลจิต ดวงที่ 2',  'category': 'akusala',
+     'mental_ids': _DOSA_COMMON + _ENVY + _STINGINESS + _WORRY + _SLOTH_TORPOR},
+    # Moha-rooted (2)
+    {'id': 11, 'name': 'Moha-vicikicchā-upekkhā',                 'pali': 'Mohamūlacitta 1',   'thai': 'โมหมูลจิต ดวงที่ 1',  'category': 'akusala',
+     'mental_ids': _UNIVERSAL_7 + [10, 11, 13] + _MOHA_4 + _DOUBT},
+    {'id': 12, 'name': 'Moha-uddhacca-upekkhā',                   'pali': 'Mohamūlacitta 2',   'thai': 'โมหมูลจิต ดวงที่ 2',  'category': 'akusala',
+     'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11, 13] + _MOHA_4},
+
+    # ===== AHETUKA CITTA (18) — IDs 13-30 =====
+    # Akusala vipaka (7)
+    {'id': 13, 'name': 'Cakkhu-viññāṇa (akusala vipāka)',  'pali': 'Akusalavipākacitta 1',  'thai': 'จักขุวิญญาณ (อกุศลวิบาก)',   'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 14, 'name': 'Sota-viññāṇa (akusala vipāka)',    'pali': 'Akusalavipākacitta 2',  'thai': 'โสตวิญญาณ (อกุศลวิบาก)',     'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 15, 'name': 'Ghāna-viññāṇa (akusala vipāka)',   'pali': 'Akusalavipākacitta 3',  'thai': 'ฆานวิญญาณ (อกุศลวิบาก)',     'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 16, 'name': 'Jivhā-viññāṇa (akusala vipāka)',   'pali': 'Akusalavipākacitta 4',  'thai': 'ชิวหาวิญญาณ (อกุศลวิบาก)',   'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 17, 'name': 'Kāya-viññāṇa (akusala vipāka)',    'pali': 'Akusalavipākacitta 5',  'thai': 'กายวิญญาณ (อกุศลวิบาก)',     'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 18, 'name': 'Sampaṭicchana (akusala vipāka)',    'pali': 'Akusalavipākacitta 6',  'thai': 'สัมปฏิจฉนะ (อกุศลวิบาก)',    'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11]},
+    {'id': 19, 'name': 'Santīraṇa (akusala vipāka)',       'pali': 'Akusalavipākacitta 7',  'thai': 'สันตีรณะ (อกุศลวิบาก)',      'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11]},
+    # Kusala vipaka ahetuka (8)
+    {'id': 20, 'name': 'Cakkhu-viññāṇa (kusala vipāka)',   'pali': 'Kusalavipākacitta 1',   'thai': 'จักขุวิญญาณ (กุศลวิบาก)',    'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 21, 'name': 'Sota-viññāṇa (kusala vipāka)',     'pali': 'Kusalavipākacitta 2',   'thai': 'โสตวิญญาณ (กุศลวิบาก)',      'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 22, 'name': 'Ghāna-viññāṇa (kusala vipāka)',    'pali': 'Kusalavipākacitta 3',   'thai': 'ฆานวิญญาณ (กุศลวิบาก)',      'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 23, 'name': 'Jivhā-viññāṇa (kusala vipāka)',    'pali': 'Kusalavipākacitta 4',   'thai': 'ชิวหาวิญญาณ (กุศลวิบาก)',    'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 24, 'name': 'Kāya-viññāṇa (kusala vipāka)',     'pali': 'Kusalavipākacitta 5',   'thai': 'กายวิญญาณ (กุศลวิบาก)',      'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7},
+    {'id': 25, 'name': 'Sampaṭicchana (kusala vipāka)',     'pali': 'Kusalavipākacitta 6',   'thai': 'สัมปฏิจฉนะ (กุศลวิบาก)',     'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11]},
+    {'id': 26, 'name': 'Santīraṇa-upekkhā (kusala vipāka)','pali': 'Kusalavipākacitta 7',   'thai': 'สันตีรณะ อุเบกขา (กุศลวิบาก)','category': 'ahetuka','mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11]},
+    {'id': 27, 'name': 'Santīraṇa-somanassa (kusala vipāka)','pali': 'Kusalavipākacitta 8', 'thai': 'สันตีรณะ โสมนัส (กุศลวิบาก)', 'category': 'ahetuka','mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11, 12]},
+    # Ahetuka kiriya (3)
+    {'id': 28, 'name': 'Pañcadvārāvajjana',                'pali': 'Ahetukakiriyacitta 1',  'thai': 'ปัญจทวาราวัชชนะ',            'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11]},
+    {'id': 29, 'name': 'Manodvārāvajjana',                 'pali': 'Ahetukakiriyacitta 2',  'thai': 'มโนทวาราวัชชนะ',             'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11, 13]},
+    {'id': 30, 'name': 'Hasituppāda',                      'pali': 'Ahetukakiriyacitta 3',  'thai': 'หสิตุปปาทะ',                'category': 'ahetuka', 'mental_ids': _UNIVERSAL_7 + [8, 9, 10, 11, 12, 13]},
+
+    # ===== KĀMĀVACARA KUSALA (8) — IDs 31-38 =====
+    {'id': 31, 'name': 'Kusala somanassa ñāṇa asaṅkhārika',   'pali': 'Kāmāvacarakusalacitta 1', 'thai': 'กามาวจรกุศลจิต ดวงที่ 1', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 32, 'name': 'Kusala somanassa ñāṇa sasaṅkhārika',   'pali': 'Kāmāvacarakusalacitta 2', 'thai': 'กามาวจรกุศลจิต ดวงที่ 2', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 33, 'name': 'Kusala somanassa aññāṇa asaṅkhārika',  'pali': 'Kāmāvacarakusalacitta 3', 'thai': 'กามาวจรกุศลจิต ดวงที่ 3', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON},
+    {'id': 34, 'name': 'Kusala somanassa aññāṇa sasaṅkhārika',  'pali': 'Kāmāvacarakusalacitta 4', 'thai': 'กามาวจรกุศลจิต ดวงที่ 4', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON},
+    {'id': 35, 'name': 'Kusala upekkhā ñāṇa asaṅkhārika',      'pali': 'Kāmāvacarakusalacitta 5', 'thai': 'กามาวจรกุศลจิต ดวงที่ 5', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 36, 'name': 'Kusala upekkhā ñāṇa sasaṅkhārika',      'pali': 'Kāmāvacarakusalacitta 6', 'thai': 'กามาวจรกุศลจิต ดวงที่ 6', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 37, 'name': 'Kusala upekkhā aññāṇa asaṅkhārika',     'pali': 'Kāmāvacarakusalacitta 7', 'thai': 'กามาวจรกุศลจิต ดวงที่ 7', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON},
+    {'id': 38, 'name': 'Kusala upekkhā aññāṇa sasaṅkhārika',     'pali': 'Kāmāvacarakusalacitta 8', 'thai': 'กามาวจรกุศลจิต ดวงที่ 8', 'category': 'kamavacara_kusala', 'mental_ids': _KUSALA_COMMON},
+
+    # ===== KĀMĀVACARA VIPĀKA (sahetuka) (8) — IDs 39-46 =====
+    {'id': 39, 'name': 'Vipāka somanassa ñāṇa asaṅkhārika',   'pali': 'Kāmāvacaravipākacitta 1', 'thai': 'กามาวจรวิบากจิต ดวงที่ 1', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 40, 'name': 'Vipāka somanassa ñāṇa sasaṅkhārika',   'pali': 'Kāmāvacaravipākacitta 2', 'thai': 'กามาวจรวิบากจิต ดวงที่ 2', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 41, 'name': 'Vipāka somanassa aññāṇa asaṅkhārika',  'pali': 'Kāmāvacaravipākacitta 3', 'thai': 'กามาวจรวิบากจิต ดวงที่ 3', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON},
+    {'id': 42, 'name': 'Vipāka somanassa aññāṇa sasaṅkhārika',  'pali': 'Kāmāvacaravipākacitta 4', 'thai': 'กามาวจรวิบากจิต ดวงที่ 4', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON},
+    {'id': 43, 'name': 'Vipāka upekkhā ñāṇa asaṅkhārika',      'pali': 'Kāmāvacaravipākacitta 5', 'thai': 'กามาวจรวิบากจิต ดวงที่ 5', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 44, 'name': 'Vipāka upekkhā ñāṇa sasaṅkhārika',      'pali': 'Kāmāvacaravipākacitta 6', 'thai': 'กามาวจรวิบากจิต ดวงที่ 6', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 45, 'name': 'Vipāka upekkhā aññāṇa asaṅkhārika',     'pali': 'Kāmāvacaravipākacitta 7', 'thai': 'กามาวจรวิบากจิต ดวงที่ 7', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON},
+    {'id': 46, 'name': 'Vipāka upekkhā aññāṇa sasaṅkhārika',     'pali': 'Kāmāvacaravipākacitta 8', 'thai': 'กามาวจรวิบากจิต ดวงที่ 8', 'category': 'kamavacara_vipaka', 'mental_ids': _KUSALA_COMMON},
+
+    # ===== KĀMĀVACARA KIRIYĀ (8) — IDs 47-54 =====
+    {'id': 47, 'name': 'Kiriyā somanassa ñāṇa asaṅkhārika',   'pali': 'Kāmāvacarakiriyācitta 1', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 1', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 48, 'name': 'Kiriyā somanassa ñāṇa sasaṅkhārika',   'pali': 'Kāmāvacarakiriyācitta 2', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 2', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 49, 'name': 'Kiriyā somanassa aññāṇa asaṅkhārika',  'pali': 'Kāmāvacarakiriyācitta 3', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 3', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON},
+    {'id': 50, 'name': 'Kiriyā somanassa aññāṇa sasaṅkhārika',  'pali': 'Kāmāvacarakiriyācitta 4', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 4', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON},
+    {'id': 51, 'name': 'Kiriyā upekkhā ñāṇa asaṅkhārika',      'pali': 'Kāmāvacarakiriyācitta 5', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 5', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 52, 'name': 'Kiriyā upekkhā ñāṇa sasaṅkhārika',      'pali': 'Kāmāvacarakiriyācitta 6', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 6', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 53, 'name': 'Kiriyā upekkhā aññāṇa asaṅkhārika',     'pali': 'Kāmāvacarakiriyācitta 7', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 7', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON},
+    {'id': 54, 'name': 'Kiriyā upekkhā aññāṇa sasaṅkhārika',     'pali': 'Kāmāvacarakiriyācitta 8', 'thai': 'กามาวจรกิริยาจิต ดวงที่ 8', 'category': 'kamavacara_kiriya', 'mental_ids': _KUSALA_COMMON},
+
+    # ===== RŪPĀVACARA (15) — IDs 55-69 =====
+    # Kusala (5)
+    {'id': 55, 'name': 'Rūpāvacara kusala 1st jhāna',  'pali': 'Rūpāvacarakusalacitta 1', 'thai': 'รูปาวจรกุศลจิต ปฐมฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 56, 'name': 'Rūpāvacara kusala 2nd jhāna',  'pali': 'Rūpāvacarakusalacitta 2', 'thai': 'รูปาวจรกุศลจิต ทุติยฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 57, 'name': 'Rūpāvacara kusala 3rd jhāna',  'pali': 'Rūpāvacarakusalacitta 3', 'thai': 'รูปาวจรกุศลจิต ตติยฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 58, 'name': 'Rūpāvacara kusala 4th jhāna',  'pali': 'Rūpāvacarakusalacitta 4', 'thai': 'รูปาวจรกุศลจิต จตุตถฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 59, 'name': 'Rūpāvacara kusala 5th jhāna',  'pali': 'Rūpāvacarakusalacitta 5', 'thai': 'รูปาวจรกุศลจิต ปัญจมฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    # Vipaka (5)
+    {'id': 60, 'name': 'Rūpāvacara vipāka 1st jhāna',  'pali': 'Rūpāvacaravipākacitta 1', 'thai': 'รูปาวจรวิบากจิต ปฐมฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 61, 'name': 'Rūpāvacara vipāka 2nd jhāna',  'pali': 'Rūpāvacaravipākacitta 2', 'thai': 'รูปาวจรวิบากจิต ทุติยฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 62, 'name': 'Rūpāvacara vipāka 3rd jhāna',  'pali': 'Rūpāvacaravipākacitta 3', 'thai': 'รูปาวจรวิบากจิต ตติยฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 63, 'name': 'Rūpāvacara vipāka 4th jhāna',  'pali': 'Rūpāvacaravipākacitta 4', 'thai': 'รูปาวจรวิบากจิต จตุตถฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 64, 'name': 'Rūpāvacara vipāka 5th jhāna',  'pali': 'Rūpāvacaravipākacitta 5', 'thai': 'รูปาวจรวิบากจิต ปัญจมฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    # Kiriya (5)
+    {'id': 65, 'name': 'Rūpāvacara kiriyā 1st jhāna',  'pali': 'Rūpāvacarakiriyācitta 1', 'thai': 'รูปาวจรกิริยาจิต ปฐมฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 66, 'name': 'Rūpāvacara kiriyā 2nd jhāna',  'pali': 'Rūpāvacarakiriyācitta 2', 'thai': 'รูปาวจรกิริยาจิต ทุติยฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 67, 'name': 'Rūpāvacara kiriyā 3rd jhāna',  'pali': 'Rūpāvacarakiriyācitta 3', 'thai': 'รูปาวจรกิริยาจิต ตติยฌาน',   'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 68, 'name': 'Rūpāvacara kiriyā 4th jhāna',  'pali': 'Rūpāvacarakiriyācitta 4', 'thai': 'รูปาวจรกิริยาจิต จตุตถฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 69, 'name': 'Rūpāvacara kiriyā 5th jhāna',  'pali': 'Rūpāvacarakiriyācitta 5', 'thai': 'รูปาวจรกิริยาจิต ปัญจมฌาน',  'category': 'rupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+
+    # ===== ARŪPĀVACARA (12) — IDs 70-81 =====
+    # Kusala (4)
+    {'id': 70, 'name': 'Ākāsānañcāyatana kusala',       'pali': 'Arūpāvacarakusalacitta 1', 'thai': 'อากาสานัญจายตนกุศลจิต',    'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 71, 'name': 'Viññāṇañcāyatana kusala',        'pali': 'Arūpāvacarakusalacitta 2', 'thai': 'วิญญาณัญจายตนกุศลจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 72, 'name': 'Ākiñcaññāyatana kusala',         'pali': 'Arūpāvacarakusalacitta 3', 'thai': 'อากิญจัญญายตนกุศลจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 73, 'name': 'Nevasaññānāsaññāyatana kusala',  'pali': 'Arūpāvacarakusalacitta 4', 'thai': 'เนวสัญญานาสัญญายตนกุศลจิต','category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    # Vipaka (4)
+    {'id': 74, 'name': 'Ākāsānañcāyatana vipāka',       'pali': 'Arūpāvacaravipākacitta 1', 'thai': 'อากาสานัญจายตนวิบากจิต',    'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 75, 'name': 'Viññāṇañcāyatana vipāka',        'pali': 'Arūpāvacaravipākacitta 2', 'thai': 'วิญญาณัญจายตนวิบากจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 76, 'name': 'Ākiñcaññāyatana vipāka',         'pali': 'Arūpāvacaravipākacitta 3', 'thai': 'อากิญจัญญายตนวิบากจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 77, 'name': 'Nevasaññānāsaññāyatana vipāka',  'pali': 'Arūpāvacaravipākacitta 4', 'thai': 'เนวสัญญานาสัญญายตนวิบากจิต','category': 'arupavacara','mental_ids': _KUSALA_COMMON + _WISDOM},
+    # Kiriya (4)
+    {'id': 78, 'name': 'Ākāsānañcāyatana kiriyā',       'pali': 'Arūpāvacarakiriyācitta 1', 'thai': 'อากาสานัญจายตนกิริยาจิต',    'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 79, 'name': 'Viññāṇañcāyatana kiriyā',        'pali': 'Arūpāvacarakiriyācitta 2', 'thai': 'วิญญาณัญจายตนกิริยาจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 80, 'name': 'Ākiñcaññāyatana kiriyā',         'pali': 'Arūpāvacarakiriyācitta 3', 'thai': 'อากิญจัญญายตนกิริยาจิต',     'category': 'arupavacara', 'mental_ids': _KUSALA_COMMON + _WISDOM},
+    {'id': 81, 'name': 'Nevasaññānāsaññāyatana kiriyā',  'pali': 'Arūpāvacarakiriyācitta 4', 'thai': 'เนวสัญญานาสัญญายตนกิริยาจิต','category': 'arupavacara','mental_ids': _KUSALA_COMMON + _WISDOM},
+
+    # ===== LOKUTTARA (8) — IDs 82-89 =====
+    {'id': 82, 'name': 'Sotāpatti-magga',    'pali': 'Lokuttaracitta 1', 'thai': 'โสดาปัตติมรรค',    'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 83, 'name': 'Sotāpatti-phala',    'pali': 'Lokuttaracitta 2', 'thai': 'โสดาปัตติผล',      'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 84, 'name': 'Sakadāgāmī-magga',  'pali': 'Lokuttaracitta 3', 'thai': 'สกทาคามีมรรค',    'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 85, 'name': 'Sakadāgāmī-phala',  'pali': 'Lokuttaracitta 4', 'thai': 'สกทาคามีผล',      'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 86, 'name': 'Anāgāmī-magga',     'pali': 'Lokuttaracitta 5', 'thai': 'อนาคามีมรรค',     'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 87, 'name': 'Anāgāmī-phala',     'pali': 'Lokuttaracitta 6', 'thai': 'อนาคามีผล',       'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 88, 'name': 'Arahatta-magga',     'pali': 'Lokuttaracitta 7', 'thai': 'อรหัตตมรรค',      'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+    {'id': 89, 'name': 'Arahatta-phala',     'pali': 'Lokuttaracitta 8', 'thai': 'อรหัตตผล',        'category': 'lokuttara', 'mental_ids': _KUSALA_COMMON + _VIRATI_3 + _WISDOM},
+]
+
+# ---------------------------------------------------------------------------
+# MIND GROUPS  (citta groupings)
+# ---------------------------------------------------------------------------
+
+MIND_GROUPS_DATA = [
+    {'id': 1, 'name': 'Akusala',            'name_thai': 'อกุศลจิต',              'name_en': 'Akusala (12)',              'mind_ids': list(range(1, 13))},
+    {'id': 2, 'name': 'Ahetuka',            'name_thai': 'อเหตุกจิต',             'name_en': 'Ahetuka (18)',              'mind_ids': list(range(13, 31))},
+    {'id': 3, 'name': 'Kamavacara Kusala',  'name_thai': 'กามาวจรกุศลจิต',        'name_en': 'Kāmāvacara Kusala (8)',     'mind_ids': list(range(31, 39))},
+    {'id': 4, 'name': 'Kamavacara Vipaka',  'name_thai': 'กามาวจรวิบากจิต',       'name_en': 'Kāmāvacara Vipāka (8)',     'mind_ids': list(range(39, 47))},
+    {'id': 5, 'name': 'Kamavacara Kiriya',  'name_thai': 'กามาวจรกิริยาจิต',      'name_en': 'Kāmāvacara Kiriyā (8)',     'mind_ids': list(range(47, 55))},
+    {'id': 6, 'name': 'Rupavacara',         'name_thai': 'รูปาวจรจิต',            'name_en': 'Rūpāvacara (15)',           'mind_ids': list(range(55, 70))},
+    {'id': 7, 'name': 'Arupavacara',        'name_thai': 'อรูปาวจรจิต',           'name_en': 'Arūpāvacara (12)',          'mind_ids': list(range(70, 82))},
+    {'id': 8, 'name': 'Lokuttara',          'name_thai': 'โลกุตตรจิต',            'name_en': 'Lokuttara (8)',             'mind_ids': list(range(82, 90))},
+]
