@@ -2401,15 +2401,25 @@ function XRTimelineToggle({
 function XRTimelinePanel({
   selectedIndex,
   onSelect,
+  panelOpen,
+  onOpenPanel,
+  onClosePanel,
 }: {
   selectedIndex: number
   onSelect: (index: number) => void
+  panelOpen: boolean
+  onOpenPanel: () => void
+  onClosePanel: () => void
 }) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
   const buttonRefs = useRef<Array<THREE.Mesh | null>>([])
+  const openPanelButtonRef = useRef<THREE.Mesh | null>(null)
+  const closePanelButtonRef = useRef<THREE.Mesh | null>(null)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const hoveredIndexRef = useRef<number | null>(null)
+  const [isOpenHovered, setIsOpenHovered] = useState(false)
+  const [isCloseHovered, setIsCloseHovered] = useState(false)
 
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
@@ -2430,9 +2440,23 @@ function XRTimelinePanel({
       return null
     }
 
+    const isHitInside = (mesh: THREE.Mesh | null, hitObject: THREE.Object3D): boolean => {
+      if (!mesh) return false
+      let node: THREE.Object3D | null = hitObject
+      while (node) {
+        if (node === mesh) return true
+        node = node.parent
+      }
+      return false
+    }
+
     const handleXrSelect = (event: Event) => {
       if (!gl.xr.isPresenting) return
-      const targets = buttonRefs.current.filter(Boolean) as THREE.Object3D[]
+      const targets = [
+        ...buttonRefs.current.filter(Boolean),
+        openPanelButtonRef.current,
+        closePanelButtonRef.current,
+      ].filter(Boolean) as THREE.Object3D[]
       if (!targets.length) return
 
       const controller = event.target as unknown as THREE.Object3D
@@ -2442,6 +2466,14 @@ function XRTimelinePanel({
 
       const hits = xrRaycaster.intersectObjects(targets, true)
       if (!hits.length) return
+      if (isHitInside(openPanelButtonRef.current, hits[0].object)) {
+        onOpenPanel()
+        return
+      }
+      if (isHitInside(closePanelButtonRef.current, hits[0].object)) {
+        onClosePanel()
+        return
+      }
       const idx = resolveIndexForHit(hits[0].object)
       if (idx !== null) onSelect(idx)
     }
@@ -2455,7 +2487,7 @@ function XRTimelinePanel({
         controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
-  }, [gl, onSelect])
+  }, [gl, onClosePanel, onOpenPanel, onSelect])
 
   useFrame(() => {
     if (!groupRef.current) return
@@ -2474,12 +2506,18 @@ function XRTimelinePanel({
     groupRef.current.quaternion.slerp(camera.quaternion, 0.16)
 
     let nextHovered: number | null = null
+    let nextOpenHovered = false
+    let nextCloseHovered = false
     if (gl.xr.isPresenting) {
       const xrRaycaster = new THREE.Raycaster()
       const rayOrigin = new THREE.Vector3()
       const rayDirection = new THREE.Vector3()
       const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
-      const targets = buttonRefs.current.filter(Boolean) as THREE.Object3D[]
+      const targets = [
+        ...buttonRefs.current.filter(Boolean),
+        openPanelButtonRef.current,
+        closePanelButtonRef.current,
+      ].filter(Boolean) as THREE.Object3D[]
       for (const controller of controllers) {
         if (!targets.length) break
         rayOrigin.setFromMatrixPosition(controller.matrixWorld)
@@ -2487,6 +2525,26 @@ function XRTimelinePanel({
         xrRaycaster.set(rayOrigin, rayDirection)
         const hits = xrRaycaster.intersectObjects(targets, true)
         if (!hits.length) continue
+        if (openPanelButtonRef.current) {
+          let node: THREE.Object3D | null = hits[0].object
+          while (node) {
+            if (node === openPanelButtonRef.current) {
+              nextOpenHovered = true
+              break
+            }
+            node = node.parent
+          }
+        }
+        if (closePanelButtonRef.current) {
+          let node: THREE.Object3D | null = hits[0].object
+          while (node) {
+            if (node === closePanelButtonRef.current) {
+              nextCloseHovered = true
+              break
+            }
+            node = node.parent
+          }
+        }
         for (let i = 0; i < buttonRefs.current.length; i += 1) {
           const mesh = buttonRefs.current[i]
           if (!mesh) continue
@@ -2500,7 +2558,7 @@ function XRTimelinePanel({
           }
           if (nextHovered !== null) break
         }
-        if (nextHovered !== null) break
+        if (nextHovered !== null || nextOpenHovered || nextCloseHovered) break
       }
     }
 
@@ -2508,7 +2566,11 @@ function XRTimelinePanel({
       hoveredIndexRef.current = nextHovered
       setHoveredIndex(nextHovered)
     }
+    setIsOpenHovered(nextOpenHovered)
+    setIsCloseHovered(nextCloseHovered)
   })
+
+  const activeStop = TIMELINE_STOPS[selectedIndex] ?? TIMELINE_STOPS[0]
 
   return (
     <group ref={groupRef}>
@@ -2559,9 +2621,63 @@ function XRTimelinePanel({
         )
       })}
 
-      <Text position={[0, -0.5, 0.004]} anchorX="center" anchorY="middle" fontSize={0.026} color="#e2e8f0">
-        B to toggle
-      </Text>
+      {!panelOpen && (
+        <group>
+          <mesh ref={openPanelButtonRef} position={[0, 0.5, 0.004]}>
+            <planeGeometry args={[0.34, 0.08]} />
+            <meshBasicMaterial color={isOpenHovered ? 0x1d4ed8 : 0x1e293b} transparent opacity={0.95} />
+          </mesh>
+          <Text position={[0, 0.5, 0.006]} anchorX="center" anchorY="middle" fontSize={0.026} color="#f8fafc">
+            Open timeline
+          </Text>
+        </group>
+      )}
+
+      {panelOpen && (
+        <group>
+          <mesh position={[-0.48, 0.12, 0.001]}>
+            <planeGeometry args={[0.9, 0.66]} />
+            <meshBasicMaterial color={0x1e293b} transparent opacity={0.96} />
+          </mesh>
+          <mesh position={[-0.48, 0.12, 0.0015]}>
+            <planeGeometry args={[0.896, 0.656]} />
+            <meshBasicMaterial color={0x0f172a} transparent opacity={0.5} />
+          </mesh>
+
+          <mesh position={[-0.84, 0.35, 0.004]}>
+            <circleGeometry args={[0.05, 30]} />
+            <meshBasicMaterial color={0x3b82f6} />
+          </mesh>
+          <Text position={[-0.84, 0.35, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
+            {TIMELINE_ICONS[selectedIndex % TIMELINE_ICONS.length]}
+          </Text>
+          <Text position={[-0.75, 0.38, 0.005]} anchorX="left" anchorY="middle" fontSize={0.046} color="#f8fafc">
+            {activeStop.label}
+          </Text>
+          <Text position={[-0.75, 0.32, 0.005]} anchorX="left" anchorY="middle" fontSize={0.029} color="#94a3b8">
+            Cognitive Timeline
+          </Text>
+          <Text
+            position={[-0.88, 0.24, 0.005]}
+            anchorX="left"
+            anchorY="top"
+            fontSize={0.034}
+            maxWidth={0.78}
+            lineHeight={1.2}
+            color="#cbd5e1"
+          >
+            {activeStop.description}
+          </Text>
+
+          <mesh ref={closePanelButtonRef} position={[-0.16, 0.35, 0.004]}>
+            <planeGeometry args={[0.19, 0.075]} />
+            <meshBasicMaterial color={isCloseHovered ? 0x334155 : 0x1e293b} />
+          </mesh>
+          <Text position={[-0.16, 0.35, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
+            Close
+          </Text>
+        </group>
+      )}
     </group>
   )
 }
@@ -2746,7 +2862,10 @@ function ThreeScene({
   timelineIndex,
   onTimelineSelect,
   xrTimelineOpen,
+  xrTimelineDetailOpen,
   onToggleXrTimeline,
+  onOpenXrTimelineDetail,
+  onCloseXrTimelineDetail,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -2777,7 +2896,10 @@ function ThreeScene({
   timelineIndex: number
   onTimelineSelect: (index: number) => void
   xrTimelineOpen: boolean
+  xrTimelineDetailOpen: boolean
   onToggleXrTimeline: () => void
+  onOpenXrTimelineDetail: () => void
+  onCloseXrTimelineDetail: () => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -2955,6 +3077,9 @@ function ThreeScene({
         <XRTimelinePanel
           selectedIndex={timelineIndex}
           onSelect={onTimelineSelect}
+          panelOpen={xrTimelineDetailOpen}
+          onOpenPanel={onOpenXrTimelineDetail}
+          onClosePanel={onCloseXrTimelineDetail}
         />
       )}
       <XROccludedConnector
@@ -3016,6 +3141,7 @@ export function Simulation(): React.ReactElement {
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
   const [xrTimelineOpen, setXrTimelineOpen] = useState(false)
+  const [xrTimelineDetailOpen, setXrTimelineDetailOpen] = useState(false)
   const timelineSignatureRef = useRef<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -3046,7 +3172,10 @@ export function Simulation(): React.ReactElement {
   const isXrActive = activeXrMode !== null
 
   useEffect(() => {
-    if (!isXrActive) setXrTimelineOpen(false)
+    if (!isXrActive) {
+      setXrTimelineOpen(false)
+      setXrTimelineDetailOpen(false)
+    }
   }, [isXrActive])
 
   useEffect(() => {
@@ -4273,7 +4402,16 @@ export function Simulation(): React.ReactElement {
           timelineIndex={timelineIndex}
           onTimelineSelect={setTimelineIndex}
           xrTimelineOpen={xrTimelineOpen}
-          onToggleXrTimeline={() => setXrTimelineOpen((prev) => !prev)}
+          xrTimelineDetailOpen={xrTimelineDetailOpen}
+          onToggleXrTimeline={() =>
+            setXrTimelineOpen((prev) => {
+              const next = !prev
+              if (!next) setXrTimelineDetailOpen(false)
+              return next
+            })
+          }
+          onOpenXrTimelineDetail={() => setXrTimelineDetailOpen(true)}
+          onCloseXrTimelineDetail={() => setXrTimelineDetailOpen(false)}
           onRendererReady={(gl) => {
             setRenderer(gl)
           }}
