@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, Sky } from '@react-three/drei'
+import { Environment, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -81,14 +81,6 @@ type Vec3 = [number, number, number]
 
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
-type WorldThemeKey = 'default' | 'heaven' | 'human_world' | 'hell'
-
-const WORLD_THEME_OPTIONS: Array<{ key: WorldThemeKey; label: string }> = [
-  { key: 'default', label: 'Default' },
-  { key: 'heaven', label: 'Heaven' },
-  { key: 'human_world', label: 'Human World' },
-  { key: 'hell', label: 'Hell' },
-]
 const CODE_RUNNER_TEMPLATE = `m = Mind()
 m.name = "Mind"
 m.color = "#3b82f6"
@@ -682,8 +674,6 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   if (index === 0) {
     // T0: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
-    // Temp to check visual, i will remove this later
-    pushUnique('recklessness')
   } else if (index === 2) {
     // T2: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
@@ -903,6 +893,48 @@ function samplePointsFromObj(root: THREE.Object3D, count: number, targetHeight: 
   return normalizePointsToHeight(points, targetHeight)
 }
 
+function rotatePointsAroundY(points: Float32Array, radians: number): Float32Array {
+  if (Math.abs(radians) < 1e-6) return points
+  const out = points.slice()
+  const c = Math.cos(radians)
+  const s = Math.sin(radians)
+  for (let i = 0; i < out.length; i += 3) {
+    const x = out[i]
+    const z = out[i + 2]
+    out[i] = x * c - z * s
+    out[i + 2] = x * s + z * c
+  }
+  return out
+}
+
+function getPointsBounds(points: Float32Array): {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+  minZ: number
+  maxZ: number
+} {
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  let minZ = Number.POSITIVE_INFINITY
+  let maxZ = Number.NEGATIVE_INFINITY
+  for (let i = 0; i < points.length; i += 3) {
+    const x = points[i]
+    const y = points[i + 1]
+    const z = points[i + 2]
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+    if (z < minZ) minZ = z
+    if (z > maxZ) maxZ = z
+  }
+  return { minX, maxX, minY, maxY, minZ, maxZ }
+}
+
 function HumanBody({
   mind,
   controlsRef,
@@ -929,7 +961,8 @@ function HumanBody({
   const currentPositionsRef = useRef<Float32Array>(new Float32Array(MORPH_PARTICLE_COUNT * 3))
   const targetPositionsRef = useRef<Float32Array | null>(null)
   const shapePointsRef = useRef<Partial<Record<MorphShapeKey, Float32Array>>>({})
-  const chestLocalRef = useRef<THREE.Vector3>(new THREE.Vector3(0, targetHeight * 0.66, 0))
+  const chestLocalRef = useRef<THREE.Vector3>(new THREE.Vector3(0, targetHeight * 0.64, 0))
+  const shapeChestLocalRef = useRef<Partial<Record<MorphShapeKey, THREE.Vector3>>>({})
 
   const spriteTexture = useMemo(() => makeParticleSpriteTexture(), [])
   const hasAppliedHumanCameraRef = useRef(false)
@@ -939,19 +972,23 @@ function HumanBody({
   )
 
   useLayoutEffect(() => {
-    const chest = chestLocalRef.current
-    mind.setScale(mindWorldScale)
+    const chest = shapeChestLocalRef.current[selectedShape] ?? chestLocalRef.current
+    const selectedMindScale = selectedShape === 'dog' ? Math.min(0.34, targetHeight * 0.15) : mindWorldScale
+    const selectedYOffset = selectedShape === 'dog' ? 0.06 : mindYOffsetWorld
+    const selectedZOffset = selectedShape === 'dog' ? mindZOffsetWorld + 0.44 : mindZOffsetWorld
+
+    mind.setScale(selectedMindScale)
     mind.setPosition(
       anchorWorld.x + chest.x,
-      anchorWorld.y + chest.y + mindYOffsetWorld,
-      anchorWorld.z + chest.z + mindZOffsetWorld
+      anchorWorld.y + chest.y + selectedYOffset,
+      anchorWorld.z + chest.z + selectedZOffset
     )
 
     const ctl = controlsRef?.current
     if (ctl) {
       const targetX = anchorWorld.x + chest.x
-      const targetY = anchorWorld.y + chest.y + mindYOffsetWorld
-      const targetZ = anchorWorld.z + chest.z + mindZOffsetWorld
+      const targetY = anchorWorld.y + chest.y + selectedYOffset
+      const targetZ = anchorWorld.z + chest.z + selectedZOffset
 
       ctl.target.set(
         targetX,
@@ -967,13 +1004,15 @@ function HumanBody({
       }
       ctl.update()
     }
-  }, [anchorWorld, controlsRef, mind, mindWorldScale, mindYOffsetWorld, mindZOffsetWorld, targetHeight])
+  }, [anchorWorld, controlsRef, mind, mindWorldScale, mindYOffsetWorld, mindZOffsetWorld, selectedShape, targetHeight])
 
   useEffect(() => {
     const sphere = normalizePointsToHeight(sampleSpherePoints(MORPH_PARTICLE_COUNT, 0.52), targetHeight)
     const cube = normalizePointsToHeight(sampleCubePoints(MORPH_PARTICLE_COUNT, 0.58), targetHeight)
     shapePointsRef.current.sphere = sphere
     shapePointsRef.current.cube = cube
+    shapeChestLocalRef.current.sphere = new THREE.Vector3(0, targetHeight * 0.6, 0)
+    shapeChestLocalRef.current.cube = new THREE.Vector3(0, targetHeight * 0.6, 0)
     currentPositionsRef.current.set(sphere)
     targetPositionsRef.current = sphere
 
@@ -991,11 +1030,13 @@ function HumanBody({
         (gltf: { scene: THREE.Object3D }) => {
           if (cancelled) return
           const sampled = samplePointsFromObj(gltf.scene, MORPH_PARTICLE_COUNT, targetHeight)
-          shapePointsRef.current[shape] = sampled
+          const yawOffset = shape === 'dog' ? Math.PI / 2 : shape === 'angel' ? -Math.PI / 2 : 0
+          const oriented = rotatePointsAroundY(sampled, yawOffset)
+          shapePointsRef.current[shape] = oriented
           if (selectedShape === shape) {
-            targetPositionsRef.current = sampled
+            targetPositionsRef.current = oriented
           }
-          onLoaded?.(sampled)
+          onLoaded?.(oriented)
         },
         undefined,
         () => {
@@ -1004,20 +1045,23 @@ function HumanBody({
       )
     }
 
-    loadShapeFromGltf('human', `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`, (human) => {
-      // Derive a chest anchor from the normalized particle body.
-      let minY = Number.POSITIVE_INFINITY
-      let maxY = Number.NEGATIVE_INFINITY
-      for (let i = 1; i < human.length; i += 3) {
-        const y = human[i]
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
-      }
-      const height = Math.max(0.0001, maxY - minY)
-      chestLocalRef.current.set(0, minY + height * 0.78, 0)
+    chestLocalRef.current.set(0, targetHeight * 0.64, 0)
+    shapeChestLocalRef.current.human = chestLocalRef.current.clone()
+    loadShapeFromGltf('human', `${import.meta.env.BASE_URL}assets/humanMind/human.gltf`)
+    loadShapeFromGltf('dog', `${import.meta.env.BASE_URL}assets/Dog/scene.gltf`, (dog) => {
+      const b = getPointsBounds(dog)
+      const height = Math.max(0.0001, b.maxY - b.minY)
+      const depth = Math.max(0.0001, b.maxZ - b.minZ)
+      const centerX = (b.minX + b.maxX) * 0.5
+      // Chest sits slightly above half-height and closer to torso center.
+      shapeChestLocalRef.current.dog = new THREE.Vector3(centerX, b.minY + height * 0.57, b.minZ + depth * 0.58)
     })
-    loadShapeFromGltf('dog', `${import.meta.env.BASE_URL}assets/Dog/scene.gltf`)
-    loadShapeFromGltf('angel', `${import.meta.env.BASE_URL}assets/Angel/scene.gltf`)
+    loadShapeFromGltf('angel', `${import.meta.env.BASE_URL}assets/Angel/scene.gltf`, (angel) => {
+      const b = getPointsBounds(angel)
+      const height = Math.max(0.0001, b.maxY - b.minY)
+      const centerX = (b.minX + b.maxX) * 0.5
+      shapeChestLocalRef.current.angel = new THREE.Vector3(centerX, b.minY + height * 0.68, 0)
+    })
 
     return () => {
       cancelled = true
@@ -1712,102 +1756,272 @@ function GroundPlane() {
   )
 }
 
-function WorldThemeFx({ theme, isArMode }: { theme: WorldThemeKey; isArMode: boolean }) {
-  const { scene } = useThree()
+function SoundReceiveEffect({
+  requestId,
+  mind,
+  mentals,
+  planeModelPath,
+  onHighlightChange,
+  onComplete,
+}: {
+  requestId: number
+  mind: Mind
+  mentals: Mental[]
+  planeModelPath: string
+  onHighlightChange?: (objects: THREE.Object3D[]) => void
+  onComplete?: () => void
+}) {
+  const { gl } = useThree()
+  const [active, setActive] = useState(false)
+  const [earVisible, setEarVisible] = useState(false)
+  const earModelRef = useRef<THREE.Object3D | null>(null)
+  const senderMentalRef = useRef<Mental | null>(null)
+  const sendStartedRef = useRef(false)
+  const contactRef = useRef<Mental | null>(null)
+  const phaseRef = useRef<'idle' | 'move_contact' | 'sending'>('idle')
+  const phaseElapsedRef = useRef(0)
+  const contactStartRef = useRef<THREE.Vector3>(new THREE.Vector3())
+  const contactTargetRef = useRef<THREE.Vector3>(new THREE.Vector3())
+  const mentalOriginalRef = useRef<Map<Mental, { pos: THREE.Vector3; frozen: boolean }>>(new Map())
+  const mentalMoveStartRef = useRef<Map<Mental, THREE.Vector3>>(new Map())
+  const mentalMoveTargetRef = useRef<Map<Mental, THREE.Vector3>>(new Map())
+  const planeStartRef = useRef<THREE.Vector3>(new THREE.Vector3())
+  const tempVecRef = useRef<THREE.Vector3>(new THREE.Vector3())
+  const prevRequestRef = useRef(0)
+  const earWorld = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
-    if (isArMode) {
-      scene.background = null
-      scene.fog = null
+    let cancelled = false
+    const loader = new GLTFLoader()
+    const earCandidates = [
+      `${import.meta.env.BASE_URL}assests/human_ear_model/scene.gltf`,
+      `${import.meta.env.BASE_URL}assets/human_ear_model/scene.gltf`,
+      `${import.meta.env.BASE_URL}assests/human_ear_model.gltf`,
+      `${import.meta.env.BASE_URL}assets/human_ear_model.gltf`,
+      `${import.meta.env.BASE_URL}assests/human_ear_model.glb`,
+      `${import.meta.env.BASE_URL}assets/human_ear_model.glb`,
+    ]
+
+    const tryLoadEar = (index: number) => {
+      if (cancelled || index >= earCandidates.length) return
+      loader.load(
+        earCandidates[index],
+        (gltf: { scene: THREE.Object3D }) => {
+          if (cancelled) return
+          const root = gltf.scene.clone(true)
+          root.scale.setScalar(0.12)
+          root.rotation.set(0, -Math.PI / 2, 0)
+          earModelRef.current = root
+        },
+        undefined,
+        () => {
+          if (cancelled) return
+          tryLoadEar(index + 1)
+        }
+      )
+    }
+
+    tryLoadEar(0)
+    return () => {
+      cancelled = true
+      earModelRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (requestId <= 0 || requestId === prevRequestRef.current) return
+    prevRequestRef.current = requestId
+
+    const contact =
+      mentals.find((m) => m.getName().trim().toLowerCase() === 'contact') ||
+      mentals.find((m) => m.getName().toLowerCase().includes('contact')) ||
+      null
+    if (!contact) {
+      onComplete?.()
       return
     }
-    if (theme === 'default') {
-      scene.background = null
-      scene.fog = new THREE.Fog(0xb9c2f2, 16, 38)
+
+    contactRef.current = contact
+    mentalOriginalRef.current.clear()
+    mentalMoveStartRef.current.clear()
+    mentalMoveTargetRef.current.clear()
+
+    // Freeze and stage all mentals so the receive animation has clear focus.
+    let rightIdx = 0
+    mentals.forEach((m) => {
+      const p = m.getPosition()
+      mentalOriginalRef.current.set(m, {
+        pos: new THREE.Vector3(p.x, p.y, p.z),
+        frozen: m.isFrozen?.() ?? false,
+      })
+      m.setFrozen(true)
+      m.setVelocity(0, 0, 0)
+      mentalMoveStartRef.current.set(m, new THREE.Vector3(p.x, p.y, p.z))
+      if (m === contact) return
+      const column = rightIdx % 2
+      const row = Math.floor(rightIdx / 2)
+      const target = new THREE.Vector3(
+        0.66 + column * 0.16,
+        0.42 - row * 0.18,
+        -0.18 + column * 0.22
+      )
+      mentalMoveTargetRef.current.set(m, target)
+      rightIdx += 1
+    })
+
+    const start = contact.getPosition()
+    contactStartRef.current.set(start.x, start.y, start.z)
+    // Bring Contact close to left side (ear side) of mind, still inside sphere.
+    contactTargetRef.current.set(-0.78, 0.06, 0.02)
+    mentalMoveTargetRef.current.set(contact, contactTargetRef.current.clone())
+
+    const baseX = mind.position.x
+    const baseY = mind.position.y
+    const baseZ = mind.position.z
+    const radius = Math.max(1.1, mind.scale)
+    earWorld.set(baseX - radius - 0.75, baseY + 0.18, baseZ + 0.02)
+
+    planeStartRef.current.copy(earWorld).add(new THREE.Vector3(-0.46, 0.04, 0.04))
+
+    phaseRef.current = 'move_contact'
+    phaseElapsedRef.current = 0
+    sendStartedRef.current = false
+    setEarVisible(true)
+    setActive(true)
+  }, [earWorld, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
+
+  useFrame((_, delta) => {
+    if (!active) return
+    const contact = contactRef.current
+    if (!contact) return
+
+    phaseElapsedRef.current += delta
+
+    if (phaseRef.current === 'move_contact') {
+      const t = THREE.MathUtils.clamp(phaseElapsedRef.current / 0.75, 0, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      mentalMoveStartRef.current.forEach((startPos, mental) => {
+        const targetPos = mentalMoveTargetRef.current.get(mental)
+        if (!targetPos) return
+        const p = startPos.clone().lerp(targetPos, eased)
+        mental.setPosition(p.x, p.y, p.z)
+      })
+      const p = tempVecRef.current
+      p.copy(contactStartRef.current).lerp(contactTargetRef.current, eased)
+      contact.setPosition(p.x, p.y, p.z)
+      if (t >= 1) {
+        const mesh = contact.getMesh()
+        onHighlightChange?.(mesh ? [mesh] : [])
+        phaseRef.current = 'sending'
+      }
       return
     }
-    if (theme === 'heaven') {
-      scene.background = new THREE.Color(0xd7ecff)
-      scene.fog = new THREE.Fog(0xe9f5ff, 12, 34)
-      return
+
+    if (phaseRef.current === 'sending') {
+      if (sendStartedRef.current) return
+      sendStartedRef.current = true
+
+      const contactMesh = contact.getMesh()
+      const parent = contactMesh?.parent
+      if (!contactMesh || !parent) {
+        setEarVisible(false)
+        setActive(false)
+        phaseRef.current = 'idle'
+        onComplete?.()
+        return
+      }
+
+      const sender = new Mental({
+        name: 'Sound Carrier',
+        color: '#ffffff',
+        scale: 0.03,
+        transparent: true,
+        opacity: 0,
+        motionSpeed: 0,
+        labelEnabled: false,
+      })
+      sender.setFrozen(true)
+      const senderMesh = sender.getMesh()
+      if (!senderMesh) {
+        sender.dispose()
+        setEarVisible(false)
+        setActive(false)
+        phaseRef.current = 'idle'
+        onComplete?.()
+        return
+      }
+      const startLocal = parent.worldToLocal(planeStartRef.current.clone())
+      sender.setPosition(startLocal.x, startLocal.y, startLocal.z)
+      senderMesh.visible = false
+      parent.add(senderMesh)
+      senderMentalRef.current = sender
+
+      sender
+        .sendDataTo(gl, contact, {
+          planeModelPath,
+          durationMs: 1050,
+          arcHeight: 0.12,
+          scale: 0.1,
+        })
+        .catch(() => {})
+        .finally(() => {
+          mentalOriginalRef.current.forEach((state, mental) => {
+            mental.setPosition(state.pos.x, state.pos.y, state.pos.z)
+            mental.setFrozen(state.frozen)
+          })
+          mentalOriginalRef.current.clear()
+          mentalMoveStartRef.current.clear()
+          mentalMoveTargetRef.current.clear()
+          const senderMeshNow = sender.getMesh()
+          if (senderMeshNow?.parent) senderMeshNow.parent.remove(senderMeshNow)
+          sender.dispose()
+          senderMentalRef.current = null
+          onHighlightChange?.([])
+          setEarVisible(false)
+          setActive(false)
+          phaseRef.current = 'idle'
+          onComplete?.()
+        })
     }
-    if (theme === 'human_world') {
-      scene.background = new THREE.Color(0xc9ddff)
-      scene.fog = new THREE.Fog(0xcfd8ea, 14, 36)
-      return
+  })
+
+  useEffect(() => {
+    return () => {
+      mentalOriginalRef.current.forEach((state, mental) => {
+        mental.setPosition(state.pos.x, state.pos.y, state.pos.z)
+        mental.setFrozen(state.frozen)
+      })
+      onHighlightChange?.([])
+      const sender = senderMentalRef.current
+      if (!sender) return
+      const senderMesh = sender.getMesh()
+      if (senderMesh?.parent) senderMesh.parent.remove(senderMesh)
+      sender.dispose()
+      senderMentalRef.current = null
     }
-    scene.background = new THREE.Color(0x1c0707)
-    scene.fog = new THREE.Fog(0x2a0a0a, 9, 26)
-  }, [isArMode, scene, theme])
-
-  return null
-}
-
-function ThemedGroundPlane({ theme }: { theme: WorldThemeKey }) {
-  if (theme === 'heaven') {
-    return (
-      <group>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-          <planeGeometry args={[26, 26]} />
-          <meshStandardMaterial color={0xf4f8ff} metalness={0.03} roughness={0.95} />
-        </mesh>
-        {[
-          [-3.2, -1.97, -1.4, 1.8],
-          [1.9, -1.97, -0.6, 1.6],
-          [0.1, -1.97, 1.2, 2.1],
-          [3.3, -1.97, 2.2, 1.5],
-        ].map((p, idx) => (
-          <mesh key={idx} rotation={[-Math.PI / 2, 0, 0]} position={[p[0], p[1], p[2]] as [number, number, number]}>
-            <circleGeometry args={[p[3], 30]} />
-            <meshStandardMaterial color={0xffffff} transparent opacity={0.82} roughness={1} metalness={0} />
-          </mesh>
-        ))}
-      </group>
-    )
-  }
-
-  if (theme === 'human_world') {
-    return (
-      <group>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-          <planeGeometry args={[24, 24]} />
-          <meshStandardMaterial color={0x5f6f52} metalness={0.04} roughness={0.9} />
-        </mesh>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.995, 0]}>
-          <planeGeometry args={[24, 24, 20, 20]} />
-          <meshBasicMaterial color={0x90a88a} wireframe transparent opacity={0.2} />
-        </mesh>
-      </group>
-    )
-  }
-
-  if (theme === 'hell') {
-    return (
-      <group>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-          <planeGeometry args={[24, 24]} />
-          <meshStandardMaterial color={0x2b0e0e} emissive={0x4a1111} emissiveIntensity={0.42} metalness={0.02} roughness={0.92} />
-        </mesh>
-        {[
-          [-2.5, -1.985, 1.4, 0.72],
-          [0.8, -1.985, -1.7, 0.92],
-          [2.6, -1.985, 0.9, 0.66],
-          [-0.3, -1.985, 2.6, 0.58],
-        ].map((p, idx) => (
-          <mesh key={idx} rotation={[-Math.PI / 2, 0, 0]} position={[p[0], p[1], p[2]] as [number, number, number]}>
-            <circleGeometry args={[p[3], 28]} />
-            <meshBasicMaterial color={0xff5c00} transparent opacity={0.75} />
-          </mesh>
-        ))}
-      </group>
-    )
-  }
+  }, [onHighlightChange])
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
-      <planeGeometry args={[20, 20]} />
-      <meshStandardMaterial color={0x808080} metalness={0.1} roughness={0.5} />
-    </mesh>
+    <>
+      {earVisible && (
+        <group position={[earWorld.x, earWorld.y, earWorld.z]}>
+          {earModelRef.current ? (
+            <primitive object={earModelRef.current} />
+          ) : (
+            <>
+              <mesh rotation={[0, 0, Math.PI / 2]}>
+                <torusGeometry args={[0.15, 0.05, 14, 36, Math.PI * 1.5]} />
+                <meshStandardMaterial color={0xf5c0a5} metalness={0.05} roughness={0.7} />
+              </mesh>
+              <mesh position={[0.04, -0.06, 0]}>
+                <sphereGeometry args={[0.05, 16, 16]} />
+                <meshStandardMaterial color={0xedb79a} metalness={0.04} roughness={0.72} />
+              </mesh>
+            </>
+          )}
+        </group>
+      )}
+    </>
   )
 }
 
@@ -2457,9 +2671,11 @@ function ThreeScene({
   sendMode,
   emojiMode,
   onSendSelection,
+  soundReceiveRequestId,
+  onSoundReceiveHighlightChange,
+  onSoundReceiveComplete,
   showHumanModel,
   humanShape,
-  worldTheme,
   xrMode,
   defaultMindPosition,
   defaultMindScale,
@@ -2484,9 +2700,11 @@ function ThreeScene({
   sendMode: boolean
   emojiMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
+  soundReceiveRequestId: number
+  onSoundReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
+  onSoundReceiveComplete?: () => void
   showHumanModel: boolean
   humanShape: MorphShapeKey
-  worldTheme: WorldThemeKey
   xrMode: 'vr' | 'ar' | null
   defaultMindPosition: Vec3
   defaultMindScale: number
@@ -2550,58 +2768,13 @@ function ThreeScene({
       }}
     >
       <XRClearMode isArMode={isArMode} />
-      <WorldThemeFx theme={worldTheme} isArMode={isArMode} />
       <XRStatusBridge
         onRendererReady={onRendererReady}
       />
       <XRControllers />
       <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
-      {!isArMode && (
-        <Environment
-          preset={worldTheme === 'hell' ? 'night' : worldTheme === 'human_world' ? 'park' : 'dawn'}
-          background={worldTheme === 'default'}
-          blur={worldTheme === 'default' ? 1 : 0.35}
-          backgroundIntensity={worldTheme === 'default' ? 0.6 : 0.25}
-          environmentIntensity={worldTheme === 'hell' ? 0.85 : 1.05}
-        />
-      )}
-      {!isArMode && worldTheme === 'heaven' && (
-        <Sky
-          distance={3500}
-          sunPosition={[1.2, 0.8, 0.6]}
-          inclination={0.52}
-          azimuth={0.32}
-          turbidity={2}
-          rayleigh={2.8}
-          mieCoefficient={0.004}
-          mieDirectionalG={0.84}
-        />
-      )}
-      {!isArMode && worldTheme === 'human_world' && (
-        <Sky
-          distance={3200}
-          sunPosition={[0.9, 0.72, 0.35]}
-          inclination={0.56}
-          azimuth={0.25}
-          turbidity={7}
-          rayleigh={1.7}
-          mieCoefficient={0.01}
-          mieDirectionalG={0.9}
-        />
-      )}
-      {!isArMode && worldTheme === 'hell' && (
-        <Sky
-          distance={2600}
-          sunPosition={[-0.7, 0.18, 0.45]}
-          inclination={0.42}
-          azimuth={0.7}
-          turbidity={12}
-          rayleigh={0.5}
-          mieCoefficient={0.035}
-          mieDirectionalG={0.97}
-        />
-      )}
+      {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
       <OrbitControls
         ref={controlsRef}
         enabled={!isXrActive}
@@ -2619,7 +2792,15 @@ function ThreeScene({
       <directionalLight position={[-5, 3, -5]} intensity={0.85} />
       <pointLight position={[0, 6, 0]} intensity={1.35} distance={15} decay={2} />
       <pointLight position={[0, 0, 5]} intensity={1.0} distance={15} decay={2} />
-      {!isArMode && <ThemedGroundPlane theme={worldTheme} />}
+      {!isArMode && <GroundPlane />}
+      <SoundReceiveEffect
+        requestId={soundReceiveRequestId}
+        mind={mind}
+        mentals={mentals}
+        planeModelPath={paperPlaneModel}
+        onHighlightChange={onSoundReceiveHighlightChange}
+        onComplete={onSoundReceiveComplete}
+      />
       {showHumanInScene && (
         <React.Suspense fallback={null}>
           <HumanBody
@@ -2691,9 +2872,10 @@ export function Simulation(): React.ReactElement {
   const [attrValue, setAttrValue] = useState('')
   const [sendMode, setSendMode] = useState(false)
   const [emojiMode, setEmojiMode] = useState(false)
+  const [soundReceiveRequestId, setSoundReceiveRequestId] = useState(0)
+  const [soundReceiveActive, setSoundReceiveActive] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
-  const [worldTheme, setWorldTheme] = useState<WorldThemeKey>('default')
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
   const [scriptMatchedDefaultMentals, setScriptMatchedDefaultMentals] = useState<Mental[]>([])
   const [scriptResultActive, setScriptResultActive] = useState(false)
@@ -2709,6 +2891,7 @@ export function Simulation(): React.ReactElement {
   const [isMindExplaining, setIsMindExplaining] = useState(false)
   const [explainOverlay, setExplainOverlay] = useState<{ name: string; detail: string; progressLabel: string } | null>(null)
   const [explainHighlight, setExplainHighlight] = useState<THREE.Object3D[]>([])
+  const [soundReceiveHighlight, setSoundReceiveHighlight] = useState<THREE.Object3D[]>([])
   const [focusScreenPosition, setFocusScreenPosition] = useState<{ x: number; y: number } | null>(null)
   const [menuRevealReady, setMenuRevealReady] = useState(false)
   const [menuLineProgress, setMenuLineProgress] = useState(1)
@@ -3385,7 +3568,6 @@ export function Simulation(): React.ReactElement {
               stroke="url(#inspect-menu-connector-gradient)"
               strokeWidth={2.8}
               strokeLinecap="round"
-              strokeDasharray="7 5"
             />
           </svg>
         )}
@@ -3429,6 +3611,32 @@ export function Simulation(): React.ReactElement {
             }}
           >
             {sendMode ? 'Exit Send Mode' : 'Send Paper Plane'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSendMode(false)
+              setEmojiMode(false)
+              setSelected(null)
+              setInspectOpen(false)
+              setProfile(null)
+              setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Receiving...' })
+              setSoundReceiveActive(true)
+              setSoundReceiveRequestId((prev) => prev + 1)
+            }}
+            disabled={soundReceiveActive}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: soundReceiveActive ? '#22c55e' : '#6366f1',
+              color: 'white',
+              cursor: soundReceiveActive ? 'wait' : 'pointer',
+              fontWeight: 600,
+              opacity: soundReceiveActive ? 0.9 : 1,
+            }}
+          >
+            {soundReceiveActive ? 'Receiving Sound...' : 'Receive Sound Data'}
           </button>
           <button
             type="button"
@@ -3516,26 +3724,6 @@ export function Simulation(): React.ReactElement {
               <option value="angel">Angel</option>
             </select>
           )}
-          <select
-            value={worldTheme}
-            onChange={(e) => setWorldTheme(e.target.value as WorldThemeKey)}
-            style={{
-              padding: '6px 8px',
-              borderRadius: 6,
-              border: '1px solid rgba(255,255,255,0.28)',
-              background: 'rgba(15,23,42,0.78)',
-              color: 'white',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-            title="World theme"
-          >
-            {WORLD_THEME_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>
-                Theme: {opt.label}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             onClick={() => setSearchOpen((prev) => !prev)}
@@ -3948,14 +4136,20 @@ export function Simulation(): React.ReactElement {
           sendMode={sendMode}
           emojiMode={emojiMode}
           onSendSelection={setSendInfo}
+          soundReceiveRequestId={soundReceiveRequestId}
+          onSoundReceiveHighlightChange={setSoundReceiveHighlight}
+          onSoundReceiveComplete={() => {
+            setSoundReceiveActive(false)
+            setSoundReceiveHighlight([])
+            setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Delivered' })
+          }}
           showHumanModel={showHumanModel}
           humanShape={humanShape}
-          worldTheme={worldTheme}
           xrMode={activeXrMode}
           defaultMindPosition={DEFAULT_MIND_POSITION}
           defaultMindScale={DEFAULT_MIND_SCALE}
           searchHighlight={searchHighlight}
-          explainHighlight={explainHighlight}
+          explainHighlight={soundReceiveHighlight.length > 0 ? soundReceiveHighlight : explainHighlight}
           onRendererReady={(gl) => {
             setRenderer(gl)
           }}
