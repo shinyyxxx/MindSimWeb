@@ -21,6 +21,7 @@ from app.schemas import (
     StaticMentalGroupResponse, StaticMentalGroupListResponse,
     StaticMindResponse, StaticMindListResponse,
     StaticMindGroupResponse, StaticMindGroupListResponse,
+    VithiEventResponse, PancadvaraVithiRequest, PancadvaraVithiResponse,
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
@@ -33,6 +34,7 @@ from app.experience_helpers import (
     get_kamma_statistics
 )
 from app.code_executor import persist_and_collect
+from app.vithi_helpers import run_pancadvara_vithi
 from app.static_helpers import (
     init_static_data,
     get_static_mental, list_static_mentals,
@@ -623,6 +625,59 @@ async def execute_code_endpoint(request: ExecuteCodeRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except SyntaxError as e:
         raise HTTPException(status_code=400, detail=f"Syntax error in code: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# ---------------------------------------------------------------------------
+# Pancadvara Vithi (Five-door cognitive process) endpoint
+# ---------------------------------------------------------------------------
+
+@app.post("/api/vithi/pancadvara", response_model=PancadvaraVithiResponse)
+async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
+    try:
+        result = run_pancadvara_vithi(
+            sense=request.sense,
+            desire=request.desire,
+            vividity=request.vividity,
+            person_type=request.person_type,
+            yoniso_manasikara=request.yoniso_manasikara,
+            anusaya_dosa=request.anusaya_dosa,
+            anusaya_lobha=request.anusaya_lobha,
+            experience_weight=request.experience_weight,
+        )
+
+        _, root = get_connection()
+        response_events = []
+        for ev in result["events"]:
+            mind_name = None
+            if ev.mind_id and hasattr(root, 'static_minds'):
+                obj = root.static_minds.get(ev.mind_id)
+                if obj:
+                    mind_name = obj.name
+            response_events.append(VithiEventResponse(
+                order=ev.order,
+                stage=ev.stage,
+                mind_id=ev.mind_id,
+                mind_id_range=ev.mind_id_range,
+                mind_name=mind_name,
+                description=ev.description,
+            ))
+
+        total = len(response_events)
+        return PancadvaraVithiResponse(
+            message=f"Pancadvara vithi completed: {total} citta events",
+            events=response_events,
+            updated_experience_weight=result["updated_experience_weight"],
+            summary={
+                "total_events": total,
+                "vividity": request.vividity,
+                "sense": request.sense,
+                "desire": request.desire,
+                "result_type": result["result_type"],
+            },
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

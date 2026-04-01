@@ -79,6 +79,23 @@ import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
   
 type Vec3 = [number, number, number]
 
+interface VithiEvent {
+  order: number
+  stage: string
+  mind_id: number | null
+  mind_id_range: number[] | null
+  mind_name: string | null
+  description: string
+}
+
+const SENSE_BUTTON_TO_API: Record<string, string> = {
+  sound: 'ear',
+  picture: 'eye',
+  taste: 'tongue',
+  touch: 'body',
+  smell: 'nose',
+}
+
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
 type WorldThemeKey = 'default' | 'heaven' | 'human_world' | 'hell'
@@ -2313,6 +2330,8 @@ function TimelineCanvas({
   onT3HappyChange,
   t5SelectedId,
   onT5Change,
+  onSenseSelect,
+  vithiCurrentEvent,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -2322,6 +2341,8 @@ function TimelineCanvas({
   onT3HappyChange?: (selected: boolean) => void
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
+  onSenseSelect?: (senseId: string) => void
+  vithiCurrentEvent?: VithiEvent | null
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -2448,7 +2469,7 @@ function TimelineCanvas({
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setSelectedSense(opt.id)}
+                      onClick={() => { setSelectedSense(opt.id); onSenseSelect?.(opt.id) }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -2468,6 +2489,26 @@ function TimelineCanvas({
                     </button>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {vithiCurrentEvent && (
+            <div style={{
+              marginTop: 12, padding: '10px 12px', borderRadius: 10,
+              background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(96, 165, 250, 0.4)',
+            }}>
+              <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {vithiCurrentEvent.stage.replace(/_/g, ' ')}
+              </div>
+              <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
+                {vithiCurrentEvent.mind_name || `Citta ${vithiCurrentEvent.mind_id ?? '?'}`}
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                {vithiCurrentEvent.description}
+              </div>
+              <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>
+                Step {vithiCurrentEvent.order}
               </div>
             </div>
           )}
@@ -3409,6 +3450,11 @@ export function Simulation(): React.ReactElement {
   const [codeRunnerStatus, setCodeRunnerStatus] = useState<string | null>(null)
   const [codeRunnerErrorLine, setCodeRunnerErrorLine] = useState<number | null>(null)
   const [codeRunnerDirty, setCodeRunnerDirty] = useState(false)
+
+  const [vithiQueue, setVithiQueue] = useState<VithiEvent[]>([])
+  const vithiProcessingRef = useRef(false)
+  const [vithiCurrentEvent, setVithiCurrentEvent] = useState<VithiEvent | null>(null)
+  const vithiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [codeRunnerPos, setCodeRunnerPos] = useState<{ x: number; y: number }>({ x: 38, y: 104 })
   const codeRunnerDragRef = useRef<{ active: boolean; dx: number; dy: number }>({ active: false, dx: 0, dy: 0 })
   const codeRunnerHydratedRef = useRef(false)
@@ -3973,6 +4019,48 @@ export function Simulation(): React.ReactElement {
         setCodeRunnerStatus(`${localMsg} (Backend: ${msg})`)
       })
   }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList])
+
+  useEffect(() => {
+    if (vithiQueue.length === 0) {
+      vithiProcessingRef.current = false
+      setVithiCurrentEvent(null)
+      return
+    }
+    if (vithiProcessingRef.current) return
+    vithiProcessingRef.current = true
+    const next = vithiQueue[0]
+    setVithiCurrentEvent(next)
+    const id = setTimeout(() => {
+      vithiProcessingRef.current = false
+      setVithiQueue((q) => q.slice(1))
+    }, 400)
+    return () => clearTimeout(id)
+  }, [vithiQueue])
+
+  const handleSenseSelect = useCallback((senseId: string) => {
+    const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
+    fetch(`${API_BASE}/api/vithi/pancadvara`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sense: apiSense,
+        desire: 'good',
+        vividity: 'atimahantarammana',
+        person_type: 'puthujjana',
+        yoniso_manasikara: false,
+        anusaya_dosa: 0.3,
+        anusaya_lobha: 0.2,
+        experience_weight: {},
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data: { events?: VithiEvent[] }) => {
+        if (data.events) setVithiQueue(data.events)
+      })
+      .catch((err: unknown) => {
+        console.error('Vithi API error:', err)
+      })
+  }, [])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
@@ -4643,6 +4731,8 @@ export function Simulation(): React.ReactElement {
               onT3HappyChange={setT3HappySelected}
               t5SelectedId={t5SelectedId}
               onT5Change={setT5SelectedId}
+              onSenseSelect={handleSenseSelect}
+              vithiCurrentEvent={vithiCurrentEvent}
             />
           )}
         </div>

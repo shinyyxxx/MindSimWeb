@@ -268,6 +268,50 @@ class StaticMindGroupListResponse(BaseModel):
     count: int
 
 
+# ---------------------------------------------------------------------------
+# Pancadvara Vithi (Five-door cognitive process)
+# ---------------------------------------------------------------------------
+
+class VithiEventResponse(BaseModel):
+    order: int
+    stage: str
+    mind_id: Optional[int] = None
+    mind_id_range: Optional[List[int]] = None
+    mind_name: Optional[str] = None
+    description: str
+
+
+class PancadvaraVithiRequest(BaseModel):
+    sense: str
+    desire: str
+    vividity: str
+    person_type: str = "puthujjana"
+    yoniso_manasikara: bool = False
+    anusaya_dosa: float = 0.3
+    anusaya_lobha: float = 0.2
+    experience_weight: Optional[dict] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "sense": "eye",
+                "desire": "good",
+                "vividity": "atimahantarammana",
+                "person_type": "puthujjana",
+                "yoniso_manasikara": False,
+                "anusaya_dosa": 0.3,
+                "anusaya_lobha": 0.2,
+                "experience_weight": {}
+            }
+        }
+
+
+class PancadvaraVithiResponse(BaseModel):
+    message: str
+    events: List[VithiEventResponse]
+    updated_experience_weight: dict
+    summary: dict
+
 
 '''
 [ Request ]
