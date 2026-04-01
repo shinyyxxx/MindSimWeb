@@ -16,7 +16,11 @@ from app.schemas import (
     UpsertMindResponse, MindResponse, MentalSphereRequest, MentalSphereResponse,
     MentalSphereUpsert, UpsertMentalSphereResponse, MentalSphereResponseData,
     ExperienceInput, ExperienceResult, ProcessExperienceResponse, NonKammicStage, JavanaResult,
-    ExecuteCodeRequest, ExecuteCodeResponse
+    ExecuteCodeRequest, ExecuteCodeResponse,
+    StaticMentalResponse, StaticMentalListResponse,
+    StaticMentalGroupResponse, StaticMentalGroupListResponse,
+    StaticMindResponse, StaticMindListResponse,
+    StaticMindGroupResponse, StaticMindGroupListResponse,
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
@@ -29,6 +33,13 @@ from app.experience_helpers import (
     get_kamma_statistics
 )
 from app.code_executor import persist_and_collect
+from app.static_helpers import (
+    init_static_data,
+    get_static_mental, list_static_mentals,
+    get_static_mental_group, list_static_mental_groups,
+    get_static_mind, list_static_minds,
+    get_static_mind_group, list_static_mind_groups,
+)
 from zodb_module.zodb_management import get_connection, init_zodb, close_zodb
 from app.database import init_database
 
@@ -87,6 +98,9 @@ async def lifespan(app: FastAPI):
         init_database()
     except Exception as e:
         print(f"Database init warning: {e}")
+
+    _, root = get_connection()
+    init_static_data(root)
     
     # Start the Redis subscriber task
     _subscriber_task = asyncio.create_task(redis_result_subscriber())
@@ -611,6 +625,74 @@ async def execute_code_endpoint(request: ExecuteCodeRequest):
         raise HTTPException(status_code=400, detail=f"Syntax error in code: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Static Abhidhamma reference data endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/static/mentals", response_model=StaticMentalListResponse)
+async def static_mentals_endpoint(category: str = None):
+    _, root = get_connection()
+    mentals = list_static_mentals(root, category=category)
+    return StaticMentalListResponse(mentals=mentals, count=len(mentals))
+
+
+@app.get("/api/static/mentals/{mental_id}", response_model=StaticMentalResponse)
+async def static_mental_endpoint(mental_id: int):
+    _, root = get_connection()
+    mental = get_static_mental(root, mental_id)
+    if not mental:
+        raise HTTPException(status_code=404, detail=f"Static mental {mental_id} not found")
+    return StaticMentalResponse(**mental)
+
+
+@app.get("/api/static/mental-groups", response_model=StaticMentalGroupListResponse)
+async def static_mental_groups_endpoint():
+    _, root = get_connection()
+    groups = list_static_mental_groups(root)
+    return StaticMentalGroupListResponse(mental_groups=groups, count=len(groups))
+
+
+@app.get("/api/static/mental-groups/{group_id}", response_model=StaticMentalGroupResponse)
+async def static_mental_group_endpoint(group_id: int):
+    _, root = get_connection()
+    group = get_static_mental_group(root, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail=f"Static mental group {group_id} not found")
+    return StaticMentalGroupResponse(**group)
+
+
+@app.get("/api/static/minds", response_model=StaticMindListResponse)
+async def static_minds_endpoint(category: str = None):
+    _, root = get_connection()
+    minds = list_static_minds(root, category=category)
+    return StaticMindListResponse(minds=minds, count=len(minds))
+
+
+@app.get("/api/static/minds/{mind_id}", response_model=StaticMindResponse)
+async def static_mind_endpoint(mind_id: int):
+    _, root = get_connection()
+    mind = get_static_mind(root, mind_id)
+    if not mind:
+        raise HTTPException(status_code=404, detail=f"Static mind {mind_id} not found")
+    return StaticMindResponse(**mind)
+
+
+@app.get("/api/static/mind-groups", response_model=StaticMindGroupListResponse)
+async def static_mind_groups_endpoint():
+    _, root = get_connection()
+    groups = list_static_mind_groups(root)
+    return StaticMindGroupListResponse(mind_groups=groups, count=len(groups))
+
+
+@app.get("/api/static/mind-groups/{group_id}", response_model=StaticMindGroupResponse)
+async def static_mind_group_endpoint(group_id: int):
+    _, root = get_connection()
+    group = get_static_mind_group(root, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail=f"Static mind group {group_id} not found")
+    return StaticMindGroupResponse(**group)
 
 
 @app.get("/", response_class=HTMLResponse)

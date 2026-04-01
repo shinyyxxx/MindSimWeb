@@ -89,10 +89,30 @@ const WORLD_THEME_OPTIONS: Array<{ key: WorldThemeKey; label: string }> = [
   { key: 'human_world', label: 'Human World' },
   { key: 'hell', label: 'Hell' },
 ]
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 const CODE_RUNNER_TEMPLATE = `m = Mind()
 m.name = "Mind"
 m.color = "#3b82f6"
 m.scale = 1.6`
+
+function convertDslToPython(dsl: string): string {
+  return dsl
+    .split('\n')
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return line
+      const ctorMatch = trimmed.match(/^(\w+)\s*=\s*(\w+)\(\)$/)
+      if (ctorMatch) {
+        const className = ctorMatch[2]
+        if (className !== 'Mind' && (className === 'Mental' || className.endsWith('Mental'))) {
+          return `${ctorMatch[1]} = Mental()`
+        }
+      }
+      return line.replace(/\.add\(/, '.append(')
+    })
+    .join('\n')
+}
 
 function seededRandom(seed: number): () => number {
   return () => {
@@ -3670,9 +3690,26 @@ export function Simulation(): React.ReactElement {
     setScriptMentals(Array.from(newMentalsByVar.values()))
     setScriptMatchedDefaultMentals(Array.from(usedDefaultMentals))
     setScriptResultActive(true)
-    setCodeRunnerStatus(
-      `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${linkedMentalVars.size} linked mental var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
-    )
+
+    const localMsg = `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${linkedMentalVars.size} linked mental var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
+    setCodeRunnerStatus(localMsg)
+
+    const pythonCode = convertDslToPython(codeRunnerCode)
+    fetch(`${API_BASE}/api/execute_code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: pythonCode }),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((data: { summary?: { minds_created?: number; mentals_created?: number } }) => {
+        const mc = data.summary?.minds_created ?? 0
+        const mtc = data.summary?.mentals_created ?? 0
+        setCodeRunnerStatus(`${localMsg} Persisted ${mc} mind(s) and ${mtc} mental(s).`)
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
+        setCodeRunnerStatus(`${localMsg} (Backend: ${msg})`)
+      })
   }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
