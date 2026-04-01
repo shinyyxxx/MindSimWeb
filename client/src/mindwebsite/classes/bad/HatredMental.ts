@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import angerEmojiModel from '../../../assets/emoji/anger_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Hatred (Dosa)
@@ -13,6 +14,10 @@ export class HatredMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Hatred has its own model; keep same framing as other featured mentals.
+      modelPath: options.modelPath ?? angerEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 0.006,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: 0 },
     })
   }
 

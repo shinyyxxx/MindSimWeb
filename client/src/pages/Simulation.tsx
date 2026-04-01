@@ -683,7 +683,7 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
     // T0: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
     // Temp to check visual, i will remove this later
-    pushUnique('recklessness')
+    pushUnique('doubt')
   } else if (index === 2) {
     // T2: add Initial Application, Sustained Application, Decision
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])

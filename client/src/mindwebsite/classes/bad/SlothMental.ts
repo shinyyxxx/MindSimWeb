@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import sleepingEmojiModel from '../../../assets/emoji/sleeping_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Sloth (Thina)
@@ -13,6 +14,10 @@ export class SlothMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Sloth has its own model; keep same framing as other featured mentals.
+      modelPath: options.modelPath ?? sleepingEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 5.8,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: -1.3 },
     })
   }
 
