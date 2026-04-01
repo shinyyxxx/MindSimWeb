@@ -120,6 +120,88 @@ export function XRControllers() {
   return null
 }
 
+export function XRExitByGrip({
+  enabled,
+  holdMs = 5000,
+}: {
+  enabled: boolean
+  holdMs?: number
+}) {
+  const { gl } = useThree()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const exitingRef = useRef(false)
+  const squeezedControllersRef = useRef<Set<number>>(new Set())
+
+  useEffect(() => {
+    const clearHoldTimer = () => {
+      if (!timeoutRef.current) return
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+
+    if (!enabled) {
+      clearHoldTimer()
+      exitingRef.current = false
+      squeezedControllersRef.current.clear()
+      return
+    }
+
+    const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+
+    const onSqueezeStart = (controllerIndex: number) => {
+      if (!gl.xr.isPresenting || exitingRef.current) return
+      squeezedControllersRef.current.add(controllerIndex)
+      if (squeezedControllersRef.current.size < 2 || timeoutRef.current) return
+
+      timeoutRef.current = setTimeout(async () => {
+        timeoutRef.current = null
+        if (!gl.xr.isPresenting || exitingRef.current) return
+        if (squeezedControllersRef.current.size < 2) return
+        exitingRef.current = true
+        try {
+          await gl.xr.getSession()?.end()
+        } catch (error) {
+          console.error('Failed to end XR session via dual-grip hold', error)
+        } finally {
+          exitingRef.current = false
+          squeezedControllersRef.current.clear()
+        }
+      }, holdMs)
+    }
+
+    const onSqueezeEnd = (controllerIndex: number) => {
+      squeezedControllersRef.current.delete(controllerIndex)
+      clearHoldTimer()
+    }
+
+    const onSqueezeStart0 = () => onSqueezeStart(0)
+    const onSqueezeStart1 = () => onSqueezeStart(1)
+    const onSqueezeEnd0 = () => onSqueezeEnd(0)
+    const onSqueezeEnd1 = () => onSqueezeEnd(1)
+
+    controllers.forEach((controller) => {
+      if (controller === controllers[0]) {
+        controller.addEventListener('squeezestart', onSqueezeStart0 as unknown as (event: { data: XRInputSource }) => void)
+        controller.addEventListener('squeezeend', onSqueezeEnd0 as unknown as (event: { data: XRInputSource }) => void)
+      } else {
+        controller.addEventListener('squeezestart', onSqueezeStart1 as unknown as (event: { data: XRInputSource }) => void)
+        controller.addEventListener('squeezeend', onSqueezeEnd1 as unknown as (event: { data: XRInputSource }) => void)
+      }
+    })
+
+    return () => {
+      clearHoldTimer()
+      squeezedControllersRef.current.clear()
+      controllers[0].removeEventListener('squeezestart', onSqueezeStart0 as unknown as (event: { data: XRInputSource }) => void)
+      controllers[0].removeEventListener('squeezeend', onSqueezeEnd0 as unknown as (event: { data: XRInputSource }) => void)
+      controllers[1].removeEventListener('squeezestart', onSqueezeStart1 as unknown as (event: { data: XRInputSource }) => void)
+      controllers[1].removeEventListener('squeezeend', onSqueezeEnd1 as unknown as (event: { data: XRInputSource }) => void)
+    }
+  }, [enabled, gl, holdMs])
+
+  return null
+}
+
 export function XRMovement({
   enabled,
   moveSpeed = 1.8,

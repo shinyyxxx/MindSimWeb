@@ -1,5 +1,6 @@
 import BadMental from './BadMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import zipMouthEmojiModel from '../../../assets/emoji/zipMouth_emoji.glb?url'
 
 /**
  * Unwholesome mental factor: Stinginess (Macchariya)
@@ -13,6 +14,10 @@ export class StinginessMental extends BadMental {
       opacity: options.opacity ?? 0.5,
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Stinginess has its own model; keep same framing as other featured mentals.
+      modelPath: options.modelPath ?? zipMouthEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 6.506,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: 0 },
     })
   }
 

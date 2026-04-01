@@ -68,7 +68,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import XRProfilePanel from '../components/XRProfilePanel'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
-import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
+import { XRClearMode, XRControllers, XRExitByGrip, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 import { useXRSession } from './simulation/useXRSession'
 import { cancelNarration, speakNarration } from './simulation/narration'
 import { CodeParser, type ParsedAction } from '../utils/codeParser'
@@ -2130,6 +2130,69 @@ function PanelPositionSync({
   return null
 }
 
+function XROccludedConnector({
+  focusTargetRef,
+  selectedMentalName,
+  enabled,
+}: {
+  focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
+  selectedMentalName: string | null
+  enabled: boolean
+}) {
+  const { camera } = useThree()
+  const forward = useRef(new THREE.Vector3())
+  const right = useRef(new THREE.Vector3())
+  const panelAnchor = useRef(new THREE.Vector3())
+  const lineObject = useMemo(() => {
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3))
+    const material = new THREE.LineBasicMaterial({
+      color: 0x7aa2ff,
+      transparent: true,
+      opacity: 0.9,
+      depthTest: true,
+      depthWrite: false,
+    })
+    const line = new THREE.Line(geometry, material)
+    line.frustumCulled = false
+    line.visible = false
+    return line
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      lineObject.geometry.dispose()
+      const material = lineObject.material
+      if (Array.isArray(material)) material.forEach((m) => m.dispose())
+      else material.dispose()
+    }
+  }, [lineObject])
+
+  useFrame(() => {
+    if (!enabled || !selectedMentalName || !focusTargetRef.current) {
+      lineObject.visible = false
+      return
+    }
+
+    lineObject.visible = true
+    camera.getWorldDirection(forward.current)
+    right.current.set(1, 0, 0).applyQuaternion(camera.quaternion)
+    panelAnchor.current.copy(camera.position)
+      .add(forward.current.multiplyScalar(1.18))
+      .add(right.current.multiplyScalar(0.38))
+    panelAnchor.current.y -= 0.04
+
+    const geometry = lineObject.geometry as THREE.BufferGeometry
+    const position = geometry.getAttribute('position') as THREE.BufferAttribute
+    position.setXYZ(0, focusTargetRef.current.x, focusTargetRef.current.y, focusTargetRef.current.z)
+    position.setXYZ(1, panelAnchor.current.x, panelAnchor.current.y, panelAnchor.current.z)
+    position.needsUpdate = true
+    geometry.computeBoundingSphere()
+  })
+
+  return <primitive object={lineObject} />
+}
+
 const TIMELINE_COLORS = ['#5D8DE0', '#38B2D1', '#4CAF50', '#FFC107', '#FF9800', '#F44336', '#1e3a5f']
 
 const TIMELINE_ICONS = ['⊙', '✦', '◉', '▤', '⚠', '✋', '◈']
@@ -2772,6 +2835,7 @@ function ThreeScene({
         onRendererReady={onRendererReady}
       />
       <XRControllers />
+      <XRExitByGrip enabled={isXrActive} />
       <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
       {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
@@ -2843,6 +2907,11 @@ function ThreeScene({
           onBack={onCloseProfile}
         />
       )}
+      <XROccludedConnector
+        focusTargetRef={focusTargetRef}
+        selectedMentalName={selectedMentalName}
+        enabled={isXrActive}
+      />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       {showMentalsLayer && !isXrActive && (
         <EffectComposer multisampling={2} autoClear={false}>
@@ -3031,6 +3100,13 @@ export function Simulation(): React.ReactElement {
     })
     return base
   }, [mentals, scriptMatchedDefaultMentals, scriptMentals, scriptResultActive])
+
+  useEffect(() => {
+    mind.setLabelDepthOcclusion(isXrActive)
+    allMentals.forEach((mental) => {
+      mental.setLabelDepthOcclusion(isXrActive)
+    })
+  }, [allMentals, isXrActive, mind])
 
   useEffect(() => {
     const signature = `${timelineIndex}|${t3HappySelected ? '1' : '0'}|${t5SelectedId ?? ''}`
@@ -3520,7 +3596,7 @@ export function Simulation(): React.ReactElement {
 
   const menuConnectorStart = getOverlayPoint(focusScreenPosition ?? selected?.screenPosition ?? null)
   const menuConnectorEnd = getOverlayPoint(panelPosition)
-  const showMenuConnector = Boolean(selected && menuConnectorStart && menuConnectorEnd)
+  const showMenuConnector = Boolean(!isXrActive && selected && menuConnectorStart && menuConnectorEnd)
   const connectorProgress = menuRevealReady ? 1 : menuLineProgress
   const connectorAnimatedEnd =
     menuConnectorStart && menuConnectorEnd

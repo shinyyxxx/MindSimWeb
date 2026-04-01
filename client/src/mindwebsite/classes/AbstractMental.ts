@@ -43,6 +43,7 @@ export class AbstractMental {
   labelEnabled: boolean
   labelWorldSize: number
   labelOffset: number
+  private labelDepthOcclusion: boolean
   private labelSprite: THREE.Sprite | null
 
   constructor(options: MentalBaseOptions = {}) {
@@ -90,6 +91,7 @@ export class AbstractMental {
     this.labelEnabled = options.labelEnabled ?? true
     this.labelWorldSize = options.labelWorldSize ?? 0.18
     this.labelOffset = options.labelOffset ?? 0.06
+    this.labelDepthOcclusion = false
     this.labelSprite = null
   }
 
@@ -290,11 +292,11 @@ export class AbstractMental {
       const material = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
-        depthTest: false,
+        depthTest: this.labelDepthOcclusion,
         depthWrite: false
       })
       this.labelSprite = new THREE.Sprite(material)
-      this.labelSprite.renderOrder = 999
+      this.labelSprite.renderOrder = this.labelDepthOcclusion ? 0 : 999
       this.mesh.add(this.labelSprite)
     } else {
       const material = this.labelSprite.material
@@ -371,6 +373,18 @@ export class AbstractMental {
   setName(name: string): void {
     this.name = name
     this.updateLabel()
+  }
+
+  setLabelDepthOcclusion(enabled: boolean): void {
+    this.labelDepthOcclusion = enabled
+    if (!this.labelSprite) return
+    const material = this.labelSprite.material
+    if (material instanceof THREE.SpriteMaterial) {
+      material.depthTest = enabled
+      material.depthWrite = false
+      material.needsUpdate = true
+    }
+    this.labelSprite.renderOrder = enabled ? 0 : 999
   }
 
   getName(): string {
