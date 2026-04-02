@@ -96,6 +96,43 @@ const SENSE_BUTTON_TO_API: Record<string, string> = {
   smell: 'nose',
 }
 
+interface VithiParams {
+  desire: string
+  vividity: string
+  person_type: string
+  yoniso_manasikara: boolean
+  anusaya_dosa: number
+  anusaya_lobha: number
+}
+
+const SENSE_VARIANTS: Record<string, { id: string; label: string; icon: string; params: VithiParams }[]> = {
+  sound: [
+    { id: 'dog-barking', label: 'Dog barking', icon: '🐕', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.4, anusaya_lobha: 0.1 } },
+    { id: 'beautiful-music', label: 'Beautiful music', icon: '🎵', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4 } },
+    { id: 'faint-whisper', label: 'Faint whisper', icon: '🤫', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.2, anusaya_lobha: 0.2 } },
+  ],
+  picture: [
+    { id: 'beautiful-sunset', label: 'Beautiful sunset', icon: '🌅', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3 } },
+    { id: 'scary-scene', label: 'Scary scene', icon: '😱', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1 } },
+    { id: 'dim-shadow', label: 'Dim shadow', icon: '👤', params: { desire: 'bad', vividity: 'atiparittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.3, anusaya_lobha: 0.2 } },
+  ],
+  taste: [
+    { id: 'sweet-fruit', label: 'Sweet fruit', icon: '🍎', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.5 } },
+    { id: 'bitter-medicine', label: 'Bitter medicine', icon: '💊', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.3, anusaya_lobha: 0.1 } },
+    { id: 'bland-water', label: 'Bland water', icon: '💧', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.1 } },
+  ],
+  touch: [
+    { id: 'warm-hug', label: 'Warm hug', icon: '🤗', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4 } },
+    { id: 'sharp-pain', label: 'Sharp pain', icon: '🩹', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.6, anusaya_lobha: 0.1 } },
+    { id: 'light-breeze', label: 'Light breeze', icon: '🍃', params: { desire: 'good', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.2 } },
+  ],
+  smell: [
+    { id: 'fresh-flowers', label: 'Fresh flowers', icon: '🌸', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3 } },
+    { id: 'rotten-garbage', label: 'Rotten garbage', icon: '🗑️', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1 } },
+    { id: 'subtle-incense', label: 'Subtle incense', icon: '🧘', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.1, anusaya_lobha: 0.1 } },
+  ],
+}
+
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
 const XR_MIND_HEIGHT_OFFSET = 1.45
@@ -2343,12 +2380,12 @@ function TimelineCanvas({
   onT3HappyChange?: (selected: boolean) => void
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
-  onSenseSelect?: (senseId: string) => void
+  onSenseSelect?: (senseId: string, params: VithiParams) => void
   vithiCurrentEvent?: VithiEvent | null
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
-  const [selectedSense, setSelectedSense] = useState<string>('sound')
+  const [selectedSense, setSelectedSense] = useState<string>('')
   const railRef = useRef<HTMLDivElement | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const maxIndex = Math.max(stops.length - 1, 0)
@@ -2462,7 +2499,7 @@ function TimelineCanvas({
           {selectedIndex === 0 && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                Choose sense data
+                Choose sense door
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
                 {T0_SENSE_OPTIONS.map((opt) => {
@@ -2471,7 +2508,7 @@ function TimelineCanvas({
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => { setSelectedSense(opt.id); onSenseSelect?.(opt.id) }}
+                      onClick={() => setSelectedSense(isSelected ? '' : opt.id)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -2492,6 +2529,39 @@ function TimelineCanvas({
                   )
                 })}
               </div>
+              {selectedSense && SENSE_VARIANTS[selectedSense] && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, fontWeight: 600 }}>
+                    What kind?
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {SENSE_VARIANTS[selectedSense].map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => onSenseSelect?.(selectedSense, v.params)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          padding: '7px 12px',
+                          borderRadius: 10,
+                          border: '1px solid rgba(148, 163, 184, 0.3)',
+                          background: 'rgba(30, 41, 59, 0.65)',
+                          color: '#e5e7eb',
+                          fontSize: 12,
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ fontSize: 16 }}>{v.icon}</span>
+                        <span>{v.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -4048,19 +4118,14 @@ export function Simulation(): React.ReactElement {
     return () => clearTimeout(id)
   }, [vithiQueue])
 
-  const handleSenseSelect = useCallback((senseId: string) => {
+  const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
     fetch(`${API_BASE}/api/vithi/pancadvara`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sense: apiSense,
-        desire: 'good',
-        vividity: 'atimahantarammana',
-        person_type: 'puthujjana',
-        yoniso_manasikara: false,
-        anusaya_dosa: 0.3,
-        anusaya_lobha: 0.2,
+        ...variantParams,
         experience_weight: {},
       }),
     })
