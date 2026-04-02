@@ -98,6 +98,8 @@ const SENSE_BUTTON_TO_API: Record<string, string> = {
 
 const DEFAULT_MIND_POSITION: Vec3 = [0, -0.4, 0]
 const DEFAULT_MIND_SCALE = 1.6
+const XR_MIND_HEIGHT_OFFSET = 1.45
+const DEFAULT_HUMAN_GROUND_Y = -2
 type WorldThemeKey = 'default' | 'heaven' | 'human_world' | 'hell'
 
 const WORLD_THEME_OPTIONS: Array<{ key: WorldThemeKey; label: string }> = [
@@ -985,7 +987,7 @@ function HumanBody({
   controlsRef,
   selectedShape = 'human',
   targetHeight = 2.25,
-  groundY = -2,
+  groundY = DEFAULT_HUMAN_GROUND_Y,
   mindWorldScale = 0.1,
   mindYOffsetWorld = 0.26,
   mindZOffsetWorld = -0.06,
@@ -3265,6 +3267,14 @@ function ThreeScene({
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const isXrActive = xrMode !== null
   const isArMode = xrMode === 'ar'
+  const effectiveMindPosition = useMemo<Vec3>(() => {
+    if (!isXrActive) return defaultMindPosition
+    return [defaultMindPosition[0], defaultMindPosition[1] + XR_MIND_HEIGHT_OFFSET, defaultMindPosition[2]]
+  }, [defaultMindPosition, isXrActive])
+  const effectiveHumanGroundY = useMemo(() => {
+    if (!isXrActive) return DEFAULT_HUMAN_GROUND_Y
+    return DEFAULT_HUMAN_GROUND_Y + XR_MIND_HEIGHT_OFFSET
+  }, [isXrActive])
   const xrInitialOffset = useMemo<[number, number, number]>(() => {
     // Push XR start position backward so the mind is visible in front on enter.
     return [0, 0, 4]
@@ -3296,14 +3306,14 @@ function ThreeScene({
   useLayoutEffect(() => {
     if (showHumanModel) return
     mind.setScale(defaultMindScale)
-    mind.setPosition(defaultMindPosition)
+    mind.setPosition(effectiveMindPosition)
 
     const ctl = controlsRef.current
     if (ctl) {
-      ctl.target.set(defaultMindPosition[0], defaultMindPosition[1], defaultMindPosition[2])
+      ctl.target.set(effectiveMindPosition[0], effectiveMindPosition[1], effectiveMindPosition[2])
       ctl.update()
     }
-  }, [defaultMindPosition, defaultMindScale, mind, showHumanModel])
+  }, [defaultMindScale, effectiveMindPosition, mind, showHumanModel])
 
   return (
     <Canvas
@@ -3355,6 +3365,7 @@ function ThreeScene({
             mind={mind}
             controlsRef={controlsRef}
             selectedShape={humanShape}
+            groundY={effectiveHumanGroundY}
           />
         </React.Suspense>
       )}

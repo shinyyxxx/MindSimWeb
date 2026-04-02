@@ -14,6 +14,7 @@ export class Mental extends AbstractMental {
   private attachedModel: THREE.Object3D | null
   private frozen: boolean
   private modelVisible: boolean
+  private modelLoadToken: number
 
   constructor(options: MentalBaseOptions = {}) {
     // Default: no floating labels for mentals unless explicitly enabled
@@ -35,6 +36,7 @@ export class Mental extends AbstractMental {
     this.attachedModel = null
     this.frozen = false
     this.modelVisible = true
+    this.modelLoadToken = 0
     
     this.normalizeVelocityToMotionSpeed()
   }
@@ -102,8 +104,12 @@ export class Mental extends AbstractMental {
 
   setModelVisible(visible: boolean): void {
     this.modelVisible = visible
-    if (this.attachedModel) {
-      this.attachedModel.visible = visible
+    if (this.mesh) {
+      this.mesh.children.forEach((child) => {
+        if (child.userData?.isMentalAttachedModel) {
+          child.visible = visible
+        }
+      })
     }
   }
 
@@ -193,6 +199,7 @@ export class Mental extends AbstractMental {
 
     // Remove any existing model first
     this.detachModel()
+    const loadToken = ++this.modelLoadToken
 
     const loader = new GLTFLoader().setCrossOrigin('anonymous')
     const basisPath = options.basisPath
@@ -217,7 +224,33 @@ export class Mental extends AbstractMental {
       loader.load(
         this.modelPath!,
         (gltf) => {
+          if (loadToken !== this.modelLoadToken) {
+            ktx2Loader.dispose()
+            dracoLoader.dispose()
+            resolve()
+            return
+          }
+
+          // Defensive cleanup in case an older race left extra models behind.
+          this.mesh?.children
+            .filter((child) => child.userData?.isMentalAttachedModel)
+            .forEach((child) => {
+              child.traverse((node) => {
+                if ((node as THREE.Mesh).isMesh) {
+                  const mesh = node as THREE.Mesh
+                  mesh.geometry?.dispose()
+                  if (Array.isArray(mesh.material)) {
+                    mesh.material.forEach((mat) => mat.dispose())
+                  } else {
+                    mesh.material?.dispose()
+                  }
+                }
+              })
+              this.mesh?.remove(child)
+            })
+
           const obj = gltf.scene
+          obj.userData.isMentalAttachedModel = true
           // Scale relative to bubble size so it fits inside.
           const bubbleScale = this.mesh?.scale.x || 1
           const neededLocalScale = targetWorldSize / Math.max(0.00001, bubbleScale)
@@ -566,6 +599,7 @@ export class Mental extends AbstractMental {
   }
 
   detachModel(): void {
+    this.modelLoadToken += 1
     if (!this.attachedModel || !this.mesh) return
 
     this.mesh.remove(this.attachedModel)
