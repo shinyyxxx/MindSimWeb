@@ -206,16 +206,16 @@ export function MindStudy(): React.ReactElement {
     ])
       .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
         for (let i = 0; i < mentalsRes.mentals.length; i++) {
-          console.log(`mental response : ${mentalsRes.mentals[i]}\n`)
+          console.log('mental response:', mentalsRes.mentals[i])
         }
-        for (let i = 0; i < mentalsRes.mental_groups.length; i++) {
-          console.log(`mental group response : ${mentalsRes.mental_groups[i]}\n`)
+        for (let i = 0; i < mentalGroupsRes.mental_groups.length; i++) {
+          console.log('mental group response:', mentalGroupsRes.mental_groups[i])
         }
-        for (let i = 0; i < mentalsRes.minds.length; i++) {
-          console.log(`mind response : ${mentalsRes.minds[i]}\n`)
+        for (let i = 0; i < mindsRes.minds.length; i++) {
+          console.log('mind response:', mindsRes.minds[i])
         }
-        for (let i = 0; i < mentalsRes.mind_groups.length; i++) {
-          console.log(`mind group response : ${mentalsRes.mind_groups[i]}\n`)
+        for (let i = 0; i < mindGroupsRes.mind_groups.length; i++) {
+          console.log('mind group response:', mindGroupsRes.mind_groups[i])
         }
         if (cancelled) return
         setStaticMentals(mentalsRes.mentals ?? [])
