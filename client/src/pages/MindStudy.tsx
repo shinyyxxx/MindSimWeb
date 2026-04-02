@@ -27,6 +27,44 @@ import { loadMentalTableRows } from '../utils/mentalTable'
 import { CETASIKA_CATEGORIES, type CetasikaCard } from '../data/cetasikaGrid'
 import { MentalSpherePreview } from '../components/MentalSpherePreview'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+interface StaticMental {
+  id: number
+  name: string
+  pali: string
+  thai: string
+  slug: string
+  category: string
+  description: string
+  highlights: string[]
+}
+
+interface StaticMentalGroup {
+  id: number
+  name: string
+  name_thai: string
+  name_en: string
+  mental_ids: number[]
+}
+
+interface StaticMind {
+  id: number
+  name: string
+  pali: string
+  thai: string
+  category: string
+  mental_ids: number[]
+}
+
+interface StaticMindGroup {
+  id: number
+  name: string
+  name_thai: string
+  name_en: string
+  mind_ids: number[]
+}
+
 type Topic = {
   id: string
   title: string
@@ -152,6 +190,38 @@ export function MindStudy(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const dropDropletRef = React.useRef<DropDropletFn | null>(null)
+
+  const [staticMentals, setStaticMentals] = useState<StaticMental[]>([])
+  const [staticMentalGroups, setStaticMentalGroups] = useState<StaticMentalGroup[]>([])
+  const [staticMinds, setStaticMinds] = useState<StaticMind[]>([])
+  const [staticMindGroups, setStaticMindGroups] = useState<StaticMindGroup[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetch(`${API_BASE}/api/static/mentals`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/static/mental-groups`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/static/minds`).then((r) => r.json()),
+      fetch(`${API_BASE}/api/static/mind-groups`).then((r) => r.json()),
+    ])
+      .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
+        if (cancelled) return
+        setStaticMentals(mentalsRes.mentals ?? [])
+        setStaticMentalGroups(mentalGroupsRes.mental_groups ?? [])
+        setStaticMinds(mindsRes.minds ?? [])
+        setStaticMindGroups(mindGroupsRes.mind_groups ?? [])
+        console.log('[MindStudy] Static data loaded:', {
+          mentals: mentalsRes.count,
+          mentalGroups: mentalGroupsRes.count,
+          minds: mindsRes.count,
+          mindGroups: mindGroupsRes.count,
+        })
+      })
+      .catch((err) => {
+        console.warn('[MindStudy] Failed to load static data:', err)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
 
