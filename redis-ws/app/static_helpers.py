@@ -49,6 +49,8 @@ def init_static_data(root):
             root.static_minds[d['id']] = StaticMind(
                 id=d['id'], name=d['name'], pali=d['pali'], thai=d['thai'],
                 category=d['category'], mental_ids=d['mental_ids'],
+                description=d.get('description', ''),
+                subgroup=d.get('subgroup', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MINDS_DATA)} minds (cittas)")

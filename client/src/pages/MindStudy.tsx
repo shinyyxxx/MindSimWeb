@@ -54,6 +54,8 @@ interface StaticMind {
   pali: string
   thai: string
   category: string
+  subgroup: string
+  description: string
   mental_ids: number[]
 }
 

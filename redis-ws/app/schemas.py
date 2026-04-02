@@ -247,6 +247,8 @@ class StaticMindResponse(BaseModel):
     pali: str
     thai: str
     category: str
+    subgroup: str = ''
+    description: str = ''
     mental_ids: List[int]
 
 

@@ -58,13 +58,15 @@ class StaticMentalGroup(persistent.Persistent):
 class StaticMind(persistent.Persistent):
     """A citta (consciousness) — 89 canonical entries."""
 
-    def __init__(self, id, name, pali, thai, category, mental_ids):
+    def __init__(self, id, name, pali, thai, category, mental_ids, description='', subgroup=''):
         self.id = id
         self.name = name
         self.pali = pali
         self.thai = thai
-        self.category = category          # e.g. 'akusala', 'ahetuka', 'kamavacara_kusala', …
+        self.category = category
         self.mental_ids = PersistentList(mental_ids or [])
+        self.description = description
+        self.subgroup = subgroup
 
     def to_dict(self):
         return {
@@ -73,6 +75,8 @@ class StaticMind(persistent.Persistent):
             'pali': self.pali,
             'thai': self.thai,
             'category': self.category,
+            'subgroup': self.subgroup,
+            'description': self.description,
             'mental_ids': list(self.mental_ids),
         }
 
