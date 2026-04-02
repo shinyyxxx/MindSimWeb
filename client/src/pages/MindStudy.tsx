@@ -15,8 +15,7 @@ const POOL_NARRATIVE_LINES = [
   'ทำให้จิตมีสีหรืออารมณ์ที่แตกต่างไปในแต่ละช่วง',
 ]
 
-import { CETASIKA_CATEGORIES, type CetasikaCard } from '../data/cetasikaGrid'
-import { MentalSpherePreview } from '../components/MentalSpherePreview'
+import { type CetasikaCard } from '../data/cetasikaGrid'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -84,6 +83,31 @@ const BAD_MENTAL_TEXT = '#7f1d1d'
 const NEUTRAL_MENTAL_TEXT = '#1f2937'
 const DIAGRAM_COLORS = ['#b76c84', '#ef9b54', '#69ad4f', '#7eb7e8', '#9f88db', '#e9b45a']
 
+/** Cetasika chart palette (green / orange / yellow / deep-orange + red highlights) */
+const MENTAL_CHART = {
+  neutralGreen: '#4CAF50',
+  akusalaOrange: '#FF9800',
+  sobhanaYellow: '#FFEB3B',
+  viratiDeepOrange: '#FF5722',
+  highlightRed: '#F44336',
+} as const
+
+function mentalSphereRingClass(mentalId: number): string {
+  if (mentalId === 52) return 'mental-ring-thick'
+  if ([13, 27, 47, 48, 49].includes(mentalId)) return 'mental-ring'
+  return ''
+}
+
+/** Thai digits ๐–๙ for subgroup counts (same style as citta subgroup labels). */
+const THAI_DIGITS = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'] as const
+
+function toThaiDigitString(n: number): string {
+  return String(Math.max(0, Math.floor(n)))
+    .split('')
+    .map((d) => THAI_DIGITS[Number(d)] ?? d)
+    .join('')
+}
+
 const defaultAggregates: DhammaObject[] = [
   new DhammaObject({
     id: 'calm',
@@ -145,10 +169,7 @@ export function MindStudy(): React.ReactElement {
   const [showDuckPool, setShowDuckPool] = useState<boolean>(false)
   const [selectedCetasika, setSelectedCetasika] = useState<CetasikaCard | null>(null)
   const [cetasikaModalOpen, setCetasikaModalOpen] = useState<boolean>(false)
-  const [hoveredCetasikaId, setHoveredCetasikaId] = useState<string | null>(null)
-  const [neutralNavOpen, setNeutralNavOpen] = useState(false)
-  const [badNavOpen, setBadNavOpen] = useState(false)
-  const [goodNavOpen, setGoodNavOpen] = useState(false)
+  const [mindNavOpen, setMindNavOpen] = useState(true)
   const [narrativePlaying, setNarrativePlaying] = useState<boolean>(false)
   const [subtitleLine, setSubtitleLine] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -170,19 +191,18 @@ export function MindStudy(): React.ReactElement {
       fetch(`${API_BASE}/api/static/mind-groups`).then((r) => r.json()),
     ])
       .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
+        const fetchedMentals: StaticMental[] = mentalsRes.mentals ?? []
         const fetchedMinds: StaticMind[] = mindsRes.minds ?? []
-        fetchedMinds.forEach((mind) => {
-          console.log('mind response:', mind)
-          console.log('[MindStudy] mind detail:', {
-            id: mind.id,
-            name: mind.name,
-            thai: mind.thai,
-            pali: mind.pali,
-            category: mind.category,
-            subgroup: mind.subgroup,
-            description: mind.description,
-            mentalIds: mind.mental_ids,
-            mentalCount: mind.mental_ids?.length ?? 0,
+        fetchedMentals.forEach((mental) => {
+          console.log('[MindStudy] mental detail:', {
+            id: mental.id,
+            name: mental.name,
+            thai: mental.thai,
+            pali: mental.pali,
+            category: mental.category,
+            description: mental.description,
+            highlights: mental.highlights,
+            highlightCount: mental.highlights?.length ?? 0,
           })
         })
         console.log('[MindStudy] Static data loaded:', {
@@ -192,7 +212,7 @@ export function MindStudy(): React.ReactElement {
           mindGroups: mindGroupsRes.count,
         })
         if (cancelled) return
-        setStaticMentals(mentalsRes.mentals ?? [])
+        setStaticMentals(fetchedMentals)
         setStaticMentalGroups(mentalGroupsRes.mental_groups ?? [])
         setStaticMinds(fetchedMinds)
         setStaticMindGroups(mindGroupsRes.mind_groups ?? [])
@@ -202,7 +222,9 @@ export function MindStudy(): React.ReactElement {
               new DhammaObject({
                 id: `mind-${mind.id}`,
                 title: mind.thai || mind.name,
-                description: `${mind.name}${mind.pali ? ` (${mind.pali})` : ''} อยู่ในหมวด ${mind.category}`,
+                description:
+                  mind.description?.trim() ||
+                  `${mind.name}${mind.pali ? ` (${mind.pali})` : ''} อยู่ในหมวด ${mind.category}`,
                 highlights: [
                   `Pali: ${mind.pali || '-'}`,
                   `Category: ${mind.category || '-'}`,
@@ -487,6 +509,95 @@ export function MindStudy(): React.ReactElement {
     [staticMinds],
   )
 
+  const mentalCategoryBlocks = useMemo(() => {
+    const mentalById = new Map(staticMentals.map((mental) => [mental.id, mental]))
+    const rows = staticMentalGroups
+      .map((group) => ({
+        id: group.id,
+        title: group.name_thai || group.name,
+        titleEn: group.name_en || group.name,
+        items: group.mental_ids
+          .map((mentalId) => mentalById.get(mentalId))
+          .filter((mental): mental is StaticMental => Boolean(mental)),
+      }))
+      .filter((row) => row.items.length > 0)
+
+    const neutralRowColors = ['#97a6ba', '#b6c2d4']
+    const badRowColors = ['#be738d', '#ef9b54', '#d6b390', '#d9c29f', '#d7c8b7']
+    const goodRowColors = ['#9fbe4c', '#5fbf93', '#7db2e3', '#7f96e7']
+
+    const mapRows = (
+      wantedIds: number[],
+      rowColors: string[],
+      anchorMap: Record<number, string>,
+    ) =>
+      wantedIds
+        .map((id, index) => {
+          const row = rows.find((candidate) => candidate.id === id)
+          if (!row) return null
+          return {
+            ...row,
+            anchorId: anchorMap[id] ?? `mental-row-${id}`,
+            color: rowColors[index % rowColors.length],
+          }
+        })
+        .filter((row): row is { id: number; title: string; titleEn: string; items: StaticMental[]; anchorId: string; color: string } => Boolean(row))
+
+    const neutralRows = mapRows(
+      [1, 2],
+      neutralRowColors,
+      { 1: 'cetasikas-neutral-universal', 2: 'cetasikas-neutral-pakinnaka' },
+    )
+    const badRows = mapRows(
+      [3, 4, 5, 6, 7],
+      badRowColors,
+      {
+        3: 'cetasikas-bad-moha',
+        4: 'cetasikas-bad-lobha',
+        5: 'cetasikas-bad-dosa',
+        6: 'cetasikas-bad-thinamiddha',
+        7: 'cetasikas-bad-vicikiccha',
+      },
+    )
+    const goodRows = mapRows(
+      [8, 9, 10, 11],
+      goodRowColors,
+      {
+        8: 'cetasikas-good-sobhana',
+        9: 'cetasikas-good-virati',
+        10: 'cetasikas-good-appamanna',
+        11: 'cetasikas-good-panna',
+      },
+    )
+
+    return [
+      {
+        id: 'cetasikas-neutral',
+        titleThai: 'อัญญสมานาเจตสิก 13',
+        subtitleThai: 'เจตสิกทั่วไปที่เข้าได้กับจิตทั้งดีและชั่ว',
+        titleEn: 'Neutral — 13 cetasikas',
+        color: '#94a3b8',
+        rows: neutralRows,
+      },
+      {
+        id: 'cetasikas-bad',
+        titleThai: 'อกุศลเจตสิก 14',
+        subtitleThai: 'เจตสิกที่ทำหน้าที่ปรุงแต่งจิตให้เศร้าหมอง',
+        titleEn: 'Unwholesome — 14 cetasikas',
+        color: '#ef9b54',
+        rows: badRows,
+      },
+      {
+        id: 'cetasikas-good',
+        titleThai: 'โสภณเจตสิก 25',
+        subtitleThai: 'เจตสิกฝ่ายดีที่ทำให้จิตผ่องใส',
+        titleEn: 'Beautiful — 25 cetasikas',
+        color: '#16a34a',
+        rows: goodRows,
+      },
+    ].filter((block) => block.rows.length > 0)
+  }, [staticMentals, staticMentalGroups])
+
   return (
     <main className="page">
       <div className="mindstudy-hero">
@@ -494,8 +605,8 @@ export function MindStudy(): React.ReactElement {
           <p className="mindstudy-kicker">Study Guide</p>
           <h1 className="mindstudy-title">Mind Study: The Five Aggregates</h1>
           <p className="mindstudy-lead">
-            Use the side outline to jump between aggregates. Each section keeps the writing concise so the core
-            ideas stay aligned and easy to scan.
+            Use the left outline to move between overview topics, mental factors (เจตสิก), and minds (จิต). Each block
+            stays scannable so the Abhidhamma layout stays clear.
           </p>
         </div>
       </div>
@@ -511,7 +622,7 @@ export function MindStudy(): React.ReactElement {
               aria-expanded={navOpen}
               aria-controls="mindstudy-nav-subtopics"
             >
-              <span>{mainTopic.title}</span>
+              <span>Study outline</span>
               <span className={`mindstudy-caret ${navOpen ? 'open' : ''}`} aria-hidden>
                 ▼
               </span>
@@ -520,83 +631,95 @@ export function MindStudy(): React.ReactElement {
               id="mindstudy-nav-subtopics"
               className={`mindstudy-nav-children ${navOpen ? 'open' : ''}`}
               role="region"
-              aria-label="Subtopics"
+              aria-label="Study outline"
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button
-                  type="button"
-                  className="mindstudy-nav-item sub"
-                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  onClick={() => setNeutralNavOpen((o) => !o)}
-                  aria-expanded={neutralNavOpen}
-                >
-                  <span>Cetasikas — Neutral (13)</span>
-                  <span className={`mindstudy-caret ${neutralNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
-                </button>
-                <div
-                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${neutralNavOpen ? 'open' : ''}`}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
-                >
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-neutral-universal">
-                    สัพพจิตตสาธารณ (7)
+              <a className="mindstudy-nav-item sub" href={`#${mainTopic.id}`}>
+                {mainTopic.title}
+              </a>
+              <a className="mindstudy-nav-item sub" href="#cognitive-start">
+                How Cognitive process starts
+              </a>
+              <a className="mindstudy-nav-item sub" href="#cognitive">
+                How Cognitive process work?
+              </a>
+              <a className="mindstudy-nav-item sub" href="#learn-more">
+                Learn more about the mind
+              </a>
+            </div>
+
+            <div className="mindstudy-nav-divider" role="presentation" />
+
+            <div className="mindstudy-nav-section">
+              <p className="mindstudy-nav-section-title">Mental</p>
+              <p className="mindstudy-nav-section-desc">เจตสิก · Cetasikas (52)</p>
+              <a className="mindstudy-nav-item" href="#topic-mental">
+                Mental diagram
+              </a>
+              <a className="mindstudy-nav-item sub mindstudy-nav-mental-topic" href="#cetasikas-neutral">
+                <span className="mindstudy-nav-mental-topic-title">อัญญสมานาเจตสิก 13</span>
+                <span className="mindstudy-nav-mental-topic-desc">
+                  เจตสิกทั่วไปที่เข้าได้กับจิตทั้งดีและชั่ว
+                </span>
+              </a>
+              <a
+                className="mindstudy-nav-item sub mindstudy-nav-mental-topic"
+                href="#cetasikas-bad"
+                style={{ color: BAD_MENTAL_TEXT }}
+              >
+                <span className="mindstudy-nav-mental-topic-title" style={{ color: 'inherit' }}>
+                  อกุศลเจตสิก 14
+                </span>
+                <span className="mindstudy-nav-mental-topic-desc" style={{ color: 'inherit', opacity: 0.92 }}>
+                  เจตสิกที่ทำหน้าที่ปรุงแต่งจิตให้เศร้าหมอง
+                </span>
+              </a>
+              <a
+                className="mindstudy-nav-item sub mindstudy-nav-mental-topic"
+                href="#cetasikas-good"
+                style={{ color: GOOD_MENTAL_TEXT }}
+              >
+                <span className="mindstudy-nav-mental-topic-title" style={{ color: 'inherit' }}>
+                  โสภณเจตสิก 25
+                </span>
+                <span className="mindstudy-nav-mental-topic-desc" style={{ color: 'inherit', opacity: 0.92 }}>
+                  เจตสิกฝ่ายดีที่ทำให้จิตผ่องใส
+                </span>
+              </a>
+            </div>
+
+            <div className="mindstudy-nav-divider" role="presentation" />
+
+            <div className="mindstudy-nav-section">
+              <p className="mindstudy-nav-section-title">Mind</p>
+              <p className="mindstudy-nav-section-desc">จิต · Citta (89)</p>
+              <a className="mindstudy-nav-item" href="#topic-mind">
+                Mind diagram
+              </a>
+              <button
+                type="button"
+                className="mindstudy-nav-toggle"
+                style={{ marginTop: 6 }}
+                onClick={() => setMindNavOpen((o) => !o)}
+                aria-expanded={mindNavOpen}
+                aria-controls="mindstudy-nav-mind-groups"
+              >
+                <span>Citta groups</span>
+                <span className={`mindstudy-caret ${mindNavOpen ? 'open' : ''}`} aria-hidden>
+                  ▼
+                </span>
+              </button>
+              <div
+                id="mindstudy-nav-mind-groups"
+                className={`mindstudy-nav-children ${mindNavOpen ? 'open' : ''}`}
+                role="region"
+                aria-label="Citta groups"
+              >
+                {mindDiagramGroups.map((g) => (
+                  <a key={g.id} className="mindstudy-nav-item sub" href={`#${g.id}`}>
+                    {g.title}
                   </a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-neutral-pakinnaka">
-                    ปกิณณก (6)
-                  </a>
-                </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button
-                  type="button"
-                  className="mindstudy-nav-item sub"
-                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  onClick={() => setBadNavOpen((o) => !o)}
-                  aria-expanded={badNavOpen}
-                >
-                  <span style={{ color: BAD_MENTAL_TEXT }}>Cetasikas — Bad (14)</span>
-                  <span className={`mindstudy-caret ${badNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
-                </button>
-                <div
-                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${badNavOpen ? 'open' : ''}`}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
-                >
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-moha" style={{ color: BAD_MENTAL_TEXT }}>โมหจตุกกะ (4)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-lobha" style={{ color: BAD_MENTAL_TEXT }}>โลภจตุกกะ (3)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-dosa" style={{ color: BAD_MENTAL_TEXT }}>โทจตุกกะ (4)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-thinamiddha" style={{ color: BAD_MENTAL_TEXT }}>ถีนมิทธะ (2)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-bad-vicikiccha" style={{ color: BAD_MENTAL_TEXT }}>วิจิกิจฉา (1)</a>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <button
-                  type="button"
-                  className="mindstudy-nav-item sub"
-                  style={{ textAlign: 'left', width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  onClick={() => setGoodNavOpen((o) => !o)}
-                  aria-expanded={goodNavOpen}
-                >
-                  <span style={{ color: GOOD_MENTAL_TEXT }}>Cetasikas — Good (25)</span>
-                  <span className={`mindstudy-caret ${goodNavOpen ? 'open' : ''}`} aria-hidden>▼</span>
-                </button>
-                <div
-                  className={`mindstudy-nav-children mindstudy-nav-children-nested ${goodNavOpen ? 'open' : ''}`}
-                  style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingLeft: 8 }}
-                >
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-sobhana" style={{ color: GOOD_MENTAL_TEXT }}>โสภณสาธารณ (19)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-virati" style={{ color: GOOD_MENTAL_TEXT }}>วิรตี (3)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-appamanna" style={{ color: GOOD_MENTAL_TEXT }}>อัปปมัญญา (2)</a>
-                  <a className="mindstudy-nav-item sub" href="#cetasikas-good-panna" style={{ color: GOOD_MENTAL_TEXT }}>ปัญญา (1)</a>
-                </div>
-              </div>
-              {aggregates.map((topic) => (
-                <a
-                  key={topic.id}
-                  className="mindstudy-nav-item sub"
-                  href={`#${topic.id}`}
-                >
-                  {topic.getPreview()}
-                </a>
-              ))}
             </div>
           </div>
         </aside>
@@ -653,171 +776,107 @@ export function MindStudy(): React.ReactElement {
             </button>
           </article>
 
-          {CETASIKA_CATEGORIES.map((cat) => {
-            const isNeutral = cat.titleEn.startsWith('Neutral')
-            const isGood = cat.titleEn.startsWith('Good')
-            const accentColor = isGood
-              ? GOOD_MENTAL_ACCENT
-              : isNeutral
-                ? '#94a3b8'
-                : BAD_MENTAL_ACCENT
-            const topicTextColor = isNeutral ? NEUTRAL_MENTAL_TEXT : isGood ? GOOD_MENTAL_TEXT : BAD_MENTAL_TEXT
-            const sectionId = isNeutral ? 'cetasikas-neutral' : isGood ? 'cetasikas-good' : 'cetasikas-bad'
-
-            if (cat.subcategories?.length) {
-              return (
-                <article
-                  key={cat.titleEn}
-                  id={sectionId}
-                  className="mindstudy-section"
-                  style={{
-                    borderLeft: `4px solid ${accentColor}`,
-                    paddingLeft: 16,
-                    marginBottom: 32,
-                  }}
-                >
-                  <div className="mindstudy-section-header">
-                    <span className="mindstudy-badge" style={{ background: accentColor }}>
-                      {cat.titleEn}
-                    </span>
-                    <h2 style={{ color: topicTextColor }}>{cat.title}</h2>
-                    <p className="mindstudy-section-desc" style={{ color: topicTextColor }}>
-                      {cat.count} factors in {cat.subcategories.length} sub-categories. Tap a card to inspect.
+          <section
+            className="mindstudy-topic-section"
+            id="topic-mental"
+            aria-labelledby="topic-mental-heading"
+          >
+            <header className="mindstudy-topic-section-header">
+              <span className="mindstudy-topic-section-kicker">Mental</span>
+              <h2 id="topic-mental-heading" className="mindstudy-topic-section-title">
+                เจตสิก · Cetasikas
+              </h2>
+              <p className="mindstudy-topic-section-desc">
+                52 factors from `/api/static/mentals`, grouped as circular rows by family.
+              </p>
+            </header>
+            <div className="mindstudy-diagram-surface" id="mental-diagram">
+            <p className="mindstudy-grid-hint">
+              Mental factors from `/api/static/mentals`, grouped as circular rows.
+            </p>
+            <div className="mindstudy-diagram">
+              {mentalCategoryBlocks.map((block) => (
+                <article key={block.id} id={block.id} className="mindstudy-diagram-group">
+                  <div className="mindstudy-diagram-group-head">
+                    <span className="mindstudy-diagram-group-dot" style={{ background: block.color }} aria-hidden />
+                    <h3
+                      lang="th"
+                      style={{
+                        color:
+                          block.id === 'cetasikas-bad'
+                            ? BAD_MENTAL_TEXT
+                            : block.id === 'cetasikas-good'
+                              ? GOOD_MENTAL_TEXT
+                              : NEUTRAL_MENTAL_TEXT,
+                      }}
+                    >
+                      {block.titleThai}
+                    </h3>
+                    <p className="mindstudy-diagram-group-sub-th" lang="th">
+                      {block.subtitleThai}
                     </p>
+                    <p className="mindstudy-diagram-group-sub-en">{block.titleEn}</p>
                   </div>
-                  {cat.subcategories.map((sub, subIdx) => {
-                    const subId = sub.id ?? `cetasikas-sub-${subIdx}`
-                    return (
-                      <div
-                        key={subId}
-                        id={subId}
-                        className="mindstudy-subsection"
-                        style={{
-                          marginTop: 20,
-                          padding: 16,
-                          borderRadius: 12,
-                          border: `2px solid ${accentColor}`,
-                        }}
-                      >
-                        <h3 style={{ fontSize: 15, fontWeight: 600, color: topicTextColor, marginBottom: 12 }}>
-                          {sub.title} — {sub.titleEn}
-                        </h3>
-                        <div className="mindstudy-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-                          {sub.items.map((item, index) => {
-                            const levelLabel = (index + 1).toString().padStart(2, '0')
-                            return (
-                              <article
-                                key={item.id}
-                                className="mindstudy-card"
-                                onMouseEnter={() => setHoveredCetasikaId(item.id)}
-                                onMouseLeave={() => setHoveredCetasikaId(null)}
-                              >
-                                <button
-                                  type="button"
-                                  className="mindstudy-card-trigger"
-                                  onClick={() => {
-                                    setSelectedCetasika(item)
-                                    setCetasikaModalOpen(true)
-                                  }}
-                                  aria-label={`${item.pali} (${item.thai})`}
-                                >
-                                  <div className="mindstudy-card-topline">
-                                    <span className="mindstudy-level-pill">{levelLabel}</span>
-                                    <span className="mindstudy-mode-hint">Hover for sphere · Tap to inspect</span>
-                                  </div>
-                                  <div className="mindstudy-card-top">
-                                    <div className="mindstudy-card-text">
-                                      <h3 className="mindstudy-card-title" style={{ fontSize: 14 }}>{item.pali}</h3>
-                                      <p className="mindstudy-card-sub" style={{ fontSize: 11 }}>{item.thai} · {item.className}</p>
-                                    </div>
-                                    <span className="mindstudy-caret" aria-hidden>→</span>
-                                  </div>
-                                  <div className="mindstudy-card-preview" style={{ height: 100, minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${accentColor}18`, borderRadius: 8, overflow: 'hidden' }}>
-                                    {hoveredCetasikaId === item.id ? (
-                                      <MentalSpherePreview card={item} accentColor={accentColor} />
-                                    ) : (
-                                      <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{item.pali.charAt(0)}</span>
-                                    )}
-                                  </div>
-                                </button>
-                              </article>
-                            )
-                          })}
+                  <div className="mindstudy-diagram-subgroups">
+                    {block.rows.map((row) => (
+                      <div key={row.id} id={row.anchorId} className="mindstudy-diagram-subgroup-row">
+                        <div className="mindstudy-diagram-circles compact">
+                          {row.items.map((mental) => (
+                            <button
+                              key={mental.id}
+                              id={`mental-${mental.id}`}
+                              type="button"
+                              className="mindstudy-diagram-node compact"
+                              style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
+                              onClick={() => {
+                                setSelectedCetasika({
+                                  id: `mental-${mental.id}`,
+                                  pali: mental.pali,
+                                  thai: mental.thai,
+                                  className: mental.name,
+                                  description: mental.description,
+                                  highlights: mental.highlights ?? [],
+                                })
+                                setCetasikaModalOpen(true)
+                              }}
+                              aria-label={`${mental.pali} (${mental.thai})`}
+                            >
+                              <span className="mindstudy-diagram-node-index">{mental.id}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mindstudy-diagram-subgroup-label-wrap">
+                          <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
+                            {'}'}
+                          </span>
+                          <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="th">
+                            {row.title} {toThaiDigitString(row.items.length)}
+                          </span>
                         </div>
                       </div>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </article>
-              )
-            }
+              ))}
+            </div>
+            </div>
+          </section>
 
-            return (
-              <article
-                key={cat.titleEn}
-                id={sectionId}
-                className="mindstudy-section"
-                style={{
-                  borderLeft: `4px solid ${accentColor}`,
-                  paddingLeft: 16,
-                  marginBottom: 32,
-                }}
-              >
-                <div className="mindstudy-section-header">
-                  <span className="mindstudy-badge" style={{ background: accentColor }}>
-                    {cat.titleEn}
-                  </span>
-                  <h2 style={{ color: topicTextColor }}>{cat.title}</h2>
-                  <p className="mindstudy-section-desc" style={{ color: topicTextColor }}>
-                    {cat.count} factors. Tap a card to inspect.
-                  </p>
-                </div>
-                <div className="mindstudy-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-                  {cat.items.map((item, index) => {
-                    const levelLabel = (index + 1).toString().padStart(2, '0')
-                    return (
-                      <article
-                        key={item.id}
-                        className="mindstudy-card"
-                        onMouseEnter={() => setHoveredCetasikaId(item.id)}
-                        onMouseLeave={() => setHoveredCetasikaId(null)}
-                      >
-                        <button
-                          type="button"
-                          className="mindstudy-card-trigger"
-                          onClick={() => {
-                            setSelectedCetasika(item)
-                            setCetasikaModalOpen(true)
-                          }}
-                          aria-label={`${item.pali} (${item.thai})`}
-                        >
-                          <div className="mindstudy-card-topline">
-                            <span className="mindstudy-level-pill">{levelLabel}</span>
-                            <span className="mindstudy-mode-hint">Hover for sphere · Tap to inspect</span>
-                          </div>
-                          <div className="mindstudy-card-top">
-                            <div className="mindstudy-card-text">
-                              <h3 className="mindstudy-card-title" style={{ fontSize: 14 }}>{item.pali}</h3>
-                              <p className="mindstudy-card-sub" style={{ fontSize: 11 }}>{item.thai} · {item.className}</p>
-                            </div>
-                            <span className="mindstudy-caret" aria-hidden>→</span>
-                          </div>
-                          <div className="mindstudy-card-preview" style={{ height: 100, minHeight: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${accentColor}18`, borderRadius: 8, overflow: 'hidden' }}>
-                            {hoveredCetasikaId === item.id ? (
-                              <MentalSpherePreview card={item} accentColor={accentColor} />
-                            ) : (
-                              <span style={{ fontSize: 28, fontWeight: 700, color: accentColor }}>{item.pali.charAt(0)}</span>
-                            )}
-                          </div>
-                        </button>
-                      </article>
-                    )
-                  })}
-                </div>
-              </article>
-            )
-          })}
-
-          <div className="mindstudy-diagram-surface" id="mind-diagram">
+          <section
+            className="mindstudy-topic-section"
+            id="topic-mind"
+            aria-labelledby="topic-mind-heading"
+          >
+            <header className="mindstudy-topic-section-header">
+              <span className="mindstudy-topic-section-kicker">Mind</span>
+              <h2 id="topic-mind-heading" className="mindstudy-topic-section-title">
+                จิต · Citta
+              </h2>
+              <p className="mindstudy-topic-section-desc">
+                89 consciousness types from `/api/static/minds` in API group order.
+              </p>
+            </header>
+            <div className="mindstudy-diagram-surface" id="mind-diagram">
             <p className="mindstudy-grid-hint">
               Circular mind diagram from `/api/static/minds`.
               {loading ? ' Loading…' : ''}
@@ -825,7 +884,7 @@ export function MindStudy(): React.ReactElement {
             </p>
             <div className="mindstudy-diagram">
               {mindDiagramGroups.map((group) => (
-                <article key={group.id} className="mindstudy-diagram-group">
+                <article key={group.id} id={group.id} className="mindstudy-diagram-group">
                   <div className="mindstudy-diagram-group-head">
                     <span
                       className="mindstudy-diagram-group-dot"
@@ -1073,6 +1132,7 @@ export function MindStudy(): React.ReactElement {
               ))}
             </div>
           </div>
+        </section>
         </section>
       </div>
       {showDuckPool && (
