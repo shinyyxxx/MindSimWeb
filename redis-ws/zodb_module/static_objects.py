@@ -12,7 +12,8 @@ class StaticMental(persistent.Persistent):
     """A cetasika (mental factor) — 52 canonical entries."""
 
     def __init__(self, id, name, pali, thai, slug, category,
-                 description, highlights):
+                 description, highlights,
+                 characteristic='', function='', manifestation='', proximate_cause=''):
         self.id = id
         self.name = name
         self.pali = pali
@@ -21,6 +22,10 @@ class StaticMental(persistent.Persistent):
         self.category = category          # 'neutral' | 'bad' | 'good'
         self.description = description
         self.highlights = PersistentList(highlights or [])
+        self.characteristic = characteristic
+        self.function = function
+        self.manifestation = manifestation
+        self.proximate_cause = proximate_cause
 
     def to_dict(self):
         return {
@@ -32,6 +37,10 @@ class StaticMental(persistent.Persistent):
             'category': self.category,
             'description': self.description,
             'highlights': list(self.highlights),
+            'characteristic': self.characteristic,
+            'function': self.function,
+            'manifestation': self.manifestation,
+            'proximate_cause': self.proximate_cause,
         }
 
 
@@ -58,7 +67,7 @@ class StaticMentalGroup(persistent.Persistent):
 class StaticMind(persistent.Persistent):
     """A citta (consciousness) — 89 canonical entries."""
 
-    def __init__(self, id, name, pali, thai, category, mental_ids, description='', subgroup=''):
+    def __init__(self, id, name, pali, thai, category, mental_ids, description='', subgroup='', description_thai=''):
         self.id = id
         self.name = name
         self.pali = pali
@@ -67,6 +76,7 @@ class StaticMind(persistent.Persistent):
         self.mental_ids = PersistentList(mental_ids or [])
         self.description = description
         self.subgroup = subgroup
+        self.description_thai = description_thai
 
     def to_dict(self):
         return {
@@ -77,6 +87,7 @@ class StaticMind(persistent.Persistent):
             'category': self.category,
             'subgroup': self.subgroup,
             'description': self.description,
+            'description_thai': self.description_thai,
             'mental_ids': list(self.mental_ids),
         }
 
