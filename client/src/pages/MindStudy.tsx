@@ -17,7 +17,7 @@ const POOL_NARRATIVE_LINES = [
 
 import { type CetasikaCard } from '../data/cetasikaGrid'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
 interface StaticMental {
   id: number

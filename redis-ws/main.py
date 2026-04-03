@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 from typing import Dict
@@ -1060,4 +1061,6 @@ async def get_homepage():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    port = int(os.getenv("PORT", "8004"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

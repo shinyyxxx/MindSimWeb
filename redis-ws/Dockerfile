@@ -39,7 +39,7 @@ COPY . .
 RUN mkdir -p /app/zodb_data/blobs
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8004
 
 # Default command (can be overridden in docker-compose)
 CMD ["python", "main.py"]

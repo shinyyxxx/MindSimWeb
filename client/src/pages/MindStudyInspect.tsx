@@ -72,7 +72,7 @@ import InspectPanel from '../components/InspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 
-const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
 /** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
 const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330

@@ -34,8 +34,9 @@ services:
     container_name: mindsim-backend
     command: python main.py
     ports:
-      - "8000:8000"
+      - "8004:8004"
     environment:
+      PORT: "8004"
       DATABASE_HOST: postgres
       DATABASE_PORT: 5432
       DATABASE_NAME: mindsim_realtime
@@ -60,7 +61,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      BACKEND_URL: http://backend:8000
+      BACKEND_URL: http://backend:8004
     depends_on:
       redis:
         condition: service_healthy

@@ -6,7 +6,7 @@ import redis.asyncio as redis
 import os
 from app.config import REDIS_URL, CHANNEL_TASKS, CHANNEL_TASK_RESULTS
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8004")
 
 
 async def process_task(task: dict, http_client: httpx.AsyncClient) -> dict:
