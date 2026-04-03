@@ -15,7 +15,7 @@ Browser ←WebSocket→ FastAPI ←Pub/Sub→ Redis ←Subscribe→ Worker
 
 ```bash
 docker-compose up --build
-open http://localhost:8000
+open http://localhost:8004
 ```
 
 ## Manual Setup

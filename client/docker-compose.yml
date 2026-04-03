@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/mindillustrate/frontend/}
+        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_WS_URL: ${VITE_WS_URL:-}
     container_name: mindillu-scenecreator
     ports:
       - "3004:80"

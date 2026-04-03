@@ -145,7 +145,7 @@ const WORLD_THEME_OPTIONS: Array<{ key: WorldThemeKey; label: string }> = [
   { key: 'human_world', label: 'Human World' },
   { key: 'hell', label: 'Hell' },
 ]
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
 const CODE_RUNNER_TEMPLATE = `m = Mind()
 m.name = "Mind"

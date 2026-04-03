@@ -61,7 +61,7 @@ export function Playground(): React.ReactElement {
 
   useEffect(() => {
     const client = new WebSocketClient(
-      import.meta.env.VITE_WS_URL || 'ws://localhost:8000',
+      import.meta.env.VITE_WS_URL || 'ws://localhost:8004',
       `user_${Math.floor(Math.random() * 10000)}`,
     )
 
