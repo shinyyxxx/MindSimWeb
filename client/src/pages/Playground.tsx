@@ -373,8 +373,6 @@ export function Playground(): React.ReactElement {
     const rid = (suffix: string) => `${runId}:${suffix}`
 
     // Clear the right side first
-    // eslint-disable-next-line no-console
-    console.log('[Playground] Clearing minds and mentals before execution')
     setMinds([])
     setMentals([])
     mindsRef.current = []

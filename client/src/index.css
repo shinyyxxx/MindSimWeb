@@ -804,27 +804,47 @@ body.xr-active .simulation-full {
   column-gap: 10px;
   row-gap: 2px;
   margin-bottom: 10px;
+  justify-items: start;
+  align-items: start;
 }
+/* Pin dot to column 1; pin title + subtitles to column 2 so auto-placement does not
+   drop the English line under the dot (which left the Thai title isolated in a wide column). */
 .mindstudy-diagram-group-dot {
   width: 12px;
   height: 12px;
   border-radius: 999px;
   margin-top: 4px;
+  grid-column: 1;
   grid-row: 1 / -1;
   align-self: start;
 }
 .mindstudy-diagram-group-head h3 {
+  grid-column: 2;
+  grid-row: 1;
   margin: 0;
   font-size: 16px;
   color: #0f172a;
+  text-align: left;
+  justify-self: start;
+  max-width: 100%;
 }
 .mindstudy-diagram-group-head p {
+  grid-column: 2;
   margin: 0;
   font-size: 12px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  text-align: left;
+  justify-self: start;
+  max-width: 100%;
+}
+.mindstudy-diagram-group-head > p:nth-child(3) {
+  grid-row: 2;
+}
+.mindstudy-diagram-group-head > p:nth-child(4) {
+  grid-row: 3;
 }
 .mindstudy-diagram-group-sub-th {
   font-size: 13px;

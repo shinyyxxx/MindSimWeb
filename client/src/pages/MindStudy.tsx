@@ -193,24 +193,6 @@ export function MindStudy(): React.ReactElement {
       .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
         const fetchedMentals: StaticMental[] = mentalsRes.mentals ?? []
         const fetchedMinds: StaticMind[] = mindsRes.minds ?? []
-        fetchedMentals.forEach((mental) => {
-          console.log('[MindStudy] mental detail:', {
-            id: mental.id,
-            name: mental.name,
-            thai: mental.thai,
-            pali: mental.pali,
-            category: mental.category,
-            description: mental.description,
-            highlights: mental.highlights,
-            highlightCount: mental.highlights?.length ?? 0,
-          })
-        })
-        console.log('[MindStudy] Static data loaded:', {
-          mentals: mentalsRes.count,
-          mentalGroups: mentalGroupsRes.count,
-          minds: mindsRes.count,
-          mindGroups: mindGroupsRes.count,
-        })
         if (cancelled) return
         setStaticMentals(fetchedMentals)
         setStaticMentalGroups(mentalGroupsRes.mental_groups ?? [])
@@ -1262,7 +1244,7 @@ export function MindStudy(): React.ReactElement {
           >
             <div className="mindstudy-modal-glow" aria-hidden />
             <div className="mindstudy-modal-header">
-              <span className="mindstudy-level-pill small">Inspect</span>
+              <span className="mindstudy-level-pill small">จิต · Citta</span>
               <button className="mindstudy-modal-close" onClick={() => setModalOpen(false)} aria-label="Close dialog">
                 ✕
               </button>
@@ -1279,15 +1261,19 @@ export function MindStudy(): React.ReactElement {
             </div>
             <div className="mindstudy-modal-actions">
               <button className="mindstudy-btn ghost" onClick={() => setModalOpen(false)}>
-                Maybe later
+                Close
               </button>
               <button
                 className="mindstudy-btn primary"
+                type="button"
                 onClick={() => {
+                  const pathId = encodeURIComponent(String(selectedMind.id))
                   setModalOpen(false)
+                  setSelectedMind(null)
+                  navigate(`/mind-study/${pathId}`)
                 }}
               >
-                Got it
+                Inspect
               </button>
             </div>
           </div>
