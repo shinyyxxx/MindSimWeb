@@ -3113,12 +3113,16 @@ function InspectOptionMenu({
   panelPosition,
   onClose,
   onViewDetail,
+  onVoice,
+  voiceLoading = false,
   onDragPositionChange,
 }: {
   selection: InspectSelection
   panelPosition: { x: number; y: number } | null
   onClose: () => void
   onViewDetail: (selection: InspectSelection) => void
+  onVoice?: (selection: InspectSelection) => void
+  voiceLoading?: boolean
   onDragPositionChange?: (pos: { x: number; y: number }) => void
 }) {
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -3194,12 +3198,13 @@ function InspectOptionMenu({
     transition: 'all 0.15s ease',
   }
 
-  const renderOption = (label: string, description: string, onClick: () => void) => (
+  const renderOption = (label: string, description: string, onClick: () => void, disabled = false) => (
     <button
       key={label}
       type="button"
       style={optionStyle}
       onClick={onClick}
+      disabled={disabled}
       onMouseEnter={(e) => {
         ;(e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(120deg, rgba(96,165,250,0.28), rgba(16,185,129,0.24))'
       }}
@@ -3251,7 +3256,7 @@ function InspectOptionMenu({
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
         {renderOption('View Detail', 'Inspect this sphere closely', () => onViewDetail(selection))}
-        {renderOption('Voice', 'Hear a narrated explanation', () => {})}
+        {renderOption(voiceLoading ? 'Playing...' : 'Voice', 'Hear a narrated explanation', () => onVoice?.(selection), voiceLoading)}
         {renderOption('How it works?', 'Learn the mechanics in-game', () => {})}
       </div>
     </div>
@@ -3272,6 +3277,7 @@ function ThreeScene({
   onShowProfile,
   onCloseProfile,
   onCloseSelection,
+  onVoiceSelection,
   onUpdatePanelPosition,
   sendMode,
   emojiMode,
@@ -3308,6 +3314,7 @@ function ThreeScene({
   onShowProfile: (selection: InspectSelection) => void
   onCloseProfile: () => void
   onCloseSelection: () => void
+  onVoiceSelection?: (selection: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
   sendMode: boolean
   emojiMode: boolean
@@ -3462,6 +3469,7 @@ function ThreeScene({
           onViewDetail={onViewDetail}
           onBack={onBackFromDetail}
           onShowProfile={onShowProfile}
+          onVoice={onVoiceSelection}
           onClose={onCloseSelection}
         />
       )}
@@ -3540,6 +3548,7 @@ export function Simulation(): React.ReactElement {
   const codeRunnerDragRef = useRef<{ active: boolean; dx: number; dy: number }>({ active: false, dx: 0, dy: 0 })
   const codeRunnerHydratedRef = useRef(false)
   const [isMindExplaining, setIsMindExplaining] = useState(false)
+  const [isInspectVoicePlaying, setIsInspectVoicePlaying] = useState(false)
   const [explainOverlay, setExplainOverlay] = useState<{ name: string; detail: string; progressLabel: string } | null>(null)
   const [explainHighlight, setExplainHighlight] = useState<THREE.Object3D[]>([])
   const [soundReceiveHighlight, setSoundReceiveHighlight] = useState<THREE.Object3D[]>([])
@@ -3870,6 +3879,20 @@ export function Simulation(): React.ReactElement {
     setAttrKey('')
     setAttrValue('')
   }
+
+  const handleSpeakInspectSelection = useCallback(async (selection: InspectSelection) => {
+    const detail = selection.detail?.trim() || 'No detail provided.'
+    const text = `${selection.name}. ${detail}`
+    const hasThai = /[\u0E00-\u0E7F]/.test(text)
+    setIsInspectVoicePlaying(true)
+    try {
+      await speakNarration(text, { lang: hasThai ? 'th-TH' : 'en-US' })
+    } catch (error) {
+      console.error('Inspect narration failed', error)
+    } finally {
+      setIsInspectVoicePlaying(false)
+    }
+  }, [])
 
   const handleAddAttribute = () => {
     const key = attrKey.trim()
@@ -4818,6 +4841,8 @@ export function Simulation(): React.ReactElement {
             panelPosition={panelPosition}
             onClose={handleClose}
             onViewDetail={handleViewDetail}
+            onVoice={handleSpeakInspectSelection}
+            voiceLoading={isInspectVoicePlaying}
             onDragPositionChange={setPanelPosition}
           />
         )}
@@ -4827,6 +4852,8 @@ export function Simulation(): React.ReactElement {
             panelPosition={panelPosition}
             onClose={handleClose}
             onShowProfile={handleShowProfile}
+            onVoice={handleSpeakInspectSelection}
+            voiceLoading={isInspectVoicePlaying}
             onDragPositionChange={setPanelPosition}
           />
         )}
@@ -4857,6 +4884,7 @@ export function Simulation(): React.ReactElement {
           onShowProfile={handleShowProfile}
           onCloseProfile={handleCloseProfile}
           onCloseSelection={handleClose}
+          onVoiceSelection={handleSpeakInspectSelection}
           onUpdatePanelPosition={inspectOpen ? undefined : setFocusScreenPosition}
           sendMode={sendMode}
           emojiMode={emojiMode}

@@ -12,6 +12,7 @@ type XRInspectPanelProps = {
   onViewDetail: (selection: InspectSelection) => void
   onBack: () => void
   onShowProfile: (selection: InspectSelection) => void
+  onVoice?: (selection: InspectSelection) => void
   onClose: () => void
 }
 
@@ -21,6 +22,7 @@ export function XRInspectPanel({
   onViewDetail,
   onBack,
   onShowProfile,
+  onVoice,
   onClose,
 }: XRInspectPanelProps) {
   const { gl, camera } = useThree()
@@ -70,11 +72,15 @@ export function XRInspectPanel({
       onShowProfile(selection)
       return
     }
-    if (action === 'voice' || action === 'how') {
+    if (action === 'voice') {
+      onVoice?.(selection)
+      return
+    }
+    if (action === 'how') {
       return
     }
     onClose()
-  }, [inspectOpen, onBack, onClose, onShowProfile, onViewDetail, selection])
+  }, [inspectOpen, onBack, onClose, onShowProfile, onViewDetail, onVoice, selection])
 
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
