@@ -2830,22 +2830,45 @@ function XRTimelinePanel({
   panelOpen,
   onOpenPanel,
   onClosePanel,
+  t3HappySelected,
+  onT3HappyChange,
+  t5SelectedId,
+  onT5Change,
+  onSenseSelect,
+  vithiCurrentEvent,
 }: {
   selectedIndex: number
   onSelect: (index: number) => void
   panelOpen: boolean
   onOpenPanel: () => void
   onClosePanel: () => void
+  t3HappySelected?: boolean
+  onT3HappyChange?: (selected: boolean) => void
+  t5SelectedId?: string | null
+  onT5Change?: (id: string | null) => void
+  onSenseSelect?: (senseId: string, params: VithiParams) => void
+  vithiCurrentEvent?: VithiEvent | null
 }) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
   const buttonRefs = useRef<Array<THREE.Mesh | null>>([])
   const openPanelButtonRef = useRef<THREE.Mesh | null>(null)
   const closePanelButtonRef = useRef<THREE.Mesh | null>(null)
+  const explainButtonRef = useRef<THREE.Mesh | null>(null)
+  const happyButtonRef = useRef<THREE.Mesh | null>(null)
+  const t5PrevButtonRef = useRef<THREE.Mesh | null>(null)
+  const t5NextButtonRef = useRef<THREE.Mesh | null>(null)
+  const t5ClearButtonRef = useRef<THREE.Mesh | null>(null)
+  const senseButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
+  const variantButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const hoveredIndexRef = useRef<number | null>(null)
   const [isOpenHovered, setIsOpenHovered] = useState(false)
   const [isCloseHovered, setIsCloseHovered] = useState(false)
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null)
+  const hoveredActionRef = useRef<string | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
+  const [selectedSense, setSelectedSense] = useState<string>('')
 
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
@@ -2878,10 +2901,18 @@ function XRTimelinePanel({
 
     const handleXrSelect = (event: Event) => {
       if (!gl.xr.isPresenting) return
+      const selectedVariants = selectedSense ? (SENSE_VARIANTS[selectedSense] ?? []) : []
       const targets = [
         ...buttonRefs.current.filter(Boolean),
         openPanelButtonRef.current,
         closePanelButtonRef.current,
+        explainButtonRef.current,
+        happyButtonRef.current,
+        t5PrevButtonRef.current,
+        t5NextButtonRef.current,
+        t5ClearButtonRef.current,
+        ...Object.values(senseButtonRefs.current),
+        ...Object.values(variantButtonRefs.current),
       ].filter(Boolean) as THREE.Object3D[]
       if (!targets.length) return
 
@@ -2900,6 +2931,56 @@ function XRTimelinePanel({
         onClosePanel()
         return
       }
+      if (isHitInside(explainButtonRef.current, hits[0].object)) {
+        setShowDetail((prev) => !prev)
+        return
+      }
+      if (selectedIndex === 3 && isHitInside(happyButtonRef.current, hits[0].object)) {
+        onT3HappyChange?.(!t3HappySelected)
+        return
+      }
+      if (selectedIndex === 5) {
+        const flatOptions = T5_CATEGORIES.flatMap((cat) =>
+          cat.optionIds
+            .map((id) => T5_MENTAL_OPTIONS.find((opt) => opt.id === id))
+            .filter(Boolean)
+        ) as Array<{ id: string; label: string }>
+        const currentIdx = flatOptions.findIndex((opt) => opt.id === (t5SelectedId ?? ''))
+        if (isHitInside(t5PrevButtonRef.current, hits[0].object)) {
+          if (!flatOptions.length) return
+          const nextIdx = currentIdx <= 0 ? flatOptions.length - 1 : currentIdx - 1
+          onT5Change?.(flatOptions[nextIdx]?.id ?? null)
+          return
+        }
+        if (isHitInside(t5NextButtonRef.current, hits[0].object)) {
+          if (!flatOptions.length) return
+          const nextIdx = currentIdx >= flatOptions.length - 1 ? 0 : currentIdx + 1
+          onT5Change?.(flatOptions[nextIdx]?.id ?? null)
+          return
+        }
+        if (isHitInside(t5ClearButtonRef.current, hits[0].object)) {
+          onT5Change?.(null)
+          return
+        }
+      }
+      if (selectedIndex === 0) {
+        for (const opt of T0_SENSE_OPTIONS) {
+          const mesh = senseButtonRefs.current[opt.id]
+          if (!mesh) continue
+          if (isHitInside(mesh, hits[0].object)) {
+            setSelectedSense((prev) => (prev === opt.id ? '' : opt.id))
+            return
+          }
+        }
+        for (const variant of selectedVariants) {
+          const mesh = variantButtonRefs.current[variant.id]
+          if (!mesh) continue
+          if (isHitInside(mesh, hits[0].object)) {
+            onSenseSelect?.(selectedSense, variant.params)
+            return
+          }
+        }
+      }
       const idx = resolveIndexForHit(hits[0].object)
       if (idx !== null) onSelect(idx)
     }
@@ -2913,7 +2994,19 @@ function XRTimelinePanel({
         controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
-  }, [gl, onClosePanel, onOpenPanel, onSelect])
+  }, [
+    gl,
+    onClosePanel,
+    onOpenPanel,
+    onSelect,
+    onSenseSelect,
+    onT3HappyChange,
+    onT5Change,
+    selectedIndex,
+    selectedSense,
+    t3HappySelected,
+    t5SelectedId,
+  ])
 
   useFrame(() => {
     if (!groupRef.current) return
@@ -2934,6 +3027,7 @@ function XRTimelinePanel({
     let nextHovered: number | null = null
     let nextOpenHovered = false
     let nextCloseHovered = false
+    let nextHoveredAction: string | null = null
     if (gl.xr.isPresenting) {
       const xrRaycaster = new THREE.Raycaster()
       const rayOrigin = new THREE.Vector3()
@@ -2951,30 +3045,50 @@ function XRTimelinePanel({
         xrRaycaster.set(rayOrigin, rayDirection)
         const hits = xrRaycaster.intersectObjects(targets, true)
         if (!hits.length) continue
-        if (openPanelButtonRef.current) {
-          let node: THREE.Object3D | null = hits[0].object
+        const hitObject = hits[0].object
+        const hitInside = (mesh: THREE.Mesh | null): boolean => {
+          if (!mesh) return false
+          let node: THREE.Object3D | null = hitObject
           while (node) {
-            if (node === openPanelButtonRef.current) {
-              nextOpenHovered = true
-              break
-            }
+            if (node === mesh) return true
             node = node.parent
           }
+          return false
+        }
+        if (openPanelButtonRef.current) {
+          nextOpenHovered = hitInside(openPanelButtonRef.current)
+          if (nextOpenHovered) nextHoveredAction = 'open-timeline'
         }
         if (closePanelButtonRef.current) {
-          let node: THREE.Object3D | null = hits[0].object
-          while (node) {
-            if (node === closePanelButtonRef.current) {
-              nextCloseHovered = true
+          nextCloseHovered = hitInside(closePanelButtonRef.current)
+          if (nextCloseHovered) nextHoveredAction = 'close-timeline'
+        }
+        if (!nextHoveredAction && hitInside(explainButtonRef.current)) nextHoveredAction = 'explain-detail'
+        if (!nextHoveredAction && hitInside(happyButtonRef.current)) nextHoveredAction = 'happy-toggle'
+        if (!nextHoveredAction && hitInside(t5PrevButtonRef.current)) nextHoveredAction = 't5-prev'
+        if (!nextHoveredAction && hitInside(t5NextButtonRef.current)) nextHoveredAction = 't5-next'
+        if (!nextHoveredAction && hitInside(t5ClearButtonRef.current)) nextHoveredAction = 't5-clear'
+        if (!nextHoveredAction) {
+          for (const opt of T0_SENSE_OPTIONS) {
+            if (hitInside(senseButtonRefs.current[opt.id])) {
+              nextHoveredAction = `sense-${opt.id}`
               break
             }
-            node = node.parent
+          }
+        }
+        if (!nextHoveredAction) {
+          const selectedVariants = selectedSense ? (SENSE_VARIANTS[selectedSense] ?? []) : []
+          for (const variant of selectedVariants) {
+            if (hitInside(variantButtonRefs.current[variant.id])) {
+              nextHoveredAction = `variant-${variant.id}`
+              break
+            }
           }
         }
         for (let i = 0; i < buttonRefs.current.length; i += 1) {
           const mesh = buttonRefs.current[i]
           if (!mesh) continue
-          let node: THREE.Object3D | null = hits[0].object
+          let node: THREE.Object3D | null = hitObject
           while (node) {
             if (node === mesh) {
               nextHovered = i
@@ -2984,7 +3098,7 @@ function XRTimelinePanel({
           }
           if (nextHovered !== null) break
         }
-        if (nextHovered !== null || nextOpenHovered || nextCloseHovered) break
+        if (nextHovered !== null || nextOpenHovered || nextCloseHovered || nextHoveredAction) break
       }
     }
 
@@ -2994,9 +3108,45 @@ function XRTimelinePanel({
     }
     setIsOpenHovered(nextOpenHovered)
     setIsCloseHovered(nextCloseHovered)
+    if (hoveredActionRef.current !== nextHoveredAction) {
+      hoveredActionRef.current = nextHoveredAction
+      setHoveredAction(nextHoveredAction)
+    }
   })
 
   const activeStop = TIMELINE_STOPS[selectedIndex] ?? TIMELINE_STOPS[0]
+  const selectedVariants = selectedSense ? (SENSE_VARIANTS[selectedSense] ?? []) : []
+  const t5CurrentLabel = t5SelectedId
+    ? (T5_MENTAL_OPTIONS.find((opt) => opt.id === t5SelectedId)?.label ?? 'Custom selection')
+    : 'No selection (random)'
+  const isActionHovered = (action: string): boolean => hoveredAction === action
+  const panelTopY = 0.62
+  const headerIconY = 0.5
+  const headerTitleY = 0.52
+  const headerSubtitleY = 0.46
+  const headerDescTopY = 0.39
+  const senseHeaderY = 0.14
+  const senseRowStartY = 0.07
+  const senseRowGap = 0.1
+  const variantHeaderY = -0.14
+  const variantStartY = -0.2
+  let contentBottomY = -0.12
+  if (selectedIndex === 0) {
+    contentBottomY = -0.04
+    if (selectedVariants.length > 0) {
+      const visibleVariantCount = Math.min(3, selectedVariants.length)
+      contentBottomY = variantStartY - (visibleVariantCount - 1) * 0.08 - 0.04
+    }
+  }
+  if (selectedIndex === 3) contentBottomY = -0.2
+  if (selectedIndex === 5) contentBottomY = -0.265
+  if (vithiCurrentEvent) contentBottomY = Math.min(contentBottomY, -0.32)
+  const explainButtonY = Math.max(-0.52, contentBottomY - 0.09)
+  // Size panel to content so we don't keep excessive empty space below controls.
+  const panelBottomY = explainButtonY - 0.075
+  const panelHeight = Math.max(0.84, panelTopY - panelBottomY)
+  const innerPanelHeight = Math.max(0.2, panelHeight - 0.004)
+  const panelCenterY = panelTopY - panelHeight * 0.5
 
   return (
     <group ref={groupRef}>
@@ -3061,30 +3211,30 @@ function XRTimelinePanel({
 
       {panelOpen && (
         <group>
-          <mesh position={[-0.48, 0.12, 0.001]}>
-            <planeGeometry args={[0.9, 0.66]} />
-            <meshBasicMaterial color={0x1e293b} transparent opacity={0.96} />
+          <mesh position={[-0.48, panelCenterY, 0.001]}>
+            <planeGeometry args={[0.9, panelHeight]} />
+            <meshBasicMaterial color={0x111827} transparent opacity={0.96} />
           </mesh>
-          <mesh position={[-0.48, 0.12, 0.0015]}>
-            <planeGeometry args={[0.896, 0.656]} />
-            <meshBasicMaterial color={0x0f172a} transparent opacity={0.5} />
+          <mesh position={[-0.48, panelCenterY, 0.0015]}>
+            <planeGeometry args={[0.896, innerPanelHeight]} />
+            <meshBasicMaterial color={0x0b1222} transparent opacity={0.54} />
           </mesh>
 
-          <mesh position={[-0.84, 0.35, 0.004]}>
+          <mesh position={[-0.84, headerIconY, 0.004]}>
             <circleGeometry args={[0.05, 30]} />
             <meshBasicMaterial color={0x3b82f6} />
           </mesh>
-          <Text position={[-0.84, 0.35, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
+          <Text position={[-0.84, headerIconY, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
             {TIMELINE_ICONS[selectedIndex % TIMELINE_ICONS.length]}
           </Text>
-          <Text position={[-0.75, 0.38, 0.005]} anchorX="left" anchorY="middle" fontSize={0.046} color="#f8fafc">
+          <Text position={[-0.75, headerTitleY, 0.005]} anchorX="left" anchorY="middle" fontSize={0.046} color="#f8fafc">
             {activeStop.label}
           </Text>
-          <Text position={[-0.75, 0.32, 0.005]} anchorX="left" anchorY="middle" fontSize={0.029} color="#94a3b8">
+          <Text position={[-0.75, headerSubtitleY, 0.005]} anchorX="left" anchorY="middle" fontSize={0.029} color="#94a3b8">
             Cognitive Timeline
           </Text>
           <Text
-            position={[-0.88, 0.24, 0.005]}
+            position={[-0.88, headerDescTopY, 0.005]}
             anchorX="left"
             anchorY="top"
             fontSize={0.034}
@@ -3095,11 +3245,187 @@ function XRTimelinePanel({
             {activeStop.description}
           </Text>
 
-          <mesh ref={closePanelButtonRef} position={[-0.16, 0.35, 0.004]}>
+          {selectedIndex === 0 && (
+            <>
+              <Text position={[-0.88, senseHeaderY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
+                Choose sense door
+              </Text>
+              {T0_SENSE_OPTIONS.map((opt, idx) => {
+                const col = idx % 3
+                const row = Math.floor(idx / 3)
+                const x = -0.72 + col * 0.27
+                const y = senseRowStartY - row * senseRowGap
+                const isSelected = selectedSense === opt.id
+                return (
+                  <group key={opt.id}>
+                    <mesh
+                      ref={(node: THREE.Mesh | null) => {
+                        senseButtonRefs.current[opt.id] = node
+                      }}
+                      position={[x, y, 0.005]}
+                    >
+                      <planeGeometry args={[0.24, 0.075]} />
+                      <meshBasicMaterial color={isSelected ? 0x2563eb : isActionHovered(`sense-${opt.id}`) ? 0x334155 : 0x1f2937} />
+                    </mesh>
+                    <Text
+                      position={[x - 0.097, y, 0.007]}
+                      anchorX="left"
+                      anchorY="middle"
+                      fontSize={0.024}
+                      color={isSelected || isActionHovered(`sense-${opt.id}`) ? '#f8fafc' : '#e2e8f0'}
+                    >
+                      {`${opt.icon} ${opt.label}`}
+                    </Text>
+                  </group>
+                )
+              })}
+              {selectedVariants.length > 0 && (
+                <>
+                  <Text position={[-0.88, variantHeaderY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
+                    What kind?
+                  </Text>
+                  {selectedVariants.slice(0, 3).map((variant, idx) => {
+                    const y = variantStartY - idx * 0.08
+                    return (
+                      <group key={variant.id}>
+                        <mesh
+                          ref={(node: THREE.Mesh | null) => {
+                            variantButtonRefs.current[variant.id] = node
+                          }}
+                          position={[-0.48, y, 0.005]}
+                        >
+                          <planeGeometry args={[0.8, 0.065]} />
+                          <meshBasicMaterial color={isActionHovered(`variant-${variant.id}`) ? 0x0d9488 : 0x0f766e} />
+                        </mesh>
+                        <Text
+                          position={[-0.86, y, 0.007]}
+                          anchorX="left"
+                          anchorY="middle"
+                          fontSize={0.022}
+                          color={isActionHovered(`variant-${variant.id}`) ? '#ffffff' : '#ecfeff'}
+                          maxWidth={0.74}
+                        >
+                          {`${variant.icon} ${variant.label}`}
+                        </Text>
+                      </group>
+                    )
+                  })}
+                </>
+              )}
+            </>
+          )}
+
+          {vithiCurrentEvent && (
+            <>
+              <mesh position={[-0.48, -0.24, 0.004]}>
+                <planeGeometry args={[0.8, 0.15]} />
+                <meshBasicMaterial color={0x1d4ed8} transparent opacity={0.24} />
+              </mesh>
+              <Text position={[-0.86, -0.2, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#60a5fa" maxWidth={0.74}>
+                {vithiCurrentEvent.stage.replace(/_/g, ' ').toUpperCase()}
+              </Text>
+              <Text position={[-0.86, -0.24, 0.007]} anchorX="left" anchorY="middle" fontSize={0.022} color="#e2e8f0" maxWidth={0.74}>
+                {vithiCurrentEvent.mind_name || `Citta ${vithiCurrentEvent.mind_id ?? '?'}`}
+              </Text>
+              <Text position={[-0.86, -0.28, 0.007]} anchorX="left" anchorY="middle" fontSize={0.019} color="#94a3b8" maxWidth={0.74}>
+                {`Step ${vithiCurrentEvent.order}: ${vithiCurrentEvent.description}`}
+              </Text>
+            </>
+          )}
+
+          {selectedIndex === 3 && (
+            <>
+              <Text position={[-0.88, -0.1, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
+                Add option
+              </Text>
+              <mesh ref={happyButtonRef} position={[-0.72, -0.16, 0.005]}>
+                <planeGeometry args={[0.3, 0.075]} />
+                <meshBasicMaterial color={t3HappySelected ? 0x0891b2 : isActionHovered('happy-toggle') ? 0x334155 : 0x1f2937} />
+              </mesh>
+              <Text
+                position={[-0.84, -0.16, 0.007]}
+                anchorX="left"
+                anchorY="middle"
+                fontSize={0.024}
+                color={isActionHovered('happy-toggle') ? '#f8fafc' : '#e2e8f0'}
+              >
+                😊 Happy
+              </Text>
+            </>
+          )}
+
+          {selectedIndex === 5 && (
+            <>
+              <Text position={[-0.88, -0.08, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
+                Choose mental factors (cetasikas)
+              </Text>
+              <mesh position={[-0.48, -0.145, 0.005]}>
+                <planeGeometry args={[0.8, 0.08]} />
+                <meshBasicMaterial color={0x1f2937} />
+              </mesh>
+              <Text position={[-0.86, -0.145, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#e2e8f0" maxWidth={0.74}>
+                {t5CurrentLabel}
+              </Text>
+              <mesh ref={t5PrevButtonRef} position={[-0.72, -0.225, 0.005]}>
+                <planeGeometry args={[0.18, 0.065]} />
+                <meshBasicMaterial color={isActionHovered('t5-prev') ? 0x475569 : 0x334155} />
+              </mesh>
+              <Text
+                position={[-0.72, -0.225, 0.007]}
+                anchorX="center"
+                anchorY="middle"
+                fontSize={0.022}
+                color={isActionHovered('t5-prev') ? '#ffffff' : '#f8fafc'}
+              >
+                Prev
+              </Text>
+              <mesh ref={t5NextButtonRef} position={[-0.48, -0.225, 0.005]}>
+                <planeGeometry args={[0.18, 0.065]} />
+                <meshBasicMaterial color={isActionHovered('t5-next') ? 0x475569 : 0x334155} />
+              </mesh>
+              <Text
+                position={[-0.48, -0.225, 0.007]}
+                anchorX="center"
+                anchorY="middle"
+                fontSize={0.022}
+                color={isActionHovered('t5-next') ? '#ffffff' : '#f8fafc'}
+              >
+                Next
+              </Text>
+              <mesh ref={t5ClearButtonRef} position={[-0.24, -0.225, 0.005]}>
+                <planeGeometry args={[0.18, 0.065]} />
+                <meshBasicMaterial color={isActionHovered('t5-clear') ? 0x991b1b : 0x7f1d1d} />
+              </mesh>
+              <Text
+                position={[-0.24, -0.225, 0.007]}
+                anchorX="center"
+                anchorY="middle"
+                fontSize={0.022}
+                color={isActionHovered('t5-clear') ? '#ffffff' : '#fee2e2'}
+              >
+                Clear
+              </Text>
+            </>
+          )}
+
+          <mesh ref={explainButtonRef} position={[-0.72, explainButtonY, 0.005]}>
+            <planeGeometry args={[0.34, 0.075]} />
+            <meshBasicMaterial color={showDetail ? 0x1d4ed8 : isActionHovered('explain-detail') ? 0x475569 : 0x334155} />
+          </mesh>
+          <Text position={[-0.72, explainButtonY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.022} color="#f8fafc">
+            {showDetail ? 'Hide detail' : 'Explain detail'}
+          </Text>
+          {showDetail && (
+            <Text position={[-0.52, explainButtonY, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#93c5fd" maxWidth={0.38}>
+              {activeStop.description}
+            </Text>
+          )}
+
+          <mesh ref={closePanelButtonRef} position={[-0.16, headerIconY, 0.004]}>
             <planeGeometry args={[0.19, 0.075]} />
             <meshBasicMaterial color={isCloseHovered ? 0x334155 : 0x1e293b} />
           </mesh>
-          <Text position={[-0.16, 0.35, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
+          <Text position={[-0.16, headerIconY, 0.006]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
             Close
           </Text>
         </group>
@@ -3295,6 +3621,12 @@ function ThreeScene({
   explainHighlight,
   timelineIndex,
   onTimelineSelect,
+  t3HappySelected,
+  onT3HappyChange,
+  t5SelectedId,
+  onT5Change,
+  onSenseSelect,
+  vithiCurrentEvent,
   xrTimelineOpen,
   xrTimelineDetailOpen,
   onToggleXrTimeline,
@@ -3332,6 +3664,12 @@ function ThreeScene({
   explainHighlight?: THREE.Object3D[]
   timelineIndex: number
   onTimelineSelect: (index: number) => void
+  t3HappySelected: boolean
+  onT3HappyChange: (selected: boolean) => void
+  t5SelectedId: string | null
+  onT5Change: (id: string | null) => void
+  onSenseSelect: (senseId: string, params: VithiParams) => void
+  vithiCurrentEvent: VithiEvent | null
   xrTimelineOpen: boolean
   xrTimelineDetailOpen: boolean
   onToggleXrTimeline: () => void
@@ -3490,6 +3828,12 @@ function ThreeScene({
           panelOpen={xrTimelineDetailOpen}
           onOpenPanel={onOpenXrTimelineDetail}
           onClosePanel={onCloseXrTimelineDetail}
+          t3HappySelected={t3HappySelected}
+          onT3HappyChange={onT3HappyChange}
+          t5SelectedId={t5SelectedId}
+          onT5Change={onT5Change}
+          onSenseSelect={onSenseSelect}
+          vithiCurrentEvent={vithiCurrentEvent}
         />
       )}
       <XROccludedConnector
@@ -4905,6 +5249,12 @@ export function Simulation(): React.ReactElement {
           explainHighlight={soundReceiveHighlight.length > 0 ? soundReceiveHighlight : explainHighlight}
           timelineIndex={timelineIndex}
           onTimelineSelect={setTimelineIndex}
+          t3HappySelected={t3HappySelected}
+          onT3HappyChange={setT3HappySelected}
+          t5SelectedId={t5SelectedId}
+          onT5Change={setT5SelectedId}
+          onSenseSelect={handleSenseSelect}
+          vithiCurrentEvent={vithiCurrentEvent}
           xrTimelineOpen={xrTimelineOpen}
           xrTimelineDetailOpen={xrTimelineDetailOpen}
           onToggleXrTimeline={() =>

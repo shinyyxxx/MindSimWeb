@@ -61,7 +61,7 @@ async function speakWithGoogleTts(text: string, options: NarrationOptions): Prom
 
   const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`)
   audio.preload = 'auto'
-  audio.playsInline = true
+  audio.setAttribute('playsinline', 'true')
   activeAudio = audio
   await audio.play()
 
