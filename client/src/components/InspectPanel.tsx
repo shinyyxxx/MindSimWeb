@@ -6,6 +6,8 @@ type InspectPanelProps = {
   panelPosition?: { x: number; y: number } | null
   onClose: () => void
   onShowProfile?: (selection: InspectSelection) => void
+  onVoice?: (selection: InspectSelection) => void
+  voiceLoading?: boolean
   onMeasure?: (rect: DOMRect | null) => void
   onDragPositionChange?: (pos: { x: number; y: number }) => void
 }
@@ -36,6 +38,8 @@ export function InspectPanel({
   panelPosition,
   onClose,
   onShowProfile,
+  onVoice,
+  voiceLoading,
   onMeasure,
   onDragPositionChange,
 }: InspectPanelProps) {
@@ -120,7 +124,15 @@ export function InspectPanel({
         <span className="inspect-panel__dot" />
         <span>Type: {selection.type || 'n/a'}</span>
       </div>
-      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button
+          className="inspect-panel__more"
+          onClick={() => onVoice?.(selection)}
+          type="button"
+          disabled={voiceLoading}
+        >
+          {voiceLoading ? 'Playing...' : 'Voice'}
+        </button>
         <button
           className="inspect-panel__more"
           onClick={() => onShowProfile?.(selection)}
