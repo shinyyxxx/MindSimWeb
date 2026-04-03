@@ -939,9 +939,26 @@ async def get_homepage():
     <script>
         const userId = 'user_' + Math.floor(Math.random() * 10000);
         let ws;
+
+        // Works at site root or behind a reverse-proxy prefix (e.g. /mindillustrate/api -> app /).
+        const apiBaseHref = window.location.origin + window.location.pathname.replace(/\\/?$/, '/');
+        function apiUrl(path) {
+            return new URL(path.replace(/^\\//, ''), apiBaseHref).href;
+        }
+        function wsUrlForUser(uid) {
+            const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const p = window.location.pathname.replace(/\\/$/, '');
+            let wsPath;
+            if (p === '' || p === '/') {
+                wsPath = '/ws';
+            } else {
+                wsPath = p.replace(/\\/?api$/, '/ws');
+            }
+            return wsProto + '//' + window.location.host + wsPath + '/' + uid;
+        }
         
         function connect() {
-            ws = new WebSocket(`ws://${window.location.host}/ws/${userId}`);
+            ws = new WebSocket(wsUrlForUser(userId));
             
             ws.onopen = () => {
                 document.getElementById('statusDot').classList.add('connected');
@@ -1032,7 +1049,7 @@ async def get_homepage():
         
         async function loadMinds() {
             try {
-                const response = await fetch('/api/minds');
+                const response = await fetch(apiUrl('api/minds'));
                 const data = await response.json();
                 const listDiv = document.getElementById('mindsList');
                 if (data.minds.length === 0) {
