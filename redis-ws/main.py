@@ -947,13 +947,11 @@ async def get_homepage():
         }
         function wsUrlForUser(uid) {
             const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const p = window.location.pathname.replace(/\\/$/, '');
-            let wsPath;
-            if (p === '' || p === '/') {
-                wsPath = '/ws';
-            } else {
-                wsPath = p.replace(/\\/?api$/, '/ws');
-            }
+            // Same URL prefix as this page (e.g. /mindillustrate/api) + /ws → one nginx
+            // location /mindillustrate/api/ can proxy both /api/... and /ws/... to the backend.
+            let basePath = window.location.pathname.replace(/\\/$/, '');
+            if (basePath === '') basePath = '/';
+            const wsPath = basePath === '/' ? '/ws' : basePath + '/ws';
             return wsProto + '//' + window.location.host + wsPath + '/' + uid;
         }
         
