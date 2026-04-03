@@ -221,6 +221,10 @@ class StaticMentalResponse(BaseModel):
     category: str
     description: str
     highlights: List[str]
+    characteristic: str = ''
+    function: str = ''
+    manifestation: str = ''
+    proximate_cause: str = ''
 
 
 class StaticMentalListResponse(BaseModel):
@@ -249,6 +253,7 @@ class StaticMindResponse(BaseModel):
     category: str
     subgroup: str = ''
     description: str = ''
+    description_thai: str = ''
     mental_ids: List[int]
 
 

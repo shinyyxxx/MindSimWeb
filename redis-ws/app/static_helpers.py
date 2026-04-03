@@ -28,6 +28,10 @@ def init_static_data(root):
                 id=d['id'], name=d['name'], pali=d['pali'], thai=d['thai'],
                 slug=d['slug'], category=d['category'],
                 description=d['description'], highlights=d['highlights'],
+                characteristic=d.get('characteristic', ''),
+                function=d.get('function', ''),
+                manifestation=d.get('manifestation', ''),
+                proximate_cause=d.get('proximate_cause', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MENTALS_DATA)} mentals (cetasikas)")
@@ -51,6 +55,7 @@ def init_static_data(root):
                 category=d['category'], mental_ids=d['mental_ids'],
                 description=d.get('description', ''),
                 subgroup=d.get('subgroup', ''),
+                description_thai=d.get('description_thai', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MINDS_DATA)} minds (cittas)")
