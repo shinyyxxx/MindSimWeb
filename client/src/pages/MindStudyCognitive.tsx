@@ -30,6 +30,7 @@ import EnvyMental from '../mindwebsite/classes/bad/EnvyMental'
 import StinginessMental from '../mindwebsite/classes/bad/StinginessMental'
 import NeutralMental from '../mindwebsite/classes/neutral/NeutralMental'
 import type { InspectSelection } from '../types/InspectSelection'
+import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { InspectPanel } from '../components/InspectPanel'
 import ProfilePanel from '../components/ProfilePanel'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
@@ -1186,7 +1187,8 @@ export function MindStudyCognitive(): React.ReactElement {
       alert('Missing VITE_GOOGLE_TTS_KEY. Add it to your .env to enable voice.')
       return
     }
-    const text = selection.detail ? `${selection.name}. ${selection.detail}` : selection.name
+    const voiceDetail = detailTextForVoiceNarration(selection.detail)
+    const text = voiceDetail ? `${selection.name}. ${voiceDetail}` : selection.name
     setVoiceLoading(true)
     try {
       const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`, {

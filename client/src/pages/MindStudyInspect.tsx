@@ -70,6 +70,7 @@ import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import InspectPanel from '../components/InspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
+import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -1578,7 +1579,8 @@ export function MindStudyInspect(): React.ReactElement {
       alert('Missing VITE_GOOGLE_TTS_KEY. Add it to your .env to enable voice.')
       return
     }
-    const text = selection.detail ? `${selection.name}. ${selection.detail}` : selection.name
+    const voiceDetail = detailTextForVoiceNarration(selection.detail)
+    const text = voiceDetail ? `${selection.name}. ${voiceDetail}` : selection.name
     setVoiceLoading(true)
     try {
       const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`, {
@@ -1586,7 +1588,7 @@ export function MindStudyInspect(): React.ReactElement {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input: { text },
-          voice: { languageCode: 'th-TH', name: 'th-TH-Standard-A' },
+          voice: { languageCode: 'en-US', name: 'en-US-Standard-C' },
           audioConfig: { audioEncoding: 'MP3' },
         }),
       })
