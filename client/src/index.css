@@ -912,6 +912,27 @@ body.xr-active .simulation-full {
   min-height: 44px;
   padding: 4px;
 }
+.mindstudy-modal-mental-ids {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.95);
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.45;
+  word-break: break-word;
+}
+.mindstudy-modal-mental-ids-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 4px;
+}
 .mindstudy-diagram-node:hover {
   transform: translateY(-2px) scale(1.03);
   box-shadow: 0 10px 20px rgba(30, 41, 59, 0.15);

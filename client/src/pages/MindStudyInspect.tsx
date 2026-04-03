@@ -71,6 +71,46 @@ import { BlendFunction } from 'postprocessing'
 import InspectPanel from '../components/InspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 
+const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+/** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
+const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330
+
+/** Matches the compact search control on this page (54×54, glass chip). */
+const MINDSTUDY_INSPECT_FLOATING_BTN: React.CSSProperties = {
+  width: 54,
+  height: 54,
+  borderRadius: 12,
+  background: 'rgba(17, 24, 39, 0.9)',
+  color: '#e5e7eb',
+  border: '1px solid rgba(255, 255, 255, 0.12)',
+  boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
+  backdropFilter: 'blur(8px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  fontSize: 22,
+}
+
+type ApiStaticMentalRow = {
+  id: number
+  name: string
+  pali?: string
+  thai?: string
+  description?: string
+  category?: string
+}
+
+type ApiStaticMindRow = {
+  id: number
+  name: string
+  pali?: string
+  thai?: string
+  category?: string
+  description?: string
+  mental_ids: number[]
+}
 
 type MindStudyInspectParams = {
   mindId?: string
@@ -400,6 +440,88 @@ function buildSingleMentalFromCetasikaId(id: string): Mental[] | null {
   return [mental]
 }
 
+/** Scales aligned with `Simulation.tsx` MentalSeed values (0.12 / 0.14 / 0.18). */
+function simulationScaleForBackendMental(label: string, category?: string): number {
+  const key = label.toLowerCase()
+  if (key.includes('perception')) return 0.18
+  if (category === 'good' || category === 'bad') return 0.12
+  // Neutral factors often 0.14 in Simulation; Energy / Desire / Rapture use 0.12 (see T5_EXTRA_SEEDS).
+  if (
+    key.includes('energy') ||
+    key.includes('desire') ||
+    key.includes('rapture') ||
+    key.includes('pīti') ||
+    key.includes('piti')
+  ) {
+    return 0.12
+  }
+  return 0.14
+}
+
+/** Hex colors aligned with `Simulation.tsx` MentalSeed (DEFAULT_SEEDS, UNIVERSAL_SEEDS, T5_EXTRA_SEEDS). */
+const SIM_COLOR_GOOD = '#22c55e'
+const SIM_COLOR_BAD = '#ef4444'
+const SIM_COLOR_NEUTRAL_GRAY = '#a1a1aa'
+const SIM_COLOR_PERCEPTION = '#60a5fa'
+const SIM_COLOR_RAPTURE = '#38bdf8'
+
+function simulationColorForBackendMental(label: string, category?: string): string {
+  const key = label.toLowerCase()
+  if (category === 'good') return SIM_COLOR_GOOD
+  if (category === 'bad') return SIM_COLOR_BAD
+  if (key.includes('perception')) return SIM_COLOR_PERCEPTION
+  if (
+    key.includes('rapture') ||
+    key.includes('pīti') ||
+    key.includes('piti') ||
+    (key.includes('joy') && key.includes('pīti')) ||
+    (key.includes('joy') && key.includes('piti'))
+  ) {
+    return SIM_COLOR_RAPTURE
+  }
+  return SIM_COLOR_NEUTRAL_GRAY
+}
+
+/** One scene bubble per backend cetasika: English display name (like Simulation), Simulation-like size/motion/opacity/color. */
+function buildMentalsFromBackendMentalIds(
+  mentalIds: number[],
+  mentalById: Map<number, ApiStaticMentalRow>,
+): Mental[] {
+  const ids = mentalIds.filter((id) => Number.isFinite(id))
+  if (!ids.length) return buildDefaultNeutralMentals()
+
+  const mentals: Mental[] = []
+  ids.forEach((mid) => {
+    const row = mentalById.get(mid)
+    const label = row?.name?.trim() || `Mental ${mid}`
+    const factory = pickMentalFactory(label)
+    const scale = simulationScaleForBackendMental(label, row?.category)
+    const color = simulationColorForBackendMental(label, row?.category)
+    const meta: string[] = []
+    if (row?.thai?.trim()) meta.push(`Thai: ${row.thai.trim()}`)
+    if (row?.pali?.trim()) meta.push(`Pāli: ${row.pali.trim()}`)
+    const desc = row?.description?.trim()
+    const detail =
+      [desc, meta.length ? meta.join(' · ') : null].filter(Boolean).join(' — ') ||
+      `${label} (cetasika #${mid} · /api/static/mentals)`
+
+    mentals.push(
+      factory({
+        name: label,
+        detail,
+        color,
+        position: randomPosition(),
+        motionSpeed: 0.0015,
+        scale,
+        labelEnabled: false,
+        opacity: 0.5,
+      }),
+    )
+  })
+
+  return mentals
+}
+
 const formatMindName = (id?: string): string => {
   const mindKey = id ?? 'mind'
   const names: Record<string, string> = {
@@ -438,17 +560,7 @@ function NeutralMindContents({ mind, mentals }: { mind: Mind; mentals: Mental[] 
   return null
 }
 
-function MindSphere({
-  mind,
-  selectedMentalName,
-  focusTargetRef,
-}: {
-  mind: Mind
-  selectedMentalName: string | null
-  focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
-}) {
-  const { camera } = useThree()
-
+function MindSphere({ mind }: { mind: Mind }) {
   useEffect(() => {
     return () => {
       mind.dispose()
@@ -457,23 +569,6 @@ function MindSphere({
 
   useFrame((_state, delta) => {
     mind.updatePhysics(delta)
-
-    if (selectedMentalName && focusTargetRef.current) {
-      const target = focusTargetRef.current
-      const desiredDistance = 2
-
-      // Move directly toward the target and stop at a fixed distance to avoid spin.
-      const dir = camera.position.clone().sub(target)
-      if (dir.lengthSq() < 1e-6) {
-        dir.set(0, 0.2, 1) // fallback if camera is exactly on target
-      }
-      dir.normalize()
-
-      const desiredPos = target.clone().add(dir.multiplyScalar(desiredDistance))
-
-      camera.position.lerp(desiredPos, 0.12)
-      camera.lookAt(target)
-    }
   })
 
   const mindMesh = mind.getMesh()
@@ -485,7 +580,7 @@ function GroundPlane() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
       <planeGeometry args={[20, 20]} />
-      <meshStandardMaterial color={0x808080} metalness={0.1} roughness={0.5} />
+      <meshStandardMaterial color={0x9ca3af} metalness={0.08} roughness={0.48} />
     </mesh>
   )
 }
@@ -493,10 +588,12 @@ function GroundPlane() {
 function PanelPositionSync({
   focusTargetRef,
   selectedMentalName,
+  overlayRootRef,
   onUpdate,
 }: {
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   selectedMentalName: string | null
+  overlayRootRef: React.RefObject<HTMLElement | null>
   onUpdate: ((pos: { x: number; y: number } | null) => void) | undefined
 }) {
   const { camera, gl } = useThree()
@@ -508,13 +605,18 @@ function PanelPositionSync({
       return
     }
 
+    const root = overlayRootRef.current
+    if (!root) return
+
     const target = focusTargetRef.current.clone()
     const ndc = target.project(camera)
-    const rect = gl.domElement.getBoundingClientRect()
-
-    const x = rect.left + (ndc.x + 1) * 0.5 * rect.width + window.scrollX
-    const y = rect.top + (1 - (ndc.y + 1) * 0.5) * rect.height + window.scrollY
-    onUpdate({ x, y })
+    const canvasRect = gl.domElement.getBoundingClientRect()
+    const px = (ndc.x + 1) * 0.5 * canvasRect.width
+    const py = (1 - (ndc.y + 1) * 0.5) * canvasRect.height
+    const clientX = canvasRect.left + px
+    const clientY = canvasRect.top + py
+    const or = root.getBoundingClientRect()
+    onUpdate({ x: clientX - or.left, y: clientY - or.top })
   })
 
   return null
@@ -668,14 +770,16 @@ function NeutralMentalsLayer({
       })
 
       if (found) {
+        // Same as Simulation `handleMentalPick`: only the picked mental stays unfrozen (frozen = held in place).
+        mind.getMentals().forEach((m) => m.setFrozen(m === found))
         found.setFrozen(true)
-        const worldPos = found.getWorldPosition()
+
+        const foundMesh = found.getMesh()
+        const worldPos = new THREE.Vector3()
+        foundMesh?.getWorldPosition(worldPos)
         focusTargetRef.current = worldPos
-        const screenPos =
-          found.getScreenPosition(camera, gl) ?? {
-            x: event.clientX + window.scrollX,
-            y: event.clientY + window.scrollY,
-          }
+
+        const screenPos = { x: event.clientX, y: event.clientY }
 
         const idx = list.indexOf(found)
         onSelectMental({
@@ -760,18 +864,79 @@ function NeutralMentalsLayer({
 function OptionMenu({
   selection,
   panelPosition,
+  overlayRootRef,
   onClose,
   onVoice,
   voiceLoading,
   onViewDetail,
+  onDragPositionChange,
 }: {
   selection: InspectSelection
   panelPosition: { x: number; y: number } | null
+  overlayRootRef: React.RefObject<HTMLElement | null>
   onClose: () => void
   onVoice: (selection: InspectSelection) => void
   voiceLoading: boolean
   onViewDetail: (selection: InspectSelection) => void
+  onDragPositionChange?: (pos: { x: number; y: number }) => void
 }) {
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const dragRef = useRef<{ dragging: boolean; offsetX: number; offsetY: number }>({
+    dragging: false,
+    offsetX: 0,
+    offsetY: 0,
+  })
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!dragRef.current.dragging || !menuRef.current) return
+      const root = overlayRootRef.current
+      if (!root) return
+      const menu = menuRef.current
+      const width = menu.offsetWidth || 240
+      const height = menu.offsetHeight || 200
+      const margin = 12
+      const cr = root.getBoundingClientRect()
+      /*
+       * Menu: left = center X + translateX(-50%); top = (anchorY - 12) + translateY(-100%).
+       * getBoundingClientRect() is after transforms ⇒ rect.top is *visual* top; CSS top = visualTop + height.
+       * Anchor stored in panelPosition: y = cssTop + 12.
+       */
+      const visualLeft = event.clientX - dragRef.current.offsetX - cr.left
+      const visualTop = event.clientY - dragRef.current.offsetY - cr.top
+      const minCx = width / 2 + margin
+      const maxCx = cr.width - width / 2 - margin
+      const centerX = THREE.MathUtils.clamp(visualLeft + width / 2, minCx, maxCx)
+      const cssTopMin = height + margin
+      const cssTopMax = cr.height - margin
+      const cssTop = THREE.MathUtils.clamp(visualTop + height, cssTopMin, cssTopMax)
+      onDragPositionChange?.({
+        x: centerX,
+        y: cssTop + 12,
+      })
+    }
+
+    const handlePointerUp = () => {
+      dragRef.current.dragging = false
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+    }
+  }, [onDragPositionChange, overlayRootRef])
+
+  const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('button')) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    dragRef.current.dragging = true
+    dragRef.current.offsetX = event.clientX - rect.left
+    dragRef.current.offsetY = event.clientY - rect.top
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
   const menuStyle: React.CSSProperties = {
     position: 'absolute',
     left: panelPosition?.x ?? 24,
@@ -841,9 +1006,17 @@ function OptionMenu({
   )
 
   return (
-    <div style={menuStyle}>
+    <div ref={menuRef} style={menuStyle} onPointerDown={handleDragStart}>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 14, boxShadow: '0 0 0 1px rgba(125,211,252,0.25), inset 0 1px 0 rgba(255,255,255,0.04)' }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+          cursor: 'grab',
+        }}
+      >
         <div>
           <div style={{ fontSize: 11, letterSpacing: 1.4, color: '#bfdbfe', textTransform: 'uppercase' }}>Mental Sphere</div>
           <div style={{ fontWeight: 900, fontSize: 18, color: '#f8fafc', textShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>{selection.name}</div>
@@ -866,9 +1039,9 @@ function OptionMenu({
         </button>
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
-      {renderOption('View Detail', 'Inspect this sphere closely', () => onViewDetail(selection))}
-      {renderOption('Voice', 'Hear a narrated explanation', () => onVoice(selection), voiceLoading)}
-      {renderOption('How it works?', 'Learn the mechanics in-game', () => {})}
+        {renderOption('View Detail', 'Inspect this sphere closely', () => onViewDetail(selection))}
+        {renderOption('Voice', 'Hear a narrated explanation', () => onVoice(selection), voiceLoading)}
+        {renderOption('How it works?', 'Learn the mechanics in-game', () => {})}
       </div>
     </div>
   )
@@ -877,13 +1050,20 @@ function OptionMenu({
 function InspectConnector({
   panelRect,
   target,
+  overlayRootRef,
 }: {
   panelRect: DOMRect | null
   target: { x: number; y: number } | null
+  overlayRootRef: React.RefObject<HTMLElement | null>
 }) {
   if (!panelRect || !target) return null
-
-  const start = { x: panelRect.left + panelRect.width / 2, y: panelRect.top + panelRect.height / 2 }
+  const root = overlayRootRef.current
+  if (!root) return null
+  const or = root.getBoundingClientRect()
+  const start = {
+    x: panelRect.left - or.left + panelRect.width / 2,
+    y: panelRect.top - or.top + panelRect.height / 2,
+  }
   const padding = 24
   const left = Math.min(start.x, target.x) - padding
   const top = Math.min(start.y, target.y) - padding
@@ -902,7 +1082,7 @@ function InspectConnector({
         width,
         height,
         pointerEvents: 'none',
-        zIndex: 18,
+        zIndex: 17,
       }}
     >
       <svg width={width} height={height} style={{ overflow: 'visible' }}>
@@ -949,6 +1129,7 @@ function NeutralMindScene({
   selectedMentalName,
   onSelectMental,
   onUpdatePanelPosition,
+  overlayRootRef,
   highlightSelection,
   flyTargetName,
   onFlyComplete,
@@ -958,6 +1139,7 @@ function NeutralMindScene({
   selectedMentalName: string | null
   onSelectMental: (info: InspectSelection) => void
   onUpdatePanelPosition?: (pos: { x: number; y: number } | null) => void
+  overlayRootRef: React.RefObject<HTMLElement | null>
   highlightSelection?: THREE.Object3D[]
   flyTargetName?: string | null
   onFlyComplete?: () => void
@@ -970,25 +1152,27 @@ function NeutralMindScene({
   )
 
   return (
-    <Canvas camera={{ position: [0, 0, 10], fov: 60 }} shadows gl={{ antialias: true, toneMappingExposure: 0.7 }}>
-      <Environment preset="dawn" background blur={1} backgroundIntensity={0.4} environmentIntensity={0.65} />
+    <Canvas camera={{ position: [0, 0, 10], fov: 60 }} shadows gl={{ antialias: true, toneMappingExposure: 1.05 }}>
+      <Environment preset="dawn" background blur={1} backgroundIntensity={0.58} environmentIntensity={0.95} />
       <OrbitControls
-        enableDamping={!selectedMentalName}
-        dampingFactor={selectedMentalName ? 0 : 0.05}
+        enableDamping
+        dampingFactor={0.05}
         enableZoom
-        enablePan={!selectedMentalName}
-        enableRotate={!selectedMentalName}
+        enablePan
+        enableRotate
         minDistance={2}
         maxDistance={18}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[6, 8, 6]} intensity={0.95} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
-      <pointLight position={[0, 5, 0]} intensity={0.7} distance={12} decay={2} />
-      <pointLight position={[0, 0, 5]} intensity={0.55} distance={12} decay={2} />
+      <ambientLight intensity={0.52} />
+      <directionalLight position={[6, 8, 6]} intensity={1.35} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+      <directionalLight position={[-4, 5, -6]} intensity={0.55} />
+      <pointLight position={[0, 5, 0]} intensity={1.05} distance={14} decay={2} />
+      <pointLight position={[0, 0, 5]} intensity={0.85} distance={14} decay={2} />
+      <pointLight position={[4, 2, -4]} intensity={0.45} distance={16} decay={2} />
       <GroundPlane />
       <NeutralMindContents mind={mind} mentals={mentals} />
-      <MindSphere mind={mind} selectedMentalName={selectedMentalName} focusTargetRef={focusTargetRef} />
+      <MindSphere mind={mind} />
       <NeutralMentalsLayer
         mind={mind}
         mentals={mentals}
@@ -998,7 +1182,12 @@ function NeutralMindScene({
         onHoverSelection={setHoverSelection}
       />
       <FlyToCameraEffect mind={mind} targetName={flyTargetName ?? null} onDone={onFlyComplete} />
-      <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
+      <PanelPositionSync
+        focusTargetRef={focusTargetRef}
+        selectedMentalName={selectedMentalName}
+        overlayRootRef={overlayRootRef}
+        onUpdate={onUpdatePanelPosition}
+      />
       <EffectComposer multisampling={2} autoClear={false}>
         <Outline
           selection={combinedSelection}
@@ -1026,6 +1215,11 @@ export function MindStudyInspect(): React.ReactElement {
   const [voiceLoading, setVoiceLoading] = useState(false)
   const [inspectOpen, setInspectOpen] = useState(false)
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null)
+  const overlayRootRef = useRef<HTMLDivElement | null>(null)
+  const menuRevealFrameRef = useRef<number | null>(null)
+  const [focusScreenPosition, setFocusScreenPosition] = useState<{ x: number; y: number } | null>(null)
+  const [menuRevealReady, setMenuRevealReady] = useState(false)
+  const [menuLineProgress, setMenuLineProgress] = useState(1)
   const [mentals, setMentals] = useState<Mental[]>(() => buildDefaultNeutralMentals())
   const [mindLabel, setMindLabel] = useState<string>(() => formatMindName(mindId))
   const [mindDetail, setMindDetail] = useState<string>('Neutral mentals playground')
@@ -1036,8 +1230,19 @@ export function MindStudyInspect(): React.ReactElement {
     if (!selected) {
       setInspectOpen(false)
       setPanelRect(null)
+      setMenuRevealReady(false)
+      setMenuLineProgress(1)
     }
   }, [selected])
+
+  useEffect(() => {
+    return () => {
+      if (menuRevealFrameRef.current !== null) {
+        cancelAnimationFrame(menuRevealFrameRef.current)
+        menuRevealFrameRef.current = null
+      }
+    }
+  }, [])
 
   const readableMindName = useMemo(() => formatMindName(mindId), [mindId])
 
@@ -1047,6 +1252,38 @@ export function MindStudyInspect(): React.ReactElement {
     const hydrateFromSheet = async () => {
       setLoading(true)
       try {
+        const targetIdEarly = (mindId ?? 'mind').toLowerCase()
+        const canonicalMind = /^mind-(\d+)$/.exec(targetIdEarly)
+        if (canonicalMind) {
+          try {
+            const [mentalsRes, mindsRes] = await Promise.all([
+              fetch(`${API_BASE_STATIC}/api/static/mentals`).then((r) => r.json()),
+              fetch(`${API_BASE_STATIC}/api/static/minds`).then((r) => r.json()),
+            ])
+            if (cancelled) return
+
+            const numericMindId = Number(canonicalMind[1])
+            const minds: ApiStaticMindRow[] = mindsRes.minds ?? []
+            const mentalsList: ApiStaticMentalRow[] = mentalsRes.mentals ?? []
+            const staticMind = minds.find((row) => row.id === numericMindId)
+            if (staticMind) {
+              const mentalById = new Map(mentalsList.map((x) => [x.id, x]))
+              const built = buildMentalsFromBackendMentalIds(staticMind.mental_ids ?? [], mentalById)
+              setMindLabel(staticMind.thai || staticMind.thai || formatMindName(targetIdEarly))
+              const meta = [staticMind.pali, staticMind.category].filter(Boolean).join(' · ')
+              setMindDetail(staticMind.description?.trim() || meta || 'Canonical citta from /api/static/minds')
+              setMentals((prev) => {
+                prev.forEach((m) => m.dispose())
+                return built
+              })
+              setLoadError(null)
+              return
+            }
+          } catch {
+            /* fall through to MindElement.xlsx */
+          }
+        }
+
         const rows = await loadMindElementRows()
         if (cancelled) return
 
@@ -1138,6 +1375,27 @@ export function MindStudyInspect(): React.ReactElement {
   useEffect(() => () => mind.dispose(), [mind])
 
   const mentalNames = useMemo(() => mentals.map((m) => m.getName()), [mentals])
+
+  /** Same idea as `Simulation` `selectedOutlineSelection` — post outline on the picked mental. */
+  const pickedMentalMesh = useMemo(() => {
+    if (!selected?.name) return null
+    const mental = mentals.find((m) => m.getName() === selected.name)
+    return mental?.getMesh() ?? null
+  }, [mentals, selected?.name])
+
+  const sceneOutlineSelection = useMemo(() => {
+    const seen = new Set<THREE.Object3D>()
+    const out: THREE.Object3D[] = []
+    for (const o of highlightSelection) {
+      if (!seen.has(o)) {
+        seen.add(o)
+        out.push(o)
+      }
+    }
+    if (pickedMentalMesh && !seen.has(pickedMentalMesh)) out.push(pickedMentalMesh)
+    return out
+  }, [highlightSelection, pickedMentalMesh])
+
   const suggestionItems = useMemo(() => [mindLabel, ...mentalNames], [mindLabel, mentalNames])
   const filteredSuggestions = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
@@ -1153,18 +1411,97 @@ export function MindStudyInspect(): React.ReactElement {
   )
 
   const handleSelect = (info: InspectSelection) => {
-    setFlyTargetName(null) // release any fly-in when a mental is clicked
+    setFlyTargetName(null)
+    if (menuRevealFrameRef.current !== null) {
+      cancelAnimationFrame(menuRevealFrameRef.current)
+      menuRevealFrameRef.current = null
+    }
+
     setSelected(info)
-    setPanelPosition(info.screenPosition ?? null)
+    setInspectOpen(false)
+    setMenuRevealReady(false)
+    setMenuLineProgress(0)
+
+    if (info.screenPosition && overlayRootRef.current) {
+      const rect = overlayRootRef.current.getBoundingClientRect()
+      const srcLocal = {
+        x: info.screenPosition.x - rect.left,
+        y: info.screenPosition.y - rect.top,
+      }
+      setFocusScreenPosition(srcLocal)
+
+      const overlayCenter = { x: rect.width / 2, y: rect.height / 2 }
+      const outward = {
+        x: srcLocal.x - overlayCenter.x,
+        y: srcLocal.y - overlayCenter.y,
+      }
+      const length = Math.hypot(outward.x, outward.y)
+      const nx = length > 1e-5 ? outward.x / length : 0.9
+      const ny = length > 1e-5 ? outward.y / length : -0.4
+      const pushDistance = 210
+
+      const desiredX = srcLocal.x + nx * pushDistance
+      const desiredY = srcLocal.y + ny * pushDistance
+
+      const menuWidth = 260
+      const margin = 12
+      const menuH = MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT
+      // Anchor y with `top: y - 12` + `translateY(-100%)` ⇒ visual top at (y - 12 - menuH).
+      const minAnchorY = menuH + margin + 12
+      const maxAnchorY = rect.height - margin + 12
+
+      const minX = menuWidth / 2 + margin
+      const maxX = rect.width - menuWidth / 2 - margin
+
+      setPanelPosition({
+        x: THREE.MathUtils.clamp(desiredX, minX, maxX),
+        y: THREE.MathUtils.clamp(desiredY, minAnchorY, maxAnchorY),
+      })
+    } else if (info.screenPosition) {
+      setFocusScreenPosition(info.screenPosition)
+      setPanelPosition({ x: info.screenPosition.x - 28, y: info.screenPosition.y })
+    } else if (typeof window !== 'undefined' && overlayRootRef.current) {
+      const rect = overlayRootRef.current.getBoundingClientRect()
+      setFocusScreenPosition(null)
+      setPanelPosition({
+        x: rect.width - 130,
+        y: rect.height * 0.52,
+      })
+    } else {
+      setFocusScreenPosition(null)
+      setPanelPosition(null)
+    }
+
+    const startTs = typeof performance !== 'undefined' ? performance.now() : Date.now()
+    const durationMs = 360
+    const step = (nowTs: number) => {
+      const elapsed = nowTs - startTs
+      const t = THREE.MathUtils.clamp(elapsed / durationMs, 0, 1)
+      const eased = 1 - (1 - t) ** 3
+      setMenuLineProgress(eased)
+      if (t < 1) {
+        menuRevealFrameRef.current = requestAnimationFrame(step)
+        return
+      }
+      menuRevealFrameRef.current = null
+      setMenuRevealReady(true)
+    }
+    menuRevealFrameRef.current = requestAnimationFrame(step)
   }
 
   const handleClose = () => {
+    if (menuRevealFrameRef.current !== null) {
+      cancelAnimationFrame(menuRevealFrameRef.current)
+      menuRevealFrameRef.current = null
+    }
     setSelected(null)
     setPanelPosition(null)
+    setFocusScreenPosition(null)
     setInspectOpen(false)
     setPanelRect(null)
-    // Clear any search highlight once the option menu is dismissed
     setHighlightSelection([])
+    setMenuRevealReady(false)
+    setMenuLineProgress(1)
   }
 
   const handleSearch = (value?: string) => {
@@ -1204,9 +1541,36 @@ export function MindStudyInspect(): React.ReactElement {
 
   const handleViewDetail = (info: InspectSelection) => {
     setSelected(info)
+    setFocusScreenPosition((prev) => {
+      if (prev) return prev
+      if (!info.screenPosition || !overlayRootRef.current) return null
+      const r = overlayRootRef.current.getBoundingClientRect()
+      return {
+        x: info.screenPosition.x - r.left,
+        y: info.screenPosition.y - r.top,
+      }
+    })
     setInspectOpen(true)
-    setPanelRect(null)
   }
+
+  /** `focusScreenPosition` / `panelPosition` are overlay-local; `selection.screenPosition` is viewport (client). */
+  const clientToOverlayLocal = useCallback((point: { x: number; y: number } | null): { x: number; y: number } | null => {
+    if (!point || !overlayRootRef.current) return null
+    const rect = overlayRootRef.current.getBoundingClientRect()
+    return { x: point.x - rect.left, y: point.y - rect.top }
+  }, [])
+
+  const menuConnectorStart = focusScreenPosition ?? clientToOverlayLocal(selected?.screenPosition ?? null)
+  const menuConnectorEnd = panelPosition
+  const showMenuConnector = Boolean(!inspectOpen && selected && menuConnectorStart && menuConnectorEnd)
+  const connectorProgress = menuRevealReady ? 1 : menuLineProgress
+  const connectorAnimatedEnd =
+    menuConnectorStart && menuConnectorEnd
+      ? {
+          x: menuConnectorStart.x + (menuConnectorEnd.x - menuConnectorStart.x) * connectorProgress,
+          y: menuConnectorStart.y + (menuConnectorEnd.y - menuConnectorStart.y) * connectorProgress,
+        }
+      : null
 
   const handleVoice = async (selection: InspectSelection) => {
     const apiKey = import.meta.env.VITE_GOOGLE_TTS_KEY
@@ -1261,17 +1625,11 @@ export function MindStudyInspect(): React.ReactElement {
 
   return (
     <main className="page simulation-page">
-      <div className="mindstudy-hero" style={{ paddingBottom: 12 }}>
-        <div>
-          <div style={{ display: 'flex'}}>
-            <button className="mindstudy-btn ghost" type="button" onClick={() => navigate('/mind-study')}>
-              ← Back to Mind Study
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="simulation-full" style={{ position: 'relative', minHeight: '70vh', borderRadius: 16, overflow: 'hidden' }}>
+      <div
+        ref={overlayRootRef}
+        className="simulation-full"
+        style={{ position: 'relative', minHeight: '70vh', borderRadius: 16, overflow: 'hidden' }}
+      >
         <div style={mindBadgeStyle}>{mindLabel}</div>
         <div
           style={{
@@ -1283,7 +1641,7 @@ export function MindStudyInspect(): React.ReactElement {
             alignItems: 'flex-end',
             gap: 10,
             pointerEvents: 'none',
-            zIndex: 12,
+            zIndex: 22,
           }}
         >
           {searchOpen ? (
@@ -1303,6 +1661,15 @@ export function MindStudyInspect(): React.ReactElement {
                   pointerEvents: 'auto',
                 }}
               >
+                <button
+                  type="button"
+                  aria-label="Back to Mind Study"
+                  title="Back to Mind Study"
+                  onClick={() => navigate('/mind-study')}
+                  style={MINDSTUDY_INSPECT_FLOATING_BTN}
+                >
+                  ←
+                </button>
                 <input
                   type="text"
                   value={searchTerm}
@@ -1402,26 +1769,17 @@ export function MindStudyInspect(): React.ReactElement {
               </div>
             </>
           ) : (
-            <div style={{ pointerEvents: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
               <button
                 type="button"
-                onClick={() => setSearchOpen(true)}
-                style={{
-                  width: 54,
-                  height: 54,
-                  borderRadius: 12,
-                  background: 'rgba(17, 24, 39, 0.9)',
-                  color: '#e5e7eb',
-                  border: '1px solid rgba(255, 255, 255, 0.12)',
-                  boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
-                  backdropFilter: 'blur(8px)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  fontSize: 22,
-                }}
+                aria-label="Back to Mind Study"
+                title="Back to Mind Study"
+                onClick={() => navigate('/mind-study')}
+                style={MINDSTUDY_INSPECT_FLOATING_BTN}
               >
+                ←
+              </button>
+              <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search" style={MINDSTUDY_INSPECT_FLOATING_BTN}>
                 🔍
               </button>
             </div>
@@ -1441,37 +1799,77 @@ export function MindStudyInspect(): React.ReactElement {
             {loading ? 'Loading MindElement.xlsx…' : loadError ?? mindDetail}
           </div>
         </div>
-        {selected && !inspectOpen && (
+        {selected && !inspectOpen && menuRevealReady && (
           <OptionMenu
             selection={selected}
             panelPosition={panelPosition}
+            overlayRootRef={overlayRootRef}
             onClose={handleClose}
             onVoice={handleVoice}
             voiceLoading={voiceLoading}
             onViewDetail={handleViewDetail}
+            onDragPositionChange={setPanelPosition}
           />
         )}
         {selected && inspectOpen && (
-          <>
-            <InspectPanel
-              selection={selected}
-              panelPosition={panelPosition}
-              onClose={handleClose}
-              onMeasure={setPanelRect}
-            />
-            <InspectConnector panelRect={panelRect} target={panelPosition} />
-          </>
+          <InspectPanel
+            selection={selected}
+            panelPosition={panelPosition}
+            positionRootRef={overlayRootRef}
+            onClose={handleClose}
+            onMeasure={setPanelRect}
+            onVoice={handleVoice}
+            voiceLoading={voiceLoading}
+            onDragPositionChange={setPanelPosition}
+          />
         )}
         <NeutralMindScene
           mind={mind}
           mentals={mentals}
           selectedMentalName={selected?.name ?? null}
           onSelectMental={handleSelect}
-          onUpdatePanelPosition={setPanelPosition}
-          highlightSelection={highlightSelection}
+          onUpdatePanelPosition={inspectOpen ? undefined : setFocusScreenPosition}
+          overlayRootRef={overlayRootRef}
+          highlightSelection={sceneOutlineSelection}
           flyTargetName={flyTargetName}
           onFlyComplete={() => setFlyTargetName(null)}
         />
+        {showMenuConnector && menuConnectorStart && connectorAnimatedEnd && (
+          <svg
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              zIndex: 17,
+              pointerEvents: 'none',
+              overflow: 'visible',
+            }}
+          >
+            <defs>
+              <linearGradient id="mindstudy-inspect-menu-connector-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="rgba(56,189,248,0.95)" />
+                <stop offset="100%" stopColor="rgba(167,139,250,0.95)" />
+              </linearGradient>
+            </defs>
+            <line
+              x1={menuConnectorStart.x}
+              y1={menuConnectorStart.y}
+              x2={connectorAnimatedEnd.x}
+              y2={connectorAnimatedEnd.y}
+              stroke="url(#mindstudy-inspect-menu-connector-gradient)"
+              strokeWidth={2.8}
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+        {selected && inspectOpen && (
+          <InspectConnector
+            panelRect={panelRect}
+            target={focusScreenPosition ?? panelPosition}
+            overlayRootRef={overlayRootRef}
+          />
+        )}
       </div>
     </main>
   )

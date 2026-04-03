@@ -4,6 +4,8 @@ import type { InspectSelection } from '../types/InspectSelection'
 type InspectPanelProps = {
   selection: InspectSelection
   panelPosition?: { x: number; y: number } | null
+  /** When set, `panelPosition` / `screenPosition` are interpreted as coordinates relative to this element (same as Mind Study Inspect overlay). */
+  positionRootRef?: React.RefObject<HTMLElement | null>
   onClose: () => void
   onShowProfile?: (selection: InspectSelection) => void
   onVoice?: (selection: InspectSelection) => void
@@ -12,20 +14,42 @@ type InspectPanelProps = {
   onDragPositionChange?: (pos: { x: number; y: number }) => void
 }
 
-function computePanelStyle(selection: InspectSelection, panelPosition?: { x: number; y: number } | null) {
+function computePanelStyle(
+  selection: InspectSelection,
+  panelPosition: { x: number; y: number } | null | undefined,
+  positionRoot: HTMLElement | null,
+) {
   const panelWidth = 320
   const panelHeight = 200
   const gap = 16
   const margin = 12
-  const baseX = panelPosition?.x ?? selection.screenPosition?.x ?? margin
-  const baseY = panelPosition?.y ?? selection.screenPosition?.y ?? margin
 
-  if (typeof window === 'undefined') {
-    return { left: baseX - panelWidth / 2, top: baseY - panelHeight - gap, width: panelWidth }
+  let baseX = panelPosition?.x ?? margin
+  let baseY = panelPosition?.y ?? margin
+  if (!panelPosition && selection.screenPosition && positionRoot) {
+    const r = positionRoot.getBoundingClientRect()
+    baseX = selection.screenPosition.x - r.left
+    baseY = selection.screenPosition.y - r.top
+  } else if (!panelPosition && selection.screenPosition) {
+    baseX = selection.screenPosition.x
+    baseY = selection.screenPosition.y
   }
 
   const unclampedLeft = baseX - panelWidth / 2
   const unclampedTop = baseY - panelHeight - gap
+
+  if (positionRoot && typeof window !== 'undefined') {
+    const rw = positionRoot.getBoundingClientRect()
+    const w = rw.width
+    const h = rw.height
+    const left = Math.min(w - panelWidth - margin, Math.max(margin, unclampedLeft))
+    const top = Math.min(h - panelHeight - margin, Math.max(margin, unclampedTop))
+    return { left, top, width: panelWidth }
+  }
+
+  if (typeof window === 'undefined') {
+    return { left: unclampedLeft, top: unclampedTop, width: panelWidth }
+  }
 
   const left = Math.min(window.innerWidth - panelWidth - margin, Math.max(margin, unclampedLeft))
   const top = Math.min(window.innerHeight - panelHeight - margin, Math.max(margin, unclampedTop))
@@ -36,6 +60,7 @@ function computePanelStyle(selection: InspectSelection, panelPosition?: { x: num
 export function InspectPanel({
   selection,
   panelPosition,
+  positionRootRef,
   onClose,
   onShowProfile,
   onVoice,
@@ -43,7 +68,11 @@ export function InspectPanel({
   onMeasure,
   onDragPositionChange,
 }: InspectPanelProps) {
-  const panelStyle = useMemo(() => computePanelStyle(selection, panelPosition), [selection, panelPosition])
+  const rootEl = positionRootRef?.current ?? null
+  const panelStyle = useMemo(
+    () => computePanelStyle(selection, panelPosition, rootEl),
+    [selection, panelPosition, rootEl],
+  )
   const panelRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<{ dragging: boolean; offsetX: number; offsetY: number }>({
     dragging: false,
@@ -74,11 +103,24 @@ export function InspectPanel({
       const width = panel.offsetWidth || 320
       const height = panel.offsetHeight || 200
       const margin = 12
+      const gap = 16
+      const root = positionRootRef?.current
+      if (root) {
+        const cr = root.getBoundingClientRect()
+        const unclampedLeft = event.clientX - dragStateRef.current.offsetX - cr.left
+        const unclampedTop = event.clientY - dragStateRef.current.offsetY - cr.top
+        const left = Math.min(cr.width - width - margin, Math.max(margin, unclampedLeft))
+        const top = Math.min(cr.height - height - margin, Math.max(margin, unclampedTop))
+        onDragPositionChange?.({
+          x: left + width / 2,
+          y: top + height + gap,
+        })
+        return
+      }
       const unclampedLeft = event.clientX - dragStateRef.current.offsetX
       const unclampedTop = event.clientY - dragStateRef.current.offsetY
       const left = Math.min(window.innerWidth - width - margin, Math.max(margin, unclampedLeft))
       const top = Math.min(window.innerHeight - height - margin, Math.max(margin, unclampedTop))
-      const gap = 16
       onDragPositionChange?.({
         x: left + width / 2,
         y: top + height + gap,
@@ -95,7 +137,7 @@ export function InspectPanel({
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
     }
-  }, [onDragPositionChange])
+  }, [onDragPositionChange, positionRootRef])
 
   const handleDragStart = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!panelRef.current) return

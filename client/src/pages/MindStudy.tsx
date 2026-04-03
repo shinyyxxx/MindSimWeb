@@ -1253,6 +1253,17 @@ export function MindStudy(): React.ReactElement {
               <h3>{selectedMind.title}</h3>
               <p className="mindstudy-modal-sub">{selectedMind.modelLabel}</p>
               <p className="mindstudy-section-desc">{selectedMind.description}</p>
+              {(() => {
+                const sm = staticMindByAggregateId.get(String(selectedMind.id))
+                const ids = sm?.mental_ids ?? []
+                if (!ids.length) return null
+                return (
+                  <p className="mindstudy-modal-mental-ids">
+                    <span className="mindstudy-modal-mental-ids-label">เจตสิก IDs</span>
+                    {ids.join(', ')}
+                  </p>
+                )
+              })()}
               <ul className="mindstudy-list modal-list">
                 {selectedMind.highlights.slice(0, 3).map((point) => (
                   <li key={point}>{point}</li>
