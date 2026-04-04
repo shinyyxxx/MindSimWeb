@@ -57,6 +57,7 @@ def init_static_data(root):
                 description=d.get('description', ''),
                 subgroup=d.get('subgroup', ''),
                 description_thai=d.get('description_thai', ''),
+                name_en=d.get('name_en', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MINDS_DATA)} minds (cittas)")
