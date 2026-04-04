@@ -1371,6 +1371,9 @@ function MentalsLayer({
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
+  const cameraWorldQuaternion = useMemo(() => new THREE.Quaternion(), [])
+  const parentWorldQuaternion = useMemo(() => new THREE.Quaternion(), [])
+  const targetLocalQuaternion = useMemo(() => new THREE.Quaternion(), [])
   const senderRef = useRef<Mental | null>(null)
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
   const appliedMentalsRef = useRef<Set<Mental>>(new Set())
@@ -1580,6 +1583,23 @@ function MentalsLayer({
       modelPath: found.getModelPath?.(),
     })
   }, [emojiMode, focusTargetRef, gl, mind, onSelectMental, onSendMeshSelection, onSendSelection, planeModelPath, sendMode])
+
+  useFrame(() => {
+    camera.getWorldQuaternion(cameraWorldQuaternion)
+    const list = mind.getMentals()
+    list.forEach((mental) => {
+      const mesh = mental.getMesh()
+      if (!mesh) return
+      const parent = mesh.parent
+      if (!parent) {
+        mesh.quaternion.copy(cameraWorldQuaternion)
+        return
+      }
+      parent.getWorldQuaternion(parentWorldQuaternion)
+      targetLocalQuaternion.copy(parentWorldQuaternion).invert().multiply(cameraWorldQuaternion)
+      mesh.quaternion.copy(targetLocalQuaternion)
+    })
+  })
 
   useEffect(() => {
     const previous = appliedMentalsRef.current
@@ -2006,6 +2026,12 @@ function SoundReceiveEffect({
   onComplete?: () => void
 }) {
   const { gl } = useThree()
+  const earSideGap = 0.05
+  const earHeightOffset = 0
+  const earDepthOffset = 0.02
+  const earRotationXDeg = 0
+  const earRotationYDeg = 270
+  const earRotationZDeg = 0
   const [active, setActive] = useState(false)
   const [earVisible, setEarVisible] = useState(false)
   const earModelRef = useRef<THREE.Object3D | null>(null)
@@ -2045,7 +2071,11 @@ function SoundReceiveEffect({
           if (cancelled) return
           const root = gltf.scene.clone(true)
           root.scale.setScalar(0.12)
-          root.rotation.set(0, -Math.PI / 2, 0)
+          root.rotation.set(
+            THREE.MathUtils.degToRad(earRotationXDeg),
+            THREE.MathUtils.degToRad(earRotationYDeg),
+            THREE.MathUtils.degToRad(earRotationZDeg)
+          )
           earModelRef.current = root
         },
         undefined,
@@ -2098,24 +2128,24 @@ function SoundReceiveEffect({
 
     const start = contact.getPosition()
     contactStartRef.current.set(start.x, start.y, start.z)
-    // Bring Contact close to left side (ear side) of mind, still inside sphere.
-    contactTargetRef.current.set(-0.78, 0.06, 0.02)
+    // Bring Contact close to right side (ear side) of mind, still inside sphere.
+    contactTargetRef.current.set(0.78, 0.06, 0.02)
     mentalMoveTargetRef.current.set(contact, contactTargetRef.current.clone())
 
     const baseX = mind.position.x
     const baseY = mind.position.y
     const baseZ = mind.position.z
     const radius = Math.max(1.1, mind.scale)
-    earWorld.set(baseX - radius - 0.75, baseY + 0.18, baseZ + 0.02)
+    earWorld.set(baseX + radius + earSideGap, baseY + earHeightOffset, baseZ + earDepthOffset)
 
-    planeStartRef.current.copy(earWorld).add(new THREE.Vector3(-0.46, 0.04, 0.04))
+    planeStartRef.current.copy(earWorld).add(new THREE.Vector3(0.46, 0.04, 0.04))
 
     phaseRef.current = 'move_contact'
     phaseElapsedRef.current = 0
     sendStartedRef.current = false
     setEarVisible(true)
     setActive(true)
-  }, [earWorld, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
+  }, [earDepthOffset, earHeightOffset, earSideGap, earWorld, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
 
   const resolveMentalByName = useCallback(
     (name: string): Mental | null => {
@@ -2287,6 +2317,16 @@ function SoundReceiveEffect({
       }
       void runSequence()
     }
+  })
+
+  useFrame(() => {
+    if (!earVisible) return
+    const radius = Math.max(1.1, mind.scale)
+    earWorld.set(
+      mind.position.x + radius + earSideGap,
+      mind.position.y + earHeightOffset,
+      mind.position.z + earDepthOffset
+    )
   })
 
   useEffect(() => {
@@ -3869,7 +3909,7 @@ function ThreeScene({
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 10], fov: 75 }}
+      camera={{ position: [0, 0, 4], fov: 75 }}
       shadows={!isArMode}
       gl={{ antialias: true, toneMappingExposure: 0.95, alpha: isArMode }}
       onCreated={({ gl }) => {
@@ -3891,10 +3931,11 @@ function ThreeScene({
         enableDamping={!selectedMentalName}
         dampingFactor={selectedMentalName ? 0 : 0.05}
         enableZoom
-        enablePan={!selectedMentalName && !isXrActive}
+        enablePan={false}
         enableRotate={!selectedMentalName && !isXrActive}
         minDistance={0.35}
         maxDistance={24}
+        maxPolarAngle={Math.PI / 2 - 0.02}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
       <ambientLight intensity={0.5} />
