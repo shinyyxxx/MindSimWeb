@@ -220,7 +220,6 @@ class StaticMentalResponse(BaseModel):
     slug: str
     category: str
     description: str
-    highlights: List[str]
     characteristic: str = ''
     function: str = ''
     manifestation: str = ''
@@ -237,6 +236,7 @@ class StaticMentalGroupResponse(BaseModel):
     name: str
     name_thai: str
     name_en: str
+    description: str = ''
     mental_ids: List[int]
 
 
@@ -267,6 +267,7 @@ class StaticMindGroupResponse(BaseModel):
     name: str
     name_thai: str
     name_en: str
+    description: str = ''
     mind_ids: List[int]
 
 
