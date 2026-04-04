@@ -3,6 +3,7 @@ import { Text } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { InspectSelection } from '../types/InspectSelection'
+import { useStationaryDraggableXrPanel } from '../pages/simulation/useStationaryDraggableXrPanel'
 
 type XRProfileAction = 'back'
 
@@ -10,12 +11,14 @@ type XRProfilePanelProps = {
   profile: InspectSelection
   attrs: Array<{ key: string; value: string }>
   onBack: () => void
+  panelWorldAnchorRef?: React.MutableRefObject<THREE.Vector3>
 }
 
 export function XRProfilePanel({
   profile,
   attrs,
   onBack,
+  panelWorldAnchorRef,
 }: XRProfilePanelProps) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
@@ -79,21 +82,15 @@ export function XRProfilePanel({
     }
   }, [gl, resolveActionForHit, runAction])
 
+  useStationaryDraggableXrPanel({
+    groupRef,
+    gl,
+    camera,
+    layout: { forward: 1.18, right: 0.38, yDown: 0.04 },
+    panelWorldAnchorRef,
+  })
+
   useFrame(() => {
-    if (!groupRef.current) return
-    const forward = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    camera.getWorldDirection(forward)
-    right.set(1, 0, 0).applyQuaternion(camera.quaternion)
-
-    const targetPos = camera.position.clone()
-      .add(forward.multiplyScalar(1.18))
-      .add(right.multiplyScalar(0.38))
-    targetPos.y -= 0.04
-
-    groupRef.current.position.lerp(targetPos, 0.14)
-    groupRef.current.quaternion.slerp(camera.quaternion, 0.14)
-
     let nextHovered: XRProfileAction | null = null
     if (gl.xr.isPresenting && backButtonRef.current) {
       const xrRaycaster = new THREE.Raycaster()
@@ -126,7 +123,7 @@ export function XRProfilePanel({
     <group ref={groupRef}>
       <mesh>
         <planeGeometry args={[1.62, 1.2]} />
-        <meshBasicMaterial color={0xf3f4f6} transparent opacity={0.98} />
+        <meshBasicMaterial color={0xf3f4f6} transparent opacity={0.98} side={THREE.DoubleSide} />
       </mesh>
 
       <mesh position={[0, 0.44, 0.001]}>
