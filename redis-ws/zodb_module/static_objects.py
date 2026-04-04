@@ -27,19 +27,18 @@ class StaticMental(persistent.Persistent):
         self.proximate_cause = proximate_cause
 
     def to_dict(self):
-        # getattr: instances loaded from older ZODB pickles may lack newer fields.
         return {
             'id': self.id,
             'name': self.name,
             'pali': self.pali,
             'thai': self.thai,
-            'slug': getattr(self, 'slug', ''),
+            'slug': self.slug,
             'category': self.category,
-            'description': getattr(self, 'description', ''),
-            'characteristic': getattr(self, 'characteristic', ''),
-            'function': getattr(self, 'function', ''),
-            'manifestation': getattr(self, 'manifestation', ''),
-            'proximate_cause': getattr(self, 'proximate_cause', ''),
+            'description': self.description,
+            'characteristic': self.characteristic,
+            'function': self.function,
+            'manifestation': self.manifestation,
+            'proximate_cause': self.proximate_cause,
         }
 
 
@@ -60,7 +59,7 @@ class StaticMentalGroup(persistent.Persistent):
             'name': self.name,
             'name_thai': self.name_thai,
             'name_en': self.name_en,
-            'description': getattr(self, 'description', ''),
+            'description': self.description,
             'mental_ids': list(self.mental_ids),
         }
 
@@ -84,13 +83,13 @@ class StaticMind(persistent.Persistent):
         return {
             'id': self.id,
             'name': self.name,
-            'name_en': getattr(self, 'name_en', ''),
+            'name_en': self.name_en,
             'pali': self.pali,
             'thai': self.thai,
             'category': self.category,
-            'subgroup': getattr(self, 'subgroup', ''),
-            'description': getattr(self, 'description', ''),
-            'description_thai': getattr(self, 'description_thai', ''),
+            'subgroup': self.subgroup,
+            'description': self.description,
+            'description_thai': self.description_thai,
             'mental_ids': list(self.mental_ids),
         }
 
@@ -112,6 +111,6 @@ class StaticMindGroup(persistent.Persistent):
             'name': self.name,
             'name_thai': self.name_thai,
             'name_en': self.name_en,
-            'description': getattr(self, 'description', ''),
+            'description': self.description,
             'mind_ids': list(self.mind_ids),
         }
