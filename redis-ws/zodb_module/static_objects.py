@@ -8,6 +8,11 @@ import persistent
 from persistent.list import PersistentList
 
 
+_MENTAL_OPTIONAL_TEXT = frozenset({
+    'characteristic', 'function', 'manifestation', 'proximate_cause',
+})
+
+
 class StaticMental(persistent.Persistent):
     """A cetasika (mental factor) — 52 canonical entries."""
 
@@ -25,6 +30,12 @@ class StaticMental(persistent.Persistent):
         self.function = function
         self.manifestation = manifestation
         self.proximate_cause = proximate_cause
+
+    def __getattr__(self, name):
+        # Older ZODB pickles may omit these keys; normal `self.function` then works.
+        if name in _MENTAL_OPTIONAL_TEXT:
+            return ''
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     def to_dict(self):
         return {
@@ -57,10 +68,10 @@ class StaticMentalGroup(persistent.Persistent):
         return {
             'id': self.id,
             'name': self.name,
-            'name_thai': self.name_thai,
-            'name_en': self.name_en,
-            'description': self.description,
-            'mental_ids': list(self.mental_ids),
+            'name_thai': getattr(self, 'name_thai', ''),
+            'name_en': getattr(self, 'name_en', ''),
+            'description': getattr(self, 'description', ''),
+            'mental_ids': list(getattr(self, 'mental_ids', []) or []),
         }
 
 
@@ -83,14 +94,14 @@ class StaticMind(persistent.Persistent):
         return {
             'id': self.id,
             'name': self.name,
-            'name_en': self.name_en,
+            'name_en': getattr(self, 'name_en', ''),
             'pali': self.pali,
             'thai': self.thai,
             'category': self.category,
-            'subgroup': self.subgroup,
-            'description': self.description,
-            'description_thai': self.description_thai,
-            'mental_ids': list(self.mental_ids),
+            'subgroup': getattr(self, 'subgroup', ''),
+            'description': getattr(self, 'description', ''),
+            'description_thai': getattr(self, 'description_thai', ''),
+            'mental_ids': list(getattr(self, 'mental_ids', []) or []),
         }
 
 
@@ -109,8 +120,8 @@ class StaticMindGroup(persistent.Persistent):
         return {
             'id': self.id,
             'name': self.name,
-            'name_thai': self.name_thai,
-            'name_en': self.name_en,
-            'description': self.description,
-            'mind_ids': list(self.mind_ids),
+            'name_thai': getattr(self, 'name_thai', ''),
+            'name_en': getattr(self, 'name_en', ''),
+            'description': getattr(self, 'description', ''),
+            'mind_ids': list(getattr(self, 'mind_ids', []) or []),
         }
