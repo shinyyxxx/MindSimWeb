@@ -3,6 +3,7 @@ import { Text } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { InspectSelection } from '../types/InspectSelection'
+import { useStationaryDraggableXrPanel } from '../pages/simulation/useStationaryDraggableXrPanel'
 
 type XRInspectAction = 'detail' | 'back' | 'profile' | 'close' | 'voice' | 'how'
 
@@ -14,6 +15,8 @@ type XRInspectPanelProps = {
   onShowProfile: (selection: InspectSelection) => void
   onVoice?: (selection: InspectSelection) => void
   onClose: () => void
+  /** World-space anchor for connector lines; updated every frame while this panel is mounted. */
+  panelWorldAnchorRef?: React.MutableRefObject<THREE.Vector3>
 }
 
 export function XRInspectPanel({
@@ -24,6 +27,7 @@ export function XRInspectPanel({
   onShowProfile,
   onVoice,
   onClose,
+  panelWorldAnchorRef,
 }: XRInspectPanelProps) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
@@ -122,21 +126,15 @@ export function XRInspectPanel({
     }
   }, [gl, resolveActionForHit, runAction])
 
+  useStationaryDraggableXrPanel({
+    groupRef,
+    gl,
+    camera,
+    layout: { forward: 1.18, right: 0.38, yDown: 0.04 },
+    panelWorldAnchorRef,
+  })
+
   useFrame(() => {
-    if (!groupRef.current) return
-    const forward = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    camera.getWorldDirection(forward)
-    right.set(1, 0, 0).applyQuaternion(camera.quaternion)
-
-    const targetPos = camera.position.clone()
-      .add(forward.multiplyScalar(1.18))
-      .add(right.multiplyScalar(0.38))
-    targetPos.y -= 0.04
-
-    groupRef.current.position.lerp(targetPos, 0.14)
-    groupRef.current.quaternion.slerp(camera.quaternion, 0.14)
-
     let nextHovered: XRInspectAction | null = null
     if (gl.xr.isPresenting) {
       const xrRaycaster = new THREE.Raycaster()
@@ -172,7 +170,7 @@ export function XRInspectPanel({
     <group ref={groupRef}>
       <mesh ref={panelRef}>
         <planeGeometry args={[1.42, inspectOpen ? 0.98 : 1.02]} />
-        <meshBasicMaterial color={0xf8fafc} />
+        <meshBasicMaterial color={0xf8fafc} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[0, 0.4, 0.001]}>
         <planeGeometry args={[1.3, 0.04]} />

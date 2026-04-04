@@ -70,6 +70,7 @@ import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import { XRClearMode, XRControllers, XRExitByGrip, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 import { useXRSession } from './simulation/useXRSession'
+import { useStationaryDraggableXrPanel } from './simulation/useStationaryDraggableXrPanel'
 import { cancelNarration, speakNarration } from './simulation/narration'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { CodeParser, type ParsedAction } from '../utils/codeParser'
@@ -2289,14 +2290,13 @@ function XROccludedConnector({
   focusTargetRef,
   selectedMentalName,
   enabled,
+  panelWorldAnchorRef,
 }: {
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   selectedMentalName: string | null
   enabled: boolean
+  panelWorldAnchorRef: React.MutableRefObject<THREE.Vector3>
 }) {
-  const { camera } = useThree()
-  const forward = useRef(new THREE.Vector3())
-  const right = useRef(new THREE.Vector3())
   const panelAnchor = useRef(new THREE.Vector3())
   const lineObject = useMemo(() => {
     const geometry = new THREE.BufferGeometry()
@@ -2330,12 +2330,7 @@ function XROccludedConnector({
     }
 
     lineObject.visible = true
-    camera.getWorldDirection(forward.current)
-    right.current.set(1, 0, 0).applyQuaternion(camera.quaternion)
-    panelAnchor.current.copy(camera.position)
-      .add(forward.current.multiplyScalar(1.18))
-      .add(right.current.multiplyScalar(0.38))
-    panelAnchor.current.y -= 0.04
+    panelAnchor.current.copy(panelWorldAnchorRef.current)
 
     const geometry = lineObject.geometry as THREE.BufferGeometry
     const position = geometry.getAttribute('position') as THREE.BufferAttribute
@@ -2870,6 +2865,13 @@ function XRTimelinePanel({
   const [showDetail, setShowDetail] = useState(false)
   const [selectedSense, setSelectedSense] = useState<string>('')
 
+  useStationaryDraggableXrPanel({
+    groupRef,
+    gl,
+    camera,
+    layout: { forward: 1.02, right: 0.72, yDown: 0.06 },
+  })
+
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
     const rayOrigin = new THREE.Vector3()
@@ -3009,21 +3011,6 @@ function XRTimelinePanel({
   ])
 
   useFrame(() => {
-    if (!groupRef.current) return
-
-    const forward = new THREE.Vector3()
-    const right = new THREE.Vector3()
-    camera.getWorldDirection(forward)
-    right.set(1, 0, 0).applyQuaternion(camera.quaternion)
-
-    const targetPos = camera.position.clone()
-      .add(forward.multiplyScalar(1.02))
-      .add(right.multiplyScalar(0.72))
-    targetPos.y -= 0.06
-
-    groupRef.current.position.lerp(targetPos, 0.16)
-    groupRef.current.quaternion.slerp(camera.quaternion, 0.16)
-
     let nextHovered: number | null = null
     let nextOpenHovered = false
     let nextCloseHovered = false
@@ -3153,12 +3140,12 @@ function XRTimelinePanel({
       {/* Outer capsule frame */}
       <mesh position={[0, -0.01, 0]}>
         <planeGeometry args={[0.074, 0.9]} />
-        <meshBasicMaterial color={0xe2e8f0} transparent opacity={0.82} />
+        <meshBasicMaterial color={0xe2e8f0} transparent opacity={0.82} side={THREE.DoubleSide} />
       </mesh>
       {/* Inner dark rail */}
       <mesh position={[0, -0.01, 0.002]}>
         <planeGeometry args={[0.038, 0.864]} />
-        <meshBasicMaterial color={0x0f172a} />
+        <meshBasicMaterial color={0x0f172a} side={THREE.DoubleSide} />
       </mesh>
 
       {TIMELINE_STOPS.map((stop, i) => {
@@ -3213,11 +3200,11 @@ function XRTimelinePanel({
         <group>
           <mesh position={[-0.48, panelCenterY, 0.001]}>
             <planeGeometry args={[0.9, panelHeight]} />
-            <meshBasicMaterial color={0x111827} transparent opacity={0.96} />
+            <meshBasicMaterial color={0x111827} transparent opacity={0.96} side={THREE.DoubleSide} />
           </mesh>
           <mesh position={[-0.48, panelCenterY, 0.0015]}>
             <planeGeometry args={[0.896, innerPanelHeight]} />
-            <meshBasicMaterial color={0x0b1222} transparent opacity={0.54} />
+            <meshBasicMaterial color={0x0b1222} transparent opacity={0.54} side={THREE.DoubleSide} />
           </mesh>
 
           <mesh position={[-0.84, headerIconY, 0.004]}>
@@ -3677,6 +3664,7 @@ function ThreeScene({
   onCloseXrTimelineDetail: () => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
+  const xrPanelWorldAnchorRef = useRef(new THREE.Vector3())
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
   const [sendMeshSelection, setSendMeshSelection] = useState<THREE.Object3D[]>([])
   const controlsRef = useRef<OrbitControlsImpl | null>(null)
@@ -3809,6 +3797,7 @@ function ThreeScene({
           onShowProfile={onShowProfile}
           onVoice={onVoiceSelection}
           onClose={onCloseSelection}
+          panelWorldAnchorRef={xrPanelWorldAnchorRef}
         />
       )}
       {isXrActive && profile && (
@@ -3816,6 +3805,7 @@ function ThreeScene({
           profile={profile}
           attrs={profileAttrs}
           onBack={onCloseProfile}
+          panelWorldAnchorRef={xrPanelWorldAnchorRef}
         />
       )}
       {isXrActive && (
@@ -3840,6 +3830,7 @@ function ThreeScene({
         focusTargetRef={focusTargetRef}
         selectedMentalName={selectedMentalName}
         enabled={isXrActive}
+        panelWorldAnchorRef={xrPanelWorldAnchorRef}
       />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       {showMentalsLayer && !isXrActive && (
