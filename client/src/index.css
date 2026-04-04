@@ -1467,6 +1467,34 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   color: #475569;
   font-weight: 700;
 }
+.mindstudy-modal-title-thai {
+  font-weight: 700;
+  color: #334155;
+}
+.mindstudy-modal-cetasika-fields {
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mindstudy-modal-cetasika-field {
+  margin: 0;
+}
+.mindstudy-modal-cetasika-field dt {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+.mindstudy-modal-cetasika-field dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.5;
+}
 .mindstudy-modal-actions {
   position: relative;
   display: flex;

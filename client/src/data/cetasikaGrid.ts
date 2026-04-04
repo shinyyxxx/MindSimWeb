@@ -10,6 +10,11 @@ export type CetasikaCard = {
   className: string
   description: string
   highlights: string[]
+  nameEn?: string
+  characteristic?: string
+  abhidhammaFunction?: string
+  manifestation?: string
+  proximateCause?: string
 }
 
 export type CetasikaSubcategory = {

@@ -859,17 +859,22 @@ export function MindStudy(): React.ReactElement {
                                     className="mindstudy-diagram-node compact"
                                     style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
                                     onClick={() => {
-                                      setSelectedCetasika({
-                                        id: `mental-${mental.id}`,
-                                        pali: mental.pali,
-                                        thai: mental.thai,
-                                        className: mental.name,
-                                        description: mental.description,
-                                        highlights: [],
-                                      })
+                                    setSelectedCetasika({
+                                      id: `mental-${mental.id}`,
+                                      pali: mental.pali,
+                                      thai: mental.thai,
+                                      className: mental.name,
+                                      nameEn: mental.name,
+                                      description: mental.description,
+                                      highlights: [],
+                                      characteristic: mental.characteristic,
+                                      abhidhammaFunction: mental.function,
+                                      manifestation: mental.manifestation,
+                                      proximateCause: mental.proximate_cause,
+                                    })
                                       setCetasikaModalOpen(true)
                                     }}
-                                    aria-label={`${mental.pali} (${mental.thai})`}
+                                    aria-label={`${mental.name} (${mental.thai})`}
                                   >
                                     <span className="mindstudy-diagram-node-index">{mental.id}</span>
                                   </button>
@@ -1367,31 +1372,66 @@ export function MindStudy(): React.ReactElement {
           </div>
         </div>
       )}
-      {cetasikaModalOpen && selectedCetasika && (
+      {cetasikaModalOpen && selectedCetasika && (() => {
+        const c = selectedCetasika
+        const titleEn = (c.nameEn ?? c.className).trim()
+        const thaiBracket = c.thai?.trim() ? ` (${c.thai.trim()})` : ''
+        const abhidhammaRows: { key: string; label: string; text: string | undefined }[] = [
+          { key: 'ch', label: 'Characteristic (ลักษณะ)', text: c.characteristic },
+          { key: 'fn', label: 'Function (กิจ)', text: c.abhidhammaFunction },
+          { key: 'mn', label: 'Manifestation (ปาฏิหานิยะ)', text: c.manifestation },
+          { key: 'pc', label: 'Proximate cause (ปทฐาน)', text: c.proximateCause },
+        ]
+        const filledRows = abhidhammaRows.filter((row) => row.text?.trim())
+        return (
         <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setCetasikaModalOpen(false)}>
           <div
             className="mindstudy-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`Inspect ${selectedCetasika.pali}`}
+            aria-label={`Inspect ${titleEn}${thaiBracket}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mindstudy-modal-glow" aria-hidden />
             <div className="mindstudy-modal-header">
-              <span className="mindstudy-level-pill small">Cetasika</span>
+              <span className="mindstudy-level-pill small">Cetasika (เจตสิก)</span>
               <button className="mindstudy-modal-close" onClick={() => setCetasikaModalOpen(false)} aria-label="Close dialog">
                 ✕
               </button>
             </div>
             <div className="mindstudy-modal-body">
-              <h3>{selectedCetasika.pali} ({selectedCetasika.thai})</h3>
-              <p className="mindstudy-modal-sub">{selectedCetasika.className}</p>
-              <p className="mindstudy-section-desc">{selectedCetasika.description}</p>
-              <ul className="mindstudy-list modal-list">
-                {selectedCetasika.highlights.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
+              <h3 lang="en">
+                {titleEn}
+                {c.thai?.trim() ? (
+                  <span lang="th" className="mindstudy-modal-title-thai">
+                    {' '}
+                    ({c.thai.trim()})
+                  </span>
+                ) : null}
+              </h3>
+              <p className="mindstudy-modal-sub">
+                Pāli: <span lang="pi">{c.pali}</span>
+              </p>
+              {c.description?.trim() ? (
+                <p className="mindstudy-section-desc">{c.description.trim()}</p>
+              ) : null}
+              {filledRows.length > 0 ? (
+                <dl className="mindstudy-modal-cetasika-fields">
+                  {filledRows.map((row) => (
+                    <div key={row.key} className="mindstudy-modal-cetasika-field">
+                      <dt>{row.label}</dt>
+                      <dd lang="en">{row.text!.trim()}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              {c.highlights.length > 0 ? (
+                <ul className="mindstudy-list modal-list">
+                  {c.highlights.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div className="mindstudy-modal-actions">
               <button className="mindstudy-btn ghost" onClick={() => setCetasikaModalOpen(false)}>
@@ -1409,7 +1449,8 @@ export function MindStudy(): React.ReactElement {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
     </main>
   )
 }
