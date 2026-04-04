@@ -122,6 +122,16 @@ export class Mental extends AbstractMental {
     return this.modelVisible
   }
 
+  /** Hide the GLB attached inside the bubble (sphere stays visible). Safe to call before `loadModel`. */
+  hideAttachedFactorModel(): void {
+    this.setModelVisible(false)
+  }
+
+  /** Show the attached GLB after it has loaded (no-op if nothing attached yet). */
+  showAttachedFactorModel(): void {
+    this.setModelVisible(true)
+  }
+
   override setName(name: string): void {
     super.setName(name)
     this.updateNameTexture()
