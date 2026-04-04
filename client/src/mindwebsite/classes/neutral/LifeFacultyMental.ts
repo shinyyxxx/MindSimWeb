@@ -1,10 +1,10 @@
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
  * Universal mental factor: Life faculty / psychic life (Jīvitindriya)
  */
-export class LifeFacultyMental extends NeutralMental {
+export class LifeFacultyMental extends UniversalMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Life Faculty',

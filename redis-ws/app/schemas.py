@@ -299,6 +299,7 @@ class PancadvaraVithiRequest(BaseModel):
     anusaya_dosa: float = 0.3
     anusaya_lobha: float = 0.2
     experience_weight: Optional[dict] = None
+    desirability: str = "excellent"
 
     class Config:
         json_schema_extra = {
@@ -310,7 +311,8 @@ class PancadvaraVithiRequest(BaseModel):
                 "yoniso_manasikara": False,
                 "anusaya_dosa": 0.3,
                 "anusaya_lobha": 0.2,
-                "experience_weight": {}
+                "experience_weight": {},
+                "desirability": "excellent"
             }
         }
 

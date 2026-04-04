@@ -1,10 +1,10 @@
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
  * Universal mental factor: Contact (Phassa)
  */
-export class ContactMental extends NeutralMental {
+export class ContactMental extends UniversalMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Contact',

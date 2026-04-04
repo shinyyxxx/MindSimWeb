@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 type PerceptionAttribute = {
@@ -11,8 +11,9 @@ type PerceptionAttribute = {
 /**
  * A neutral-derived mental representing perception.
  */
-export class PerceptionMental extends NeutralMental {
+export class PerceptionMental extends UniversalMental {
   private attributes: PerceptionAttribute[] = []
+  private experienceWeight: Record<string, number> = {}
 
   constructor(options: MentalBaseOptions = {}) {
     super({
@@ -76,6 +77,22 @@ export class PerceptionMental extends NeutralMental {
         }
       }
     }
+  }
+
+  getExperienceWeight(): Record<string, number> {
+    return { ...this.experienceWeight }
+  }
+
+  setExperienceWeight(key: string, value: number): void {
+    this.experienceWeight[key] = Math.max(0.0, Math.min(1.0, value))
+  }
+
+  resetExperienceWeight(): void {
+    this.experienceWeight = {}
+  }
+
+  updateExperienceWeightFromResponse(updated: Record<string, number>): void {
+    this.experienceWeight = { ...updated }
   }
 
   private createMarker(): THREE.Mesh {

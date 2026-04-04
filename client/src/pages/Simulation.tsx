@@ -74,6 +74,7 @@ import { useStationaryDraggableXrPanel } from './simulation/useStationaryDraggab
 import { cancelNarration, speakNarration } from './simulation/narration'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { CodeParser, type ParsedAction } from '../utils/codeParser'
+import { validateMentalComposition, PERSON_TYPES, type PersonType } from '../utils/mentalValidation'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
 import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
@@ -104,33 +105,34 @@ interface VithiParams {
   yoniso_manasikara: boolean
   anusaya_dosa: number
   anusaya_lobha: number
+  desirability: string
 }
 
 const SENSE_VARIANTS: Record<string, { id: string; label: string; icon: string; params: VithiParams }[]> = {
   sound: [
-    { id: 'dog-barking', label: 'Dog barking', icon: '🐕', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.4, anusaya_lobha: 0.1 } },
-    { id: 'beautiful-music', label: 'Beautiful music', icon: '🎵', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4 } },
-    { id: 'faint-whisper', label: 'Faint whisper', icon: '🤫', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.2, anusaya_lobha: 0.2 } },
+    { id: 'dog-barking', label: 'Dog barking', icon: '🐕', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.4, anusaya_lobha: 0.1, desirability: 'moderate' } },
+    { id: 'beautiful-music', label: 'Beautiful music', icon: '🎵', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4, desirability: 'excellent' } },
+    { id: 'faint-whisper', label: 'Faint whisper', icon: '🤫', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.2, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
   picture: [
-    { id: 'beautiful-sunset', label: 'Beautiful sunset', icon: '🌅', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3 } },
-    { id: 'scary-scene', label: 'Scary scene', icon: '😱', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1 } },
-    { id: 'dim-shadow', label: 'Dim shadow', icon: '👤', params: { desire: 'bad', vividity: 'atiparittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.3, anusaya_lobha: 0.2 } },
+    { id: 'beautiful-sunset', label: 'Beautiful sunset', icon: '🌅', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3, desirability: 'excellent' } },
+    { id: 'scary-scene', label: 'Scary scene', icon: '😱', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1, desirability: 'moderate' } },
+    { id: 'dim-shadow', label: 'Dim shadow', icon: '👤', params: { desire: 'bad', vividity: 'atiparittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.3, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
   taste: [
-    { id: 'sweet-fruit', label: 'Sweet fruit', icon: '🍎', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.5 } },
-    { id: 'bitter-medicine', label: 'Bitter medicine', icon: '💊', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.3, anusaya_lobha: 0.1 } },
-    { id: 'bland-water', label: 'Bland water', icon: '💧', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.1 } },
+    { id: 'sweet-fruit', label: 'Sweet fruit', icon: '🍎', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.5, desirability: 'excellent' } },
+    { id: 'bitter-medicine', label: 'Bitter medicine', icon: '💊', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.3, anusaya_lobha: 0.1, desirability: 'moderate' } },
+    { id: 'bland-water', label: 'Bland water', icon: '💧', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.1, desirability: 'moderate' } },
   ],
   touch: [
-    { id: 'warm-hug', label: 'Warm hug', icon: '🤗', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4 } },
-    { id: 'sharp-pain', label: 'Sharp pain', icon: '🩹', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.6, anusaya_lobha: 0.1 } },
-    { id: 'light-breeze', label: 'Light breeze', icon: '🍃', params: { desire: 'good', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.2 } },
+    { id: 'warm-hug', label: 'Warm hug', icon: '🤗', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4, desirability: 'excellent' } },
+    { id: 'sharp-pain', label: 'Sharp pain', icon: '🩹', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.6, anusaya_lobha: 0.1, desirability: 'moderate' } },
+    { id: 'light-breeze', label: 'Light breeze', icon: '🍃', params: { desire: 'good', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
   smell: [
-    { id: 'fresh-flowers', label: 'Fresh flowers', icon: '🌸', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3 } },
-    { id: 'rotten-garbage', label: 'Rotten garbage', icon: '🗑️', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1 } },
-    { id: 'subtle-incense', label: 'Subtle incense', icon: '🧘', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.1, anusaya_lobha: 0.1 } },
+    { id: 'fresh-flowers', label: 'Fresh flowers', icon: '🌸', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3, desirability: 'excellent' } },
+    { id: 'rotten-garbage', label: 'Rotten garbage', icon: '🗑️', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1, desirability: 'moderate' } },
+    { id: 'subtle-incense', label: 'Subtle incense', icon: '🧘', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.1, anusaya_lobha: 0.1, desirability: 'moderate' } },
   ],
 }
 
@@ -2514,6 +2516,9 @@ function TimelineCanvas({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  hasContactMental,
+  personType,
+  onPersonTypeChange,
   vithiCurrentEvent,
 }: {
   stops: Array<{ label: string; description: string }>
@@ -2525,6 +2530,9 @@ function TimelineCanvas({
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
   onSenseSelect?: (senseId: string, params: VithiParams) => void
+  hasContactMental?: boolean
+  personType?: PersonType
+  onPersonTypeChange?: (pt: PersonType) => void
   vithiCurrentEvent?: VithiEvent | null
 }) {
   const [showDetail, setShowDetail] = useState(false)
@@ -2641,6 +2649,33 @@ function TimelineCanvas({
           <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.45, color: '#9ca3af' }}>{activeStop.description}</p>
 
           {selectedIndex === 0 && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Person type</label>
+              <select
+                value={personType ?? 'puthujjana'}
+                onChange={(e) => onPersonTypeChange?.(e.target.value as PersonType)}
+                style={{
+                  fontSize: 12,
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(148, 163, 184, 0.4)',
+                  background: 'rgba(30, 41, 59, 0.85)',
+                  color: '#e5e7eb',
+                  cursor: 'pointer',
+                }}
+              >
+                {PERSON_TYPES.map((pt) => (
+                  <option key={pt} value={pt}>{pt}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {selectedIndex === 0 && !hasContactMental && (
+            <p style={{ margin: '10px 0 0', fontSize: 12, color: '#f87171' }}>
+              Create Contact (Phassa) mental via code runner to unlock sense doors
+            </p>
+          )}
+          {selectedIndex === 0 && hasContactMental && (
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
                 Choose sense door
@@ -2979,6 +3014,7 @@ function XRTimelinePanel({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  hasContactMental,
   vithiCurrentEvent,
 }: {
   selectedIndex: number
@@ -2991,6 +3027,7 @@ function XRTimelinePanel({
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
   onSenseSelect?: (senseId: string, params: VithiParams) => void
+  hasContactMental?: boolean
   vithiCurrentEvent?: VithiEvent | null
 }) {
   const { gl, camera } = useThree()
@@ -3114,7 +3151,7 @@ function XRTimelinePanel({
           return
         }
       }
-      if (selectedIndex === 0) {
+      if (selectedIndex === 0 && hasContactMental) {
         for (const opt of T0_SENSE_OPTIONS) {
           const mesh = senseButtonRefs.current[opt.id]
           if (!mesh) continue
@@ -3147,6 +3184,7 @@ function XRTimelinePanel({
     }
   }, [
     gl,
+    hasContactMental,
     onClosePanel,
     onOpenPanel,
     onSelect,
@@ -3267,7 +3305,7 @@ function XRTimelinePanel({
   const variantHeaderY = -0.14
   const variantStartY = -0.2
   let contentBottomY = -0.12
-  if (selectedIndex === 0) {
+  if (selectedIndex === 0 && hasContactMental) {
     contentBottomY = -0.04
     if (selectedVariants.length > 0) {
       const visibleVariantCount = Math.min(3, selectedVariants.length)
@@ -3381,7 +3419,12 @@ function XRTimelinePanel({
             {activeStop.description}
           </Text>
 
-          {selectedIndex === 0 && (
+          {selectedIndex === 0 && !hasContactMental && (
+            <Text position={[-0.88, senseHeaderY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.02} color="#f87171" maxWidth={0.78}>
+              Create Contact (Phassa) mental via code runner to unlock sense doors
+            </Text>
+          )}
+          {selectedIndex === 0 && hasContactMental && (
             <>
               <Text position={[-0.88, senseHeaderY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
                 Choose sense door
@@ -3762,6 +3805,7 @@ function ThreeScene({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  hasContactMental,
   vithiCurrentEvent,
   xrTimelineOpen,
   xrTimelineDetailOpen,
@@ -3805,6 +3849,7 @@ function ThreeScene({
   t5SelectedId: string | null
   onT5Change: (id: string | null) => void
   onSenseSelect: (senseId: string, params: VithiParams) => void
+  hasContactMental: boolean
   vithiCurrentEvent: VithiEvent | null
   xrTimelineOpen: boolean
   xrTimelineDetailOpen: boolean
@@ -3972,6 +4017,7 @@ function ThreeScene({
           t5SelectedId={t5SelectedId}
           onT5Change={onT5Change}
           onSenseSelect={onSenseSelect}
+          hasContactMental={hasContactMental}
           vithiCurrentEvent={vithiCurrentEvent}
         />
       )}
@@ -4024,6 +4070,8 @@ export function Simulation(): React.ReactElement {
   const [codeRunnerStatus, setCodeRunnerStatus] = useState<string | null>(null)
   const [codeRunnerErrorLine, setCodeRunnerErrorLine] = useState<number | null>(null)
   const [codeRunnerDirty, setCodeRunnerDirty] = useState(false)
+
+  const [personType, setPersonType] = useState<PersonType>('puthujjana')
 
   const [vithiQueue, setVithiQueue] = useState<VithiEvent[]>([])
   const vithiProcessingRef = useRef(false)
@@ -4197,6 +4245,11 @@ export function Simulation(): React.ReactElement {
     })
     return base
   }, [mentals, scriptMatchedDefaultMentals, scriptMentals, scriptResultActive])
+
+  const hasContactMental = useMemo(
+    () => allMentals.some((m) => m instanceof ContactMental),
+    [allMentals],
+  )
 
   useEffect(() => {
     mind.setLabelDepthOcclusion(isXrActive)
@@ -4641,6 +4694,19 @@ export function Simulation(): React.ReactElement {
       }
     })
 
+    // Collect all mental names for validation
+    const allLinkedNames: string[] = []
+    nowMentalsByVar.forEach((mental) => {
+      allLinkedNames.push(mental.getName())
+    })
+
+    const validation = validateMentalComposition(allLinkedNames, personType)
+    if (!validation.valid) {
+      setCodeRunnerErrorLine(null)
+      setCodeRunnerStatus(`Validation failed:\n${validation.errors.join('\n')}`)
+      return
+    }
+
     newMentalsByVar.forEach((mental, variable) => {
       scriptMentalMapRef.current.set(variable, mental)
     })
@@ -4668,7 +4734,7 @@ export function Simulation(): React.ReactElement {
         const msg = err instanceof Error ? err.message : 'Unknown error'
         setCodeRunnerStatus(`${localMsg} (Backend: ${msg})`)
       })
-  }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList])
+  }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList, personType])
 
   useEffect(() => {
     if (vithiQueue.length === 0) {
@@ -4689,23 +4755,29 @@ export function Simulation(): React.ReactElement {
 
   const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
+    const sannaMental = allMentals.find((m) => m instanceof PerceptionMental) as PerceptionMental | undefined
+    const expWeight = sannaMental ? sannaMental.getExperienceWeight() : {}
     fetch(`${API_BASE}/api/vithi/pancadvara`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sense: apiSense,
         ...variantParams,
-        experience_weight: {},
+        person_type: personType,
+        experience_weight: expWeight,
       }),
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data: { events?: VithiEvent[] }) => {
+      .then((data: { events?: VithiEvent[]; updated_experience_weight?: Record<string, number> }) => {
         if (data.events) setVithiQueue(data.events)
+        if (data.updated_experience_weight && sannaMental) {
+          sannaMental.updateExperienceWeightFromResponse(data.updated_experience_weight)
+        }
       })
       .catch((err: unknown) => {
         console.error('Vithi API error:', err)
       })
-  }, [])
+  }, [allMentals, personType])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
@@ -5457,6 +5529,9 @@ export function Simulation(): React.ReactElement {
               t5SelectedId={t5SelectedId}
               onT5Change={setT5SelectedId}
               onSenseSelect={handleSenseSelect}
+              hasContactMental={hasContactMental}
+              personType={personType}
+              onPersonTypeChange={setPersonType}
               vithiCurrentEvent={vithiCurrentEvent}
             />
           )}
@@ -5536,6 +5611,7 @@ export function Simulation(): React.ReactElement {
           t5SelectedId={t5SelectedId}
           onT5Change={setT5SelectedId}
           onSenseSelect={handleSenseSelect}
+          hasContactMental={hasContactMental}
           vithiCurrentEvent={vithiCurrentEvent}
           xrTimelineOpen={xrTimelineOpen}
           xrTimelineDetailOpen={xrTimelineDetailOpen}

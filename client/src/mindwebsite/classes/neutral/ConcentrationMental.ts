@@ -1,10 +1,10 @@
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
  * Universal mental factor: Concentration / One-pointedness (Ekaggatā)
  */
-export class ConcentrationMental extends NeutralMental {
+export class ConcentrationMental extends UniversalMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Concentration',

@@ -33,6 +33,7 @@ def run_pancadvara_vithi(
     anusaya_dosa: float = 0.3,
     anusaya_lobha: float = 0.2,
     experience_weight: Optional[dict] = None,
+    desirability: str = "excellent",
 ) -> dict:
     """Run the full five-door cognitive process and return all events."""
     if experience_weight is None:
@@ -117,7 +118,7 @@ def run_pancadvara_vithi(
         events.append(jev)
 
     # Tadalammana (registration) x2
-    tada_events = _tadalammana(vividity, final_is_bad)
+    tada_events = _tadalammana(vividity, desire, desirability)
     for tev in tada_events:
         order += 1
         tev.order = order
@@ -188,6 +189,15 @@ def _votthapana(is_bad: bool, sense: str, experience_weight: dict,
     return 29, desc, final_is_bad
 
 
+_PERSON_AKUSALA_RANGE = {
+    "puthujjana": [1, 12],
+    "sotapanna":  [3, 4, 7, 8, 9, 10, 12],
+    "sakadagami": [3, 4, 7, 8, 9, 10, 12],
+    "anagami":    [3, 4, 7, 8, 12],
+    "arahant":    [],
+}
+
+
 def _javana(is_bad: bool, vividity: str, person_type: str):
     events = []
     if vividity not in ("mahantarammana", "atimahantarammana"):
@@ -208,10 +218,11 @@ def _javana(is_bad: bool, vividity: str, person_type: str):
                 ))
         else:
             if is_bad:
+                akusala_range = _PERSON_AKUSALA_RANGE.get(person_type, [1, 12])
                 events.append(VithiEvent(
                     order=0, stage="javana", mind_id=None,
-                    mind_id_range=[1, 12],
-                    description=f"Javana {i+1}/7 — akusala citta",
+                    mind_id_range=akusala_range,
+                    description=f"Javana {i+1}/7 — akusala citta ({person_type})",
                 ))
             else:
                 events.append(VithiEvent(
@@ -222,19 +233,31 @@ def _javana(is_bad: bool, vividity: str, person_type: str):
     return events
 
 
-def _tadalammana(vividity: str, is_bad: bool):
+def _tadalammana(vividity: str, desire: str, desirability: str):
     events = []
     if vividity != "atimahantarammana":
         return events
 
-    events.append(VithiEvent(
-        order=0, stage="tadalammana", mind_id=29,
-        description="Registration 1/2 — object registers in mind",
-    ))
-    events.append(VithiEvent(
-        order=0, stage="tadalammana", mind_id=30,
-        description="Registration 2/2 — object fully registered",
-    ))
+    if desire == "bad":
+        for i in range(2):
+            events.append(VithiEvent(
+                order=0, stage="tadalammana", mind_id=19,
+                description=f"Registration {i+1}/2 — akusala vipaka santirana (unpleasant object)",
+            ))
+    elif desirability == "excellent":
+        for i in range(2):
+            events.append(VithiEvent(
+                order=0, stage="tadalammana", mind_id=None,
+                mind_id_range=[27, 39, 40, 41, 42],
+                description=f"Registration {i+1}/2 — somanassa tadalammana (excellent object)",
+            ))
+    else:
+        for i in range(2):
+            events.append(VithiEvent(
+                order=0, stage="tadalammana", mind_id=None,
+                mind_id_range=[26, 43, 44, 45, 46],
+                description=f"Registration {i+1}/2 — upekkha tadalammana (moderately good object)",
+            ))
     return events
 
 

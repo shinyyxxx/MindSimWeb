@@ -1,10 +1,10 @@
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
  * Universal mental factor: Feeling (Vedana)
  */
-export class FeelingMental extends NeutralMental {
+export class FeelingMental extends UniversalMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Feeling',

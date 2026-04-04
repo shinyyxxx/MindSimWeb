@@ -1,10 +1,10 @@
-import NeutralMental from './NeutralMental'
+import UniversalMental from './UniversalMental'
 import type { MentalBaseOptions } from '../AbstractMental'
 
 /**
  * Universal mental factor: Intention (Cetana)
  */
-export class IntentionMental extends NeutralMental {
+export class IntentionMental extends UniversalMental {
   constructor(options: MentalBaseOptions = {}) {
     super({
       name: options.name ?? 'Intention',

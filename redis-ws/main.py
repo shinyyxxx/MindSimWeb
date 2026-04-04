@@ -648,6 +648,7 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
             anusaya_dosa=request.anusaya_dosa,
             anusaya_lobha=request.anusaya_lobha,
             experience_weight=request.experience_weight,
+            desirability=request.desirability,
         )
 
         _, root = get_connection()
