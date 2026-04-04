@@ -45,6 +45,7 @@ interface StaticMentalGroup {
 interface StaticMind {
   id: number
   name: string
+  name_en: string
   pali: string
   thai: string
   category: string
