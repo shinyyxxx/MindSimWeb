@@ -127,10 +127,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Wildcard origin is invalid together with allow_credentials=True (CORS spec).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
