@@ -1620,6 +1620,7 @@ function MentalsLayer({
         })
         pendingModelLoadMentalsRef.current.add(mental)
       } else {
+        mental.hideAttachedFactorModel()
         mental.loadModel(gl, { basisPath }).catch((err) => {
           console.error('Failed to load mental model', err)
         })
@@ -1629,6 +1630,22 @@ function MentalsLayer({
     appliedMentalsRef.current = next
     hasHydratedMentalsRef.current = true
   }, [gl, mentals, mind, spawnDissolveBurst])
+
+  useEffect(() => {
+    const list = mind.getMentals()
+    if (!selectedMentalName) {
+      list.forEach((m) => m.hideAttachedFactorModel())
+      return
+    }
+    const selected = list.find((m) => m.getName() === selectedMentalName)
+    list.forEach((m) => {
+      if (m === selected) {
+        m.showAttachedFactorModel()
+      } else {
+        m.hideAttachedFactorModel()
+      }
+    })
+  }, [mentals, mind, selectedMentalName])
 
   useEffect(() => {
     return () => {
@@ -1836,6 +1853,7 @@ function MentalsLayer({
         }
         if (pendingModelLoadMentalsRef.current.has(mental)) {
           pendingModelLoadMentalsRef.current.delete(mental)
+          mental.hideAttachedFactorModel()
           mental.loadModel(gl, { basisPath }).catch((err) => {
             console.error('Failed to load mental model', err)
           })
