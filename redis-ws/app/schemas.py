@@ -248,6 +248,7 @@ class StaticMentalGroupListResponse(BaseModel):
 class StaticMindResponse(BaseModel):
     id: int
     name: str
+    name_en: str = ''
     pali: str
     thai: str
     category: str

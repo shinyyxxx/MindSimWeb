@@ -45,6 +45,7 @@ interface StaticMentalGroup {
 interface StaticMind {
   id: number
   name: string
+  name_en: string
   pali: string
   thai: string
   category: string
@@ -176,6 +177,8 @@ export function MindStudy(): React.ReactElement {
   const [selectedCetasika, setSelectedCetasika] = useState<CetasikaCard | null>(null)
   const [cetasikaModalOpen, setCetasikaModalOpen] = useState<boolean>(false)
   const [mindNavOpen, setMindNavOpen] = useState(true)
+  /** Diagram section ids in this set are collapsed (default: all expanded). */
+  const [collapsedStudyGroups, setCollapsedStudyGroups] = useState<Set<string>>(() => new Set())
   const [narrativePlaying, setNarrativePlaying] = useState<boolean>(false)
   const [subtitleLine, setSubtitleLine] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
@@ -590,6 +593,19 @@ export function MindStudy(): React.ReactElement {
     ].filter((block) => block.rows.length > 0)
   }, [staticMentals, staticMentalGroups])
 
+  const isStudyGroupExpanded = useCallback(
+    (id: string) => !collapsedStudyGroups.has(id),
+    [collapsedStudyGroups],
+  )
+  const toggleStudyGroup = useCallback((id: string) => {
+    setCollapsedStudyGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
   return (
     <main className="page">
       <div className="mindstudy-hero">
@@ -787,69 +803,100 @@ export function MindStudy(): React.ReactElement {
               Mental factors from `/api/static/mentals`, grouped as circular rows.
             </p>
             <div className="mindstudy-diagram">
-              {mentalCategoryBlocks.map((block) => (
-                <article key={block.id} id={block.id} className="mindstudy-diagram-group">
-                  <div className="mindstudy-diagram-group-head">
-                    <span className="mindstudy-diagram-group-dot" style={{ background: block.color }} aria-hidden />
-                    <h3
-                      lang="th"
-                      style={{
-                        color:
-                          block.id === 'cetasikas-bad'
-                            ? BAD_MENTAL_TEXT
-                            : block.id === 'cetasikas-good'
-                              ? GOOD_MENTAL_TEXT
-                              : NEUTRAL_MENTAL_TEXT,
-                      }}
+              {mentalCategoryBlocks.map((block) => {
+                const mentalOpen = isStudyGroupExpanded(block.id)
+                return (
+                  <article
+                    key={block.id}
+                    id={block.id}
+                    className={`mindstudy-diagram-group ${mentalOpen ? '' : 'is-collapsed'}`}
+                  >
+                    <button
+                      type="button"
+                      className="mindstudy-diagram-group-head mindstudy-diagram-group-toggle"
+                      aria-expanded={mentalOpen}
+                      aria-controls={`mindstudy-mental-body-${block.id}`}
+                      onClick={() => toggleStudyGroup(block.id)}
                     >
-                      {block.titleThai}
-                    </h3>
-                    <p className="mindstudy-diagram-group-sub-th" lang="th">
-                      {block.subtitleThai}
-                    </p>
-                    <p className="mindstudy-diagram-group-sub-en">{block.titleEn}</p>
-                  </div>
-                  <div className="mindstudy-diagram-subgroups">
-                    {block.rows.map((row) => (
-                      <div key={row.id} id={row.anchorId} className="mindstudy-diagram-subgroup-row">
-                        <div className="mindstudy-diagram-circles compact">
-                          {row.items.map((mental) => (
-                            <button
-                              key={mental.id}
-                              id={`mental-${mental.id}`}
-                              type="button"
-                              className="mindstudy-diagram-node compact"
-                              style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
-                              onClick={() => {
-                                setSelectedCetasika({
-                                  id: `mental-${mental.id}`,
-                                  pali: mental.pali,
-                                  thai: mental.thai,
-                                  className: mental.name,
-                                  description: mental.description,
-                                  highlights: [],
-                                })
-                                setCetasikaModalOpen(true)
-                              }}
-                              aria-label={`${mental.pali} (${mental.thai})`}
-                            >
-                              <span className="mindstudy-diagram-node-index">{mental.id}</span>
-                            </button>
+                      <span className="mindstudy-diagram-group-dot" style={{ background: block.color }} aria-hidden />
+                      <h3
+                        lang="th"
+                        style={{
+                          color:
+                            block.id === 'cetasikas-bad'
+                              ? BAD_MENTAL_TEXT
+                              : block.id === 'cetasikas-good'
+                                ? GOOD_MENTAL_TEXT
+                                : NEUTRAL_MENTAL_TEXT,
+                        }}
+                      >
+                        {block.titleThai}
+                      </h3>
+                      <p className="mindstudy-diagram-group-sub-th" lang="th">
+                        {block.subtitleThai}
+                      </p>
+                      <p className="mindstudy-diagram-group-sub-en">{block.titleEn}</p>
+                      <span className={`mindstudy-caret ${mentalOpen ? 'open' : ''}`} aria-hidden>
+                        ▼
+                      </span>
+                    </button>
+                    <div
+                      id={`mindstudy-mental-body-${block.id}`}
+                      className={`mindstudy-diagram-group-body ${mentalOpen ? 'open' : ''}`}
+                      role="region"
+                      aria-label={block.titleThai}
+                      aria-hidden={!mentalOpen}
+                    >
+                      <div className="mindstudy-diagram-group-body-inner">
+                        <div className="mindstudy-diagram-subgroups">
+                          {block.rows.map((row) => (
+                            <div key={row.id} id={row.anchorId} className="mindstudy-diagram-subgroup-row">
+                              <div className="mindstudy-diagram-circles compact">
+                                {row.items.map((mental) => (
+                                  <button
+                                    key={mental.id}
+                                    id={`mental-${mental.id}`}
+                                    type="button"
+                                    className="mindstudy-diagram-node compact"
+                                    style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
+                                    onClick={() => {
+                                    setSelectedCetasika({
+                                      id: `mental-${mental.id}`,
+                                      pali: mental.pali,
+                                      thai: mental.thai,
+                                      className: mental.name,
+                                      nameEn: mental.name,
+                                      description: mental.description,
+                                      highlights: [],
+                                      characteristic: mental.characteristic,
+                                      abhidhammaFunction: mental.function,
+                                      manifestation: mental.manifestation,
+                                      proximateCause: mental.proximate_cause,
+                                    })
+                                      setCetasikaModalOpen(true)
+                                    }}
+                                    aria-label={`${mental.name} (${mental.thai})`}
+                                  >
+                                    <span className="mindstudy-diagram-node-index">{mental.id}</span>
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="mindstudy-diagram-subgroup-label-wrap">
+                                <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
+                                  {'}'}
+                                </span>
+                                <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="th">
+                                  {row.title} {toThaiDigitString(row.items.length)}
+                                </span>
+                              </div>
+                            </div>
                           ))}
                         </div>
-                        <div className="mindstudy-diagram-subgroup-label-wrap">
-                          <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
-                            {'}'}
-                          </span>
-                          <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="th">
-                            {row.title} {toThaiDigitString(row.items.length)}
-                          </span>
-                        </div>
                       </div>
-                    ))}
-                  </div>
-                </article>
-              ))}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
             </div>
           </section>
@@ -875,9 +922,21 @@ export function MindStudy(): React.ReactElement {
               {!loading && loadError ? ` ${loadError}` : ''}
             </p>
             <div className="mindstudy-diagram">
-              {mindDiagramGroups.map((group) => (
-                <article key={group.id} id={group.id} className="mindstudy-diagram-group">
-                  <div className="mindstudy-diagram-group-head">
+              {mindDiagramGroups.map((group) => {
+                const mindGroupOpen = isStudyGroupExpanded(group.id)
+                return (
+                <article
+                  key={group.id}
+                  id={group.id}
+                  className={`mindstudy-diagram-group ${mindGroupOpen ? '' : 'is-collapsed'}`}
+                >
+                  <button
+                    type="button"
+                    className="mindstudy-diagram-group-head mindstudy-diagram-group-toggle"
+                    aria-expanded={mindGroupOpen}
+                    aria-controls={`mindstudy-mind-body-${group.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
+                    onClick={() => toggleStudyGroup(group.id)}
+                  >
                     <span
                       className="mindstudy-diagram-group-dot"
                       style={{ background: group.color }}
@@ -885,7 +944,18 @@ export function MindStudy(): React.ReactElement {
                     />
                     <h3>{group.title}</h3>
                     <p>{group.subtitle}</p>
-                  </div>
+                    <span className={`mindstudy-caret ${mindGroupOpen ? 'open' : ''}`} aria-hidden>
+                      ▼
+                    </span>
+                  </button>
+                  <div
+                    id={`mindstudy-mind-body-${group.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
+                    className={`mindstudy-diagram-group-body ${mindGroupOpen ? 'open' : ''}`}
+                    role="region"
+                    aria-label={group.title}
+                    aria-hidden={!mindGroupOpen}
+                  >
+                  <div className="mindstudy-diagram-group-body-inner">
                   {(() => {
                     const title = `${group.title} ${group.subtitle}`
                     const isAkusala = /อกุศล|Akusala/i.test(title)
@@ -1120,8 +1190,11 @@ export function MindStudy(): React.ReactElement {
                       </div>
                     )
                   })()}
+                  </div>
+                  </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
           </div>
         </section>
@@ -1300,31 +1373,66 @@ export function MindStudy(): React.ReactElement {
           </div>
         </div>
       )}
-      {cetasikaModalOpen && selectedCetasika && (
+      {cetasikaModalOpen && selectedCetasika && (() => {
+        const c = selectedCetasika
+        const titleEn = (c.nameEn ?? c.className).trim()
+        const thaiBracket = c.thai?.trim() ? ` (${c.thai.trim()})` : ''
+        const abhidhammaRows: { key: string; label: string; text: string | undefined }[] = [
+          { key: 'ch', label: 'Characteristic (ลักษณะ)', text: c.characteristic },
+          { key: 'fn', label: 'Function (กิจ)', text: c.abhidhammaFunction },
+          { key: 'mn', label: 'Manifestation (ปาฏิหานิยะ)', text: c.manifestation },
+          { key: 'pc', label: 'Proximate cause (ปทฐาน)', text: c.proximateCause },
+        ]
+        const filledRows = abhidhammaRows.filter((row) => row.text?.trim())
+        return (
         <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setCetasikaModalOpen(false)}>
           <div
             className="mindstudy-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={`Inspect ${selectedCetasika.pali}`}
+            aria-label={`Inspect ${titleEn}${thaiBracket}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mindstudy-modal-glow" aria-hidden />
             <div className="mindstudy-modal-header">
-              <span className="mindstudy-level-pill small">Cetasika</span>
+              <span className="mindstudy-level-pill small">Cetasika (เจตสิก)</span>
               <button className="mindstudy-modal-close" onClick={() => setCetasikaModalOpen(false)} aria-label="Close dialog">
                 ✕
               </button>
             </div>
             <div className="mindstudy-modal-body">
-              <h3>{selectedCetasika.pali} ({selectedCetasika.thai})</h3>
-              <p className="mindstudy-modal-sub">{selectedCetasika.className}</p>
-              <p className="mindstudy-section-desc">{selectedCetasika.description}</p>
-              <ul className="mindstudy-list modal-list">
-                {selectedCetasika.highlights.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
+              <h3 lang="en">
+                {titleEn}
+                {c.thai?.trim() ? (
+                  <span lang="th" className="mindstudy-modal-title-thai">
+                    {' '}
+                    ({c.thai.trim()})
+                  </span>
+                ) : null}
+              </h3>
+              <p className="mindstudy-modal-sub">
+                Pāli: <span lang="pi">{c.pali}</span>
+              </p>
+              {c.description?.trim() ? (
+                <p className="mindstudy-section-desc">{c.description.trim()}</p>
+              ) : null}
+              {filledRows.length > 0 ? (
+                <dl className="mindstudy-modal-cetasika-fields">
+                  {filledRows.map((row) => (
+                    <div key={row.key} className="mindstudy-modal-cetasika-field">
+                      <dt>{row.label}</dt>
+                      <dd lang="en">{row.text!.trim()}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+              {c.highlights.length > 0 ? (
+                <ul className="mindstudy-list modal-list">
+                  {c.highlights.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
             <div className="mindstudy-modal-actions">
               <button className="mindstudy-btn ghost" onClick={() => setCetasikaModalOpen(false)}>
@@ -1342,7 +1450,8 @@ export function MindStudy(): React.ReactElement {
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
     </main>
   )
 }

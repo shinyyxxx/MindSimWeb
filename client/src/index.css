@@ -791,38 +791,45 @@ body.xr-active .simulation-full {
   gap: 14px;
 }
 .mindstudy-diagram-group {
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 16px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.84);
+  padding: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 28px rgba(15, 23, 42, 0.07);
   scroll-margin-top: 100px;
 }
 .mindstudy-diagram-group-head {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   grid-auto-rows: auto;
-  column-gap: 10px;
-  row-gap: 2px;
-  margin-bottom: 10px;
+  column-gap: 12px;
+  row-gap: 4px;
+  margin-bottom: 0;
   justify-items: start;
   align-items: start;
 }
 /* Pin dot to column 1; pin title + subtitles to column 2 so auto-placement does not
    drop the English line under the dot (which left the Thai title isolated in a wide column). */
 .mindstudy-diagram-group-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  margin-top: 4px;
+  margin-top: 6px;
   grid-column: 1;
   grid-row: 1 / -1;
   align-self: start;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 .mindstudy-diagram-group-head h3 {
   grid-column: 2;
   grid-row: 1;
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.35;
   color: #0f172a;
   text-align: left;
   justify-self: start;
@@ -845,6 +852,110 @@ body.xr-active .simulation-full {
 }
 .mindstudy-diagram-group-head > p:nth-child(4) {
   grid-row: 3;
+}
+button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  box-sizing: border-box;
+  padding: 16px 18px 15px;
+  margin: 0;
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(248, 250, 252, 0.98) 0%, rgba(236, 242, 249, 0.92) 100%);
+  box-shadow: none;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+.mindstudy-diagram-group:not(.is-collapsed) button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle {
+  border-radius: 16px 16px 0 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+}
+button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:hover {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(239, 246, 255, 0.95) 100%);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.12);
+}
+.mindstudy-diagram-group:not(.is-collapsed) button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75) inset,
+    0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:active {
+  background: linear-gradient(165deg, rgba(241, 245, 249, 0.99) 0%, rgba(226, 232, 240, 0.9) 100%);
+}
+button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  z-index: 1;
+  position: relative;
+}
+/* Override global .mindstudy-caret (32×32 blue tile) — whole header row is the control */
+.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle .mindstudy-caret {
+  grid-column: 3;
+  grid-row: 1 / -1;
+  align-self: center;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  padding: 0 2px;
+  margin: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: #475569;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  transition: transform 0.34s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+}
+.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:hover .mindstudy-caret {
+  color: #334155;
+}
+.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle .mindstudy-caret.open {
+  transform: rotate(180deg);
+  background: transparent !important;
+}
+.mindstudy-diagram-group.is-collapsed .mindstudy-diagram-group-toggle {
+  margin-bottom: 0;
+}
+/* Grid row animation: inner keeps stable width (padding inside inner) so flex-wrap does not reflow mid-toggle */
+.mindstudy-diagram-group-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-height: 0;
+  overflow: hidden;
+  transition: grid-template-rows 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mindstudy-diagram-group-body.open {
+  grid-template-rows: 1fr;
+}
+.mindstudy-diagram-group-body-inner {
+  min-height: 0;
+  overflow: hidden;
+  /* Extra bottom space so nodes aren’t clipped by the card radius / subpixel grid sizing */
+  padding: 14px 18px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(248, 250, 252, 0.98));
+}
+.mindstudy-diagram-group-body.open .mindstudy-diagram-group-body-inner {
+  max-height: none;
+  visibility: visible;
+}
+.mindstudy-diagram-group-body:not(.open) .mindstudy-diagram-group-body-inner {
+  max-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mindstudy-diagram-group-body {
+    transition: none;
+  }
 }
 .mindstudy-diagram-group-sub-th {
   font-size: 13px;
@@ -1355,6 +1466,34 @@ body.xr-active .simulation-full {
   margin: 0;
   color: #475569;
   font-weight: 700;
+}
+.mindstudy-modal-title-thai {
+  font-weight: 700;
+  color: #334155;
+}
+.mindstudy-modal-cetasika-fields {
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mindstudy-modal-cetasika-field {
+  margin: 0;
+}
+.mindstudy-modal-cetasika-field dt {
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+.mindstudy-modal-cetasika-field dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.5;
 }
 .mindstudy-modal-actions {
   position: relative;
