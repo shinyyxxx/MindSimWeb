@@ -820,6 +820,137 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   return variants
 }
 
+type TimelineScriptPick = {
+  id: string
+  label: string
+  timelineIndex: number
+  t3Happy: boolean
+  t5SelectedId: string | null
+}
+
+function dslStringifyCodeText(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+}
+
+function dslFormatVec(vec: [number, number, number]): string {
+  return `[${vec[0].toFixed(3)}, ${vec[1].toFixed(3)}, ${vec[2].toFixed(3)}]`
+}
+
+function dslToHexColor(color: string): string {
+  const normalized = color.trim()
+  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) return normalized.toLowerCase()
+  const parsed = Number.parseInt(normalized, 10)
+  if (!Number.isNaN(parsed)) return `#${(parsed & 0xffffff).toString(16).padStart(6, '0')}`
+  return '#3b82f6'
+}
+
+function buildTimelineScriptCatalog(): TimelineScriptPick[] {
+  const picks: TimelineScriptPick[] = []
+  for (let i = 0; i < TIMELINE_STOPS.length; i += 1) {
+    const stop = TIMELINE_STOPS[i]
+    const tl = stop?.label ?? `T${i}`
+    if (i === 3) {
+      picks.push({
+        id: 't3-unhappy',
+        label: `${tl} — no Joy (Pīti)`,
+        timelineIndex: 3,
+        t3Happy: false,
+        t5SelectedId: null,
+      })
+      picks.push({
+        id: 't3-happy',
+        label: `${tl} — with Joy (Pīti)`,
+        timelineIndex: 3,
+        t3Happy: true,
+        t5SelectedId: null,
+      })
+      continue
+    }
+    if (i === 5) {
+      picks.push({
+        id: 't5-no-root',
+        label: `${tl} — no rooted factor (fixed RNG pool)`,
+        timelineIndex: 5,
+        t3Happy: false,
+        t5SelectedId: null,
+      })
+      for (const opt of T5_MENTAL_OPTIONS) {
+        picks.push({
+          id: `t5-${opt.id}`,
+          label: `${tl} — ${opt.label}`,
+          timelineIndex: 5,
+          t3Happy: false,
+          t5SelectedId: opt.id,
+        })
+      }
+      continue
+    }
+    picks.push({
+      id: `t${i}-default`,
+      label: `${tl} — ${stop?.description ?? ''}`,
+      timelineIndex: i,
+      t3Happy: false,
+      t5SelectedId: null,
+    })
+  }
+  return picks
+}
+
+const TIMELINE_SCRIPT_CATALOG = buildTimelineScriptCatalog()
+
+function generateCodeRunnerDslForTimelinePick(
+  pick: Pick<TimelineScriptPick, 'timelineIndex' | 't3Happy' | 't5SelectedId'>,
+  sceneMind: { getName: () => string; color: number; scale: number },
+): string {
+  const variants = getMentalVariantsForTimelineStop(pick.timelineIndex, pick.t3Happy, pick.t5SelectedId)
+  const lines: string[] = []
+  const mindName = sceneMind.getName() || 'Mind'
+  const mindColor = dslToHexColor(`#${(sceneMind.color & 0xffffff).toString(16).padStart(6, '0')}`)
+  const mindScale = sceneMind.scale
+
+  lines.push('m = Mind()')
+  lines.push(`m.name = ${dslStringifyCodeText(mindName)}`)
+  lines.push(`m.color = ${dslStringifyCodeText(mindColor)}`)
+  lines.push(`m.scale = ${Number.isFinite(mindScale) ? mindScale.toFixed(3) : DEFAULT_MIND_SCALE.toFixed(3)}`)
+  lines.push('')
+
+  variants.forEach((variant, index) => {
+    const seed = jitterSeedForVariant(resolveSeedForVariant(variant), variant)
+    const mental = createMentalFromSeed(seed)
+    try {
+      const varName = `mt${index + 1}`
+      const pos = mental.getPosition()
+      const ctorName = (mental as unknown as { constructor?: { name?: string } }).constructor?.name ?? 'Mental'
+      const scriptCtor = ctorName.endsWith('Mental') ? ctorName : 'Mental'
+      lines.push(`${varName} = ${scriptCtor}()`)
+      lines.push(`${varName}.name = ${dslStringifyCodeText(mental.getName())}`)
+      lines.push(
+        `${varName}.color = ${dslStringifyCodeText(dslToHexColor(`#${(mental.color & 0xffffff).toString(16).padStart(6, '0')}`))}`,
+      )
+      lines.push(`${varName}.scale = ${mental.scale.toFixed(3)}`)
+      lines.push(`${varName}.position = ${dslFormatVec([pos.x, pos.y, pos.z])}`)
+      lines.push(`m.add(${varName})`)
+      lines.push('')
+    } finally {
+      mental.dispose()
+    }
+  })
+
+  return lines.join('\n').trim()
+}
+
+function buildAllTimelineScriptsBundle(sceneMind: { getName: () => string; color: number; scale: number }): string {
+  const parts: string[] = []
+  for (const pick of TIMELINE_SCRIPT_CATALOG) {
+    parts.push(`# === ${pick.label} ===`)
+    parts.push(`# id: ${pick.id}`)
+    parts.push(generateCodeRunnerDslForTimelinePick(pick, sceneMind))
+    parts.push('')
+    parts.push('')
+  }
+  return parts.join('\n').trim()
+}
+
 const MORPH_PARTICLE_COUNT = 2200
 type MorphShapeKey = 'sphere' | 'cube' | 'human' | 'dog' | 'angel'
 
@@ -3871,6 +4002,7 @@ export function Simulation(): React.ReactElement {
   const scriptMentalMapRef = useRef<Map<string, Mental>>(new Map())
   const [codeRunnerOpen, setCodeRunnerOpen] = useState(false)
   const [codeRunnerCode, setCodeRunnerCode] = useState(CODE_RUNNER_TEMPLATE)
+  const [codeRunnerTimelinePreset, setCodeRunnerTimelinePreset] = useState<string>('__current__')
   const [codeRunnerStatus, setCodeRunnerStatus] = useState<string | null>(null)
   const [codeRunnerErrorLine, setCodeRunnerErrorLine] = useState<number | null>(null)
   const [codeRunnerDirty, setCodeRunnerDirty] = useState(false)
@@ -3893,6 +4025,18 @@ export function Simulation(): React.ReactElement {
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+
+  const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
+    if (timelineIndex === 3) {
+      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 3)
+    }
+    if (timelineIndex === 5) {
+      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 5)
+    }
+    return []
+  }, [timelineIndex])
+
+  const showTimelineScriptPresetDropdown = timelineScriptPresetsForStep.length > 0
   const [xrTimelineOpen, setXrTimelineOpen] = useState(false)
   const [xrTimelineDetailOpen, setXrTimelineDetailOpen] = useState(false)
   const timelineSignatureRef = useRef<string>('')
@@ -4304,16 +4448,65 @@ export function Simulation(): React.ReactElement {
     return lines.join('\n').trim() || CODE_RUNNER_TEMPLATE
   }, [formatVec, mentals, mind, stringifyCodeText, toHexColor])
 
+  const handleCodeRunnerTimelinePreset = useCallback(
+    (presetId: string) => {
+      setCodeRunnerTimelinePreset(presetId)
+      setCodeRunnerDirty(false)
+      setCodeRunnerErrorLine(null)
+      if (presetId === '__current__') {
+        setCodeRunnerCode(generateCodeFromCurrentScene())
+        setCodeRunnerStatus('Editor: code matches the current scene (right panel).')
+        return
+      }
+      const pick = TIMELINE_SCRIPT_CATALOG.find((p) => p.id === presetId)
+      if (!pick) return
+      setCodeRunnerCode(generateCodeRunnerDslForTimelinePick(pick, mind))
+      setCodeRunnerStatus('Editor: sample code for this choice. Run script to apply; scene uses the panel until then.')
+    },
+    [generateCodeFromCurrentScene, mind],
+  )
+
+  const handleDownloadAllTimelineScripts = useCallback(() => {
+    const text = buildAllTimelineScriptsBundle(mind)
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'mindsim-timeline-code-runner-scripts.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+    setCodeRunnerStatus(`Downloaded bundle (${TIMELINE_SCRIPT_CATALOG.length} scripts).`)
+  }, [mind])
+
   useEffect(() => {
     if (codeRunnerDirty) return
+    let preset = codeRunnerTimelinePreset
+    const presetOkForStep =
+      preset === '__current__' ||
+      preset === '__custom__' ||
+      (timelineIndex === 3 && (preset === 't3-unhappy' || preset === 't3-happy')) ||
+      (timelineIndex === 5 && preset.startsWith('t5-'))
+    if (!presetOkForStep) {
+      setCodeRunnerTimelinePreset('__current__')
+      preset = '__current__'
+    }
+    if (preset !== '__current__') return
     const nextCode = generateCodeFromCurrentScene()
     setCodeRunnerCode(nextCode)
     codeRunnerHydratedRef.current = true
     if (codeRunnerOpen) {
-      setCodeRunnerStatus('Code synced to current timeline.')
+      setCodeRunnerStatus('Editor: code matches the current scene (right panel).')
       setCodeRunnerErrorLine(null)
     }
-  }, [codeRunnerDirty, codeRunnerOpen, generateCodeFromCurrentScene, t3HappySelected, t5SelectedId, timelineIndex])
+  }, [
+    codeRunnerDirty,
+    codeRunnerOpen,
+    codeRunnerTimelinePreset,
+    generateCodeFromCurrentScene,
+    t3HappySelected,
+    t5SelectedId,
+    timelineIndex,
+  ])
 
   const handleRunCodeRunner = useCallback(() => {
     const parser = new CodeParser()
@@ -4851,6 +5044,7 @@ export function Simulation(): React.ReactElement {
             onClick={() => {
               if (!codeRunnerOpen && !codeRunnerDirty) {
                 setCodeRunnerCode(generateCodeFromCurrentScene())
+                setCodeRunnerTimelinePreset('__current__')
                 codeRunnerHydratedRef.current = true
                 setCodeRunnerStatus('Loaded script from current mind and mentals.')
                 setCodeRunnerErrorLine(null)
@@ -5040,11 +5234,89 @@ export function Simulation(): React.ReactElement {
               <div style={{ fontSize: 12, opacity: 0.86 }}>
                 Use `Mind()`, `Mental()` or class names like `RecklessnessMental()`, then call `mind.add(mental)`.
               </div>
+              {showTimelineScriptPresetDropdown && (
+                <label style={{ display: 'grid', gap: 4, fontSize: 12, opacity: 0.9 }}>
+                  <span>
+                    {timelineIndex === 3
+                      ? 'T3 — pick a variant (fills the editor; same idea as the timeline)'
+                      : 'T5 — pick a rooted factor (fills the editor; same groups as Open timeline)'}
+                  </span>
+                  <select
+                    value={
+                      codeRunnerTimelinePreset === '__custom__' ||
+                      codeRunnerTimelinePreset === '__current__' ||
+                      timelineScriptPresetsForStep.some((p) => p.id === codeRunnerTimelinePreset)
+                        ? codeRunnerTimelinePreset
+                        : '__current__'
+                    }
+                    onChange={(e) => handleCodeRunnerTimelinePreset(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(148,163,184,0.4)',
+                      background: 'rgba(15,23,42,0.85)',
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                    }}
+                  >
+                    <option value="__current__">Current scene (right panel)</option>
+                    {codeRunnerTimelinePreset === '__custom__' ? (
+                      <option value="__custom__">Custom (edited in editor)</option>
+                    ) : null}
+                    {timelineIndex === 3
+                      ? timelineScriptPresetsForStep.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.label}
+                          </option>
+                        ))
+                      : timelineIndex === 5
+                        ? (
+                            <>
+                              <option value="t5-no-root">No rooted factor (fixed RNG pool)</option>
+                              {T5_CATEGORIES.map((cat) => (
+                                <optgroup key={cat.label} label={cat.label}>
+                                  {cat.optionIds.map((oid) => {
+                                    const pick = TIMELINE_SCRIPT_CATALOG.find((p) => p.id === `t5-${oid}`)
+                                    if (!pick) return null
+                                    const optLabel =
+                                      T5_MENTAL_OPTIONS.find((o) => o.id === oid)?.label ?? pick.label
+                                    return (
+                                      <option key={pick.id} value={pick.id}>
+                                        {optLabel}
+                                      </option>
+                                    )
+                                  })}
+                                </optgroup>
+                              ))}
+                            </>
+                          )
+                        : null}
+                  </select>
+                </label>
+              )}
+              <button
+                type="button"
+                onClick={handleDownloadAllTimelineScripts}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(148,163,184,0.45)',
+                  background: 'rgba(30,41,59,0.9)',
+                  color: '#e2e8f0',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                Download all timeline scripts ({TIMELINE_SCRIPT_CATALOG.length})
+              </button>
               <textarea
                 value={codeRunnerCode}
                 onChange={(e) => {
                   setCodeRunnerCode(e.target.value)
                   setCodeRunnerDirty(true)
+                  setCodeRunnerTimelinePreset('__custom__')
                   if (codeRunnerErrorLine !== null) setCodeRunnerErrorLine(null)
                 }}
                 spellCheck={false}
@@ -5102,6 +5374,7 @@ export function Simulation(): React.ReactElement {
                   onClick={() => {
                     setCodeRunnerCode(generateCodeFromCurrentScene())
                     setCodeRunnerDirty(false)
+                    setCodeRunnerTimelinePreset('__current__')
                     setCodeRunnerErrorLine(null)
                     setCodeRunnerStatus('Reset to current default mind script.')
                   }}
