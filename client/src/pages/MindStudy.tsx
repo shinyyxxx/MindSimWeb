@@ -27,7 +27,10 @@ interface StaticMental {
   slug: string
   category: string
   description: string
-  highlights: string[]
+  characteristic: string
+  function: string
+  manifestation: string
+  proximate_cause: string
 }
 
 interface StaticMentalGroup {
@@ -35,6 +38,7 @@ interface StaticMentalGroup {
   name: string
   name_thai: string
   name_en: string
+  description: string
   mental_ids: number[]
 }
 
@@ -46,6 +50,7 @@ interface StaticMind {
   category: string
   subgroup: string
   description: string
+  description_thai: string
   mental_ids: number[]
 }
 
@@ -54,6 +59,7 @@ interface StaticMindGroup {
   name: string
   name_thai: string
   name_en: string
+  description: string
   mind_ids: number[]
 }
 
@@ -191,6 +197,10 @@ export function MindStudy(): React.ReactElement {
       fetch(`${API_BASE}/api/static/mind-groups`).then((r) => r.json()),
     ])
       .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
+        for (const m of mentalsRes.mentals ?? []) console.log('Mental:', JSON.stringify(m))
+        for (const g of mentalGroupsRes.mental_groups ?? []) console.log('Mental Group:', JSON.stringify(g))
+        for (const m of mindsRes.minds ?? []) console.log('Mind:', JSON.stringify(m))
+        for (const g of mindGroupsRes.mind_groups ?? []) console.log('Mind Group:', JSON.stringify(g))
         const fetchedMentals: StaticMental[] = mentalsRes.mentals ?? []
         const fetchedMinds: StaticMind[] = mindsRes.minds ?? []
         if (cancelled) return
@@ -817,7 +827,7 @@ export function MindStudy(): React.ReactElement {
                                   thai: mental.thai,
                                   className: mental.name,
                                   description: mental.description,
-                                  highlights: mental.highlights ?? [],
+                                  highlights: [],
                                 })
                                 setCetasikaModalOpen(true)
                               }}

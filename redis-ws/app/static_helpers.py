@@ -27,7 +27,7 @@ def init_static_data(root):
             root.static_mentals[d['id']] = StaticMental(
                 id=d['id'], name=d['name'], pali=d['pali'], thai=d['thai'],
                 slug=d['slug'], category=d['category'],
-                description=d['description'], highlights=d['highlights'],
+                description=d['description'],
                 characteristic=d.get('characteristic', ''),
                 function=d.get('function', ''),
                 manifestation=d.get('manifestation', ''),
@@ -43,6 +43,7 @@ def init_static_data(root):
                 id=d['id'], name=d['name'],
                 name_thai=d['name_thai'], name_en=d['name_en'],
                 mental_ids=d['mental_ids'],
+                description=d.get('description', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MENTAL_GROUPS_DATA)} mental groups")
@@ -67,6 +68,7 @@ def init_static_data(root):
                 id=d['id'], name=d['name'],
                 name_thai=d['name_thai'], name_en=d['name_en'],
                 mind_ids=d['mind_ids'],
+                description=d.get('description', ''),
             )
         changed = True
         print(f"[STATIC] Seeded {len(MIND_GROUPS_DATA)} mind groups")

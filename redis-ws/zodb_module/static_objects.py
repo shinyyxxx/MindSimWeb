@@ -12,7 +12,7 @@ class StaticMental(persistent.Persistent):
     """A cetasika (mental factor) — 52 canonical entries."""
 
     def __init__(self, id, name, pali, thai, slug, category,
-                 description, highlights,
+                 description,
                  characteristic='', function='', manifestation='', proximate_cause=''):
         self.id = id
         self.name = name
@@ -21,7 +21,6 @@ class StaticMental(persistent.Persistent):
         self.slug = slug
         self.category = category          # 'neutral' | 'bad' | 'good'
         self.description = description
-        self.highlights = PersistentList(highlights or [])
         self.characteristic = characteristic
         self.function = function
         self.manifestation = manifestation
@@ -36,7 +35,6 @@ class StaticMental(persistent.Persistent):
             'slug': self.slug,
             'category': self.category,
             'description': self.description,
-            'highlights': list(self.highlights),
             'characteristic': self.characteristic,
             'function': self.function,
             'manifestation': self.manifestation,
@@ -47,12 +45,13 @@ class StaticMental(persistent.Persistent):
 class StaticMentalGroup(persistent.Persistent):
     """A grouping of cetasikas (e.g. Universal-7, Moha catukka-4)."""
 
-    def __init__(self, id, name, name_thai, name_en, mental_ids):
+    def __init__(self, id, name, name_thai, name_en, mental_ids, description=''):
         self.id = id
         self.name = name
         self.name_thai = name_thai
         self.name_en = name_en
         self.mental_ids = PersistentList(mental_ids or [])
+        self.description = description
 
     def to_dict(self):
         return {
@@ -60,6 +59,7 @@ class StaticMentalGroup(persistent.Persistent):
             'name': self.name,
             'name_thai': self.name_thai,
             'name_en': self.name_en,
+            'description': self.description,
             'mental_ids': list(self.mental_ids),
         }
 
@@ -95,12 +95,13 @@ class StaticMind(persistent.Persistent):
 class StaticMindGroup(persistent.Persistent):
     """A grouping of cittas (e.g. Akusala-12, Ahetuka-18)."""
 
-    def __init__(self, id, name, name_thai, name_en, mind_ids):
+    def __init__(self, id, name, name_thai, name_en, mind_ids, description=''):
         self.id = id
         self.name = name
         self.name_thai = name_thai
         self.name_en = name_en
         self.mind_ids = PersistentList(mind_ids or [])
+        self.description = description
 
     def to_dict(self):
         return {
@@ -108,5 +109,6 @@ class StaticMindGroup(persistent.Persistent):
             'name': self.name,
             'name_thai': self.name_thai,
             'name_en': self.name_en,
+            'description': self.description,
             'mind_ids': list(self.mind_ids),
         }
