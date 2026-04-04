@@ -1,5 +1,6 @@
 import GoodMental from './GoodMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import laughTearEmojiModel from '../../../assets/emoji/laughTear_emoji.glb?url'
 
 /**
  * Common beautiful mental factor: Lightness of mental body (Kāyalahutā)
@@ -11,6 +12,10 @@ export class LightnessBodyMental extends GoodMental {
       detail: options.detail ?? 'Kāyalahutā: lightness of associated mental factors',
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Lightness (body) shares the same model as Lightness (mind).
+      modelPath: options.modelPath ?? laughTearEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 6.506,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: 0 },
     })
   }
 

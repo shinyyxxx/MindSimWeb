@@ -1,5 +1,6 @@
 import GoodMental from './GoodMental'
 import type { MentalBaseOptions } from '../AbstractMental'
+import bigSmileEmojiModel from '../../../assets/emoji/bigSmile_emoji.glb?url'
 
 /**
  * Common beautiful mental factor: Wieldiness of consciousness (Cittakammaññatā)
@@ -11,6 +12,10 @@ export class WieldinessMindMental extends GoodMental {
       detail: options.detail ?? 'Cittakammaññatā: adaptability/workability of consciousness (citta)',
       motionSpeed: options.motionSpeed ?? 0,
       ...options,
+      // Wieldiness (mind) has its own model.
+      modelPath: options.modelPath ?? bigSmileEmojiModel,
+      modelTargetWorldSize: options.modelTargetWorldSize ?? 6.506,
+      modelOffset: options.modelOffset ?? { x: 0, y: -0.65, z: 0 },
     })
   }
 
