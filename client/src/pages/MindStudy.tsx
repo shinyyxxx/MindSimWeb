@@ -115,6 +115,25 @@ function toThaiDigitString(n: number): string {
     .join('')
 }
 
+/** True if string contains Thai script (for EN-primary labels: show Thai in parentheses). */
+function containsThaiScript(s: string): boolean {
+  return /[\u0E00-\u0E7F]/.test(s)
+}
+
+/**
+ * API `name_en` often already includes the subgroup size in parentheses, e.g. "Moha catukka (4)".
+ * In that case we must not append `items.length` again (avoids "… (4) 4").
+ */
+function englishLabelAlreadyStatesItemCount(titleEn: string, itemCount: number): boolean {
+  const want = String(itemCount)
+  const re = /\(\s*(\d+)\s*\)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(titleEn)) !== null) {
+    if (m[1] === want) return true
+  }
+  return false
+}
+
 const defaultAggregates: DhammaObject[] = [
   new DhammaObject({
     id: 'calm',
@@ -613,8 +632,8 @@ export function MindStudy(): React.ReactElement {
           <p className="mindstudy-kicker">Study Guide</p>
           <h1 className="mindstudy-title">Mind Study: The Five Aggregates</h1>
           <p className="mindstudy-lead">
-            Use the left outline to move between overview topics, mental factors (เจตสิก), and minds (จิต). Each block
-            stays scannable so the Abhidhamma layout stays clear.
+            Use the left outline to move between overview topics, mental factors (cetasikas, เจตสิก), and minds (citta,
+            จิต). Each block stays scannable so the Abhidhamma layout stays clear.
           </p>
         </div>
       </div>
@@ -659,14 +678,16 @@ export function MindStudy(): React.ReactElement {
 
             <div className="mindstudy-nav-section">
               <p className="mindstudy-nav-section-title">Mental</p>
-              <p className="mindstudy-nav-section-desc">เจตสิก · Cetasikas (52)</p>
+              <p className="mindstudy-nav-section-desc">Cetasikas (เจตสิก) · 52</p>
               <a className="mindstudy-nav-item" href="#topic-mental">
                 Mental diagram
               </a>
               <a className="mindstudy-nav-item sub mindstudy-nav-mental-topic" href="#cetasikas-neutral">
-                <span className="mindstudy-nav-mental-topic-title">อัญญสมานาเจตสิก 13</span>
+                <span className="mindstudy-nav-mental-topic-title">
+                  Neutral — 13 cetasikas (อัญญสมานาเจตสิก 13)
+                </span>
                 <span className="mindstudy-nav-mental-topic-desc">
-                  เจตสิกทั่วไปที่เข้าได้กับจิตทั้งดีและชั่ว
+                  Universals and particulars (เจตสิกทั่วไปที่เข้าได้กับจิตทั้งดีและชั่ว)
                 </span>
               </a>
               <a
@@ -675,10 +696,10 @@ export function MindStudy(): React.ReactElement {
                 style={{ color: BAD_MENTAL_TEXT }}
               >
                 <span className="mindstudy-nav-mental-topic-title" style={{ color: 'inherit' }}>
-                  อกุศลเจตสิก 14
+                  Unwholesome — 14 cetasikas (อกุศลเจตสิก 14)
                 </span>
                 <span className="mindstudy-nav-mental-topic-desc" style={{ color: 'inherit', opacity: 0.92 }}>
-                  เจตสิกที่ทำหน้าที่ปรุงแต่งจิตให้เศร้าหมอง
+                  Factors that cloud the mind (เจตสิกที่ทำหน้าที่ปรุงแต่งจิตให้เศร้าหมอง)
                 </span>
               </a>
               <a
@@ -687,10 +708,10 @@ export function MindStudy(): React.ReactElement {
                 style={{ color: GOOD_MENTAL_TEXT }}
               >
                 <span className="mindstudy-nav-mental-topic-title" style={{ color: 'inherit' }}>
-                  โสภณเจตสิก 25
+                  Beautiful — 25 cetasikas (โสภณเจตสิก 25)
                 </span>
                 <span className="mindstudy-nav-mental-topic-desc" style={{ color: 'inherit', opacity: 0.92 }}>
-                  เจตสิกฝ่ายดีที่ทำให้จิตผ่องใส
+                  Wholesome beautifying factors (เจตสิกฝ่ายดีที่ทำให้จิตผ่องใส)
                 </span>
               </a>
             </div>
@@ -699,7 +720,7 @@ export function MindStudy(): React.ReactElement {
 
             <div className="mindstudy-nav-section">
               <p className="mindstudy-nav-section-title">Mind</p>
-              <p className="mindstudy-nav-section-desc">จิต · Citta (89)</p>
+              <p className="mindstudy-nav-section-desc">Citta (จิต) · 89</p>
               <a className="mindstudy-nav-item" href="#topic-mind">
                 Mind diagram
               </a>
@@ -724,7 +745,13 @@ export function MindStudy(): React.ReactElement {
               >
                 {mindDiagramGroups.map((g) => (
                   <a key={g.id} className="mindstudy-nav-item sub" href={`#${g.id}`}>
-                    {g.title}
+                    {g.subtitle || g.title}
+                    {g.title &&
+                    g.subtitle &&
+                    g.title !== g.subtitle &&
+                    containsThaiScript(g.title)
+                      ? ` (${g.title})`
+                      : ''}
                   </a>
                 ))}
               </div>
@@ -792,7 +819,7 @@ export function MindStudy(): React.ReactElement {
             <header className="mindstudy-topic-section-header">
               <span className="mindstudy-topic-section-kicker">Mental</span>
               <h2 id="topic-mental-heading" className="mindstudy-topic-section-title">
-                เจตสิก · Cetasikas
+                Cetasikas (เจตสิก)
               </h2>
               <p className="mindstudy-topic-section-desc">
                 52 factors from `/api/static/mentals`, grouped as circular rows by family.
@@ -820,7 +847,7 @@ export function MindStudy(): React.ReactElement {
                     >
                       <span className="mindstudy-diagram-group-dot" style={{ background: block.color }} aria-hidden />
                       <h3
-                        lang="th"
+                        lang="en"
                         style={{
                           color:
                             block.id === 'cetasikas-bad'
@@ -830,12 +857,11 @@ export function MindStudy(): React.ReactElement {
                                 : NEUTRAL_MENTAL_TEXT,
                         }}
                       >
-                        {block.titleThai}
+                        {block.titleEn}
                       </h3>
                       <p className="mindstudy-diagram-group-sub-th" lang="th">
-                        {block.subtitleThai}
+                        ({block.titleThai} · {block.subtitleThai})
                       </p>
-                      <p className="mindstudy-diagram-group-sub-en">{block.titleEn}</p>
                       <span className={`mindstudy-caret ${mentalOpen ? 'open' : ''}`} aria-hidden>
                         ▼
                       </span>
@@ -844,7 +870,7 @@ export function MindStudy(): React.ReactElement {
                       id={`mindstudy-mental-body-${block.id}`}
                       className={`mindstudy-diagram-group-body ${mentalOpen ? 'open' : ''}`}
                       role="region"
-                      aria-label={block.titleThai}
+                      aria-label={`${block.titleEn} (${block.titleThai})`}
                       aria-hidden={!mentalOpen}
                     >
                       <div className="mindstudy-diagram-group-body-inner">
@@ -885,8 +911,14 @@ export function MindStudy(): React.ReactElement {
                                 <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
                                   {'}'}
                                 </span>
-                                <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="th">
-                                  {row.title} {toThaiDigitString(row.items.length)}
+                                <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="en">
+                                  {row.titleEn}
+                                  {!englishLabelAlreadyStatesItemCount(row.titleEn, row.items.length)
+                                    ? ` ${row.items.length}`
+                                    : ''}
+                                  {row.title && row.title !== row.titleEn
+                                    ? ` (${row.title} ${toThaiDigitString(row.items.length)})`
+                                    : ''}
                                 </span>
                               </div>
                             </div>
@@ -909,7 +941,7 @@ export function MindStudy(): React.ReactElement {
             <header className="mindstudy-topic-section-header">
               <span className="mindstudy-topic-section-kicker">Mind</span>
               <h2 id="topic-mind-heading" className="mindstudy-topic-section-title">
-                จิต · Citta
+                Citta (จิต)
               </h2>
               <p className="mindstudy-topic-section-desc">
                 89 consciousness types from `/api/static/minds` in API group order.
@@ -942,8 +974,13 @@ export function MindStudy(): React.ReactElement {
                       style={{ background: group.color }}
                       aria-hidden
                     />
-                    <h3>{group.title}</h3>
-                    <p>{group.subtitle}</p>
+                    <h3 lang="en">{group.subtitle || group.title}</h3>
+                    {group.title &&
+                    group.subtitle &&
+                    group.title !== group.subtitle &&
+                    containsThaiScript(group.title) ? (
+                      <p lang="th">({group.title})</p>
+                    ) : null}
                     <span className={`mindstudy-caret ${mindGroupOpen ? 'open' : ''}`} aria-hidden>
                       ▼
                     </span>
@@ -952,7 +989,14 @@ export function MindStudy(): React.ReactElement {
                     id={`mindstudy-mind-body-${group.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
                     className={`mindstudy-diagram-group-body ${mindGroupOpen ? 'open' : ''}`}
                     role="region"
-                    aria-label={group.title}
+                    aria-label={
+                      group.subtitle &&
+                      group.title &&
+                      group.title !== group.subtitle &&
+                      containsThaiScript(group.title)
+                        ? `${group.subtitle} (${group.title})`
+                        : (group.subtitle || group.title)
+                    }
                     aria-hidden={!mindGroupOpen}
                   >
                   <div className="mindstudy-diagram-group-body-inner">
@@ -967,20 +1011,40 @@ export function MindStudy(): React.ReactElement {
 
                     const subgroupDefs: Array<{
                       key: string
-                      label: string
+                      labelEn: string
+                      labelTh: string
                       color: string
                       match: (mindTitle: string, mindId: string, subgroup?: string) => boolean
                     }> = isAkusala
                       ? [
-                          { key: 'lobha', label: 'โลภมูลจิต ๘', color: '#b76c84', match: (mindTitle) => mindTitle.includes('โลภมูลจิต') },
-                          { key: 'dosa', label: 'โทสมูลจิต ๒', color: '#ef9b54', match: (mindTitle) => mindTitle.includes('โทสมูลจิต') },
-                          { key: 'moha', label: 'โมหมูลจิต ๒', color: '#d9b49c', match: (mindTitle) => mindTitle.includes('โมหมูลจิต') },
+                          {
+                            key: 'lobha',
+                            labelEn: 'Greed-rooted minds — 8',
+                            labelTh: 'โลภมูลจิต ๘',
+                            color: '#b76c84',
+                            match: (mindTitle) => mindTitle.includes('โลภมูลจิต'),
+                          },
+                          {
+                            key: 'dosa',
+                            labelEn: 'Hatred-rooted minds — 2',
+                            labelTh: 'โทสมูลจิต ๒',
+                            color: '#ef9b54',
+                            match: (mindTitle) => mindTitle.includes('โทสมูลจิต'),
+                          },
+                          {
+                            key: 'moha',
+                            labelEn: 'Delusion-rooted minds — 2',
+                            labelTh: 'โมหมูลจิต ๒',
+                            color: '#d9b49c',
+                            match: (mindTitle) => mindTitle.includes('โมหมูลจิต'),
+                          },
                         ]
                       : isAhetuka
                         ? [
                             {
                               key: 'ahetuka-akusala-vipaka',
-                              label: 'อกุศลวิปากจิต ๗',
+                              labelEn: 'Unwholesome resultant — 7',
+                              labelTh: 'อกุศลวิปากจิต ๗',
                               color: '#9fbe4c',
                               match: (mindTitle, mindId, subgroup) =>
                                 subgroup === 'ahetuka_akusala_vipaka' ||
@@ -989,7 +1053,8 @@ export function MindStudy(): React.ReactElement {
                             },
                             {
                               key: 'ahetuka-kusala-vipaka',
-                              label: 'อเหตุกกุศลวิปากจิต ๘',
+                              labelEn: 'Rootless wholesome resultant — 8',
+                              labelTh: 'อเหตุกกุศลวิปากจิต ๘',
                               color: '#a9c75a',
                               match: (mindTitle, mindId, subgroup) =>
                                 subgroup === 'ahetuka_kusala_vipaka' ||
@@ -998,7 +1063,8 @@ export function MindStudy(): React.ReactElement {
                             },
                             {
                               key: 'ahetuka-kiriya',
-                              label: 'อเหตุกกิริยาจิต ๓',
+                              labelEn: 'Rootless functional — 3',
+                              labelTh: 'อเหตุกกิริยาจิต ๓',
                               color: '#8eb8dc',
                               match: (mindTitle, mindId, subgroup) =>
                                 subgroup === 'ahetuka_kiriya' ||
@@ -1010,7 +1076,8 @@ export function MindStudy(): React.ReactElement {
                           ? [
                               {
                                 key: 'maha-kusala',
-                                label: 'มหากุศลจิต ๘',
+                                labelEn: 'Great wholesome — 8',
+                                labelTh: 'มหากุศลจิต ๘',
                                 color: '#ef9b54',
                                 match: (_mindTitle, mindId, subgroup) =>
                                   subgroup === 'maha_kusala' ||
@@ -1018,7 +1085,8 @@ export function MindStudy(): React.ReactElement {
                               },
                               {
                                 key: 'maha-vipaka',
-                                label: 'มหาวิปากจิต ๘',
+                                labelEn: 'Great resultant — 8',
+                                labelTh: 'มหาวิปากจิต ๘',
                                 color: '#9fbe4c',
                                 match: (_mindTitle, mindId, subgroup) =>
                                   subgroup === 'maha_vipaka' ||
@@ -1026,7 +1094,8 @@ export function MindStudy(): React.ReactElement {
                               },
                               {
                                 key: 'maha-kiriya',
-                                label: 'มหากิริยาจิต ๘',
+                                labelEn: 'Great functional — 8',
+                                labelTh: 'มหากิริยาจิต ๘',
                                 color: '#8eb8dc',
                                 match: (_mindTitle, mindId, subgroup) =>
                                   subgroup === 'maha_kiriya' ||
@@ -1037,7 +1106,8 @@ export function MindStudy(): React.ReactElement {
                             ? [
                                 {
                                   key: 'rupa-kusala',
-                                  label: 'รูปาวจรกุศลจิต ๕',
+                                  labelEn: 'Rūpāvacara wholesome — 5',
+                                  labelTh: 'รูปาวจรกุศลจิต ๕',
                                   color: '#f0b563',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'rupavacara_kusala' ||
@@ -1045,7 +1115,8 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'rupa-vipaka',
-                                  label: 'รูปาวจรวิปากจิต ๕',
+                                  labelEn: 'Rūpāvacara resultant — 5',
+                                  labelTh: 'รูปาวจรวิปากจิต ๕',
                                   color: '#a7c95d',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'rupavacara_vipaka' ||
@@ -1053,7 +1124,8 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'rupa-kiriya',
-                                  label: 'รูปาวจรกิริยาจิต ๕',
+                                  labelEn: 'Rūpāvacara functional — 5',
+                                  labelTh: 'รูปาวจรกิริยาจิต ๕',
                                   color: '#8eb8dc',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'rupavacara_kiriya' ||
@@ -1064,7 +1136,8 @@ export function MindStudy(): React.ReactElement {
                               ? [
                                 {
                                   key: 'arupa-kusala',
-                                  label: 'อรูปาวจรกุศลจิต ๔',
+                                  labelEn: 'Arūpāvacara wholesome — 4',
+                                  labelTh: 'อรูปาวจรกุศลจิต ๔',
                                   color: '#e39a73',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'arupavacara_kusala' ||
@@ -1072,7 +1145,8 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'arupa-vipaka',
-                                  label: 'อรูปาวจรวิปากจิต ๔',
+                                  labelEn: 'Arūpāvacara resultant — 4',
+                                  labelTh: 'อรูปาวจรวิปากจิต ๔',
                                   color: '#b4cd75',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'arupavacara_vipaka' ||
@@ -1080,7 +1154,8 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'arupa-kiriya',
-                                  label: 'อรูปาวจรกิริยาจิต ๔',
+                                  labelEn: 'Arūpāvacara functional — 4',
+                                  labelTh: 'อรูปาวจรกิริยาจิต ๔',
                                   color: '#95bfdc',
                                   match: (_t, id, subgroup) =>
                                     subgroup === 'arupavacara_kiriya' ||
@@ -1091,7 +1166,8 @@ export function MindStudy(): React.ReactElement {
                               ? [
                                   {
                                     key: 'lokuttara-magga',
-                                    label: 'มรรคจิต ๔',
+                                    labelEn: 'Path consciousness — 4',
+                                    labelTh: 'มรรคจิต ๔',
                                     color: '#e89d74',
                                     match: (_t, id, subgroup) =>
                                       subgroup === 'magga' ||
@@ -1099,7 +1175,8 @@ export function MindStudy(): React.ReactElement {
                                   },
                                   {
                                     key: 'lokuttara-phala',
-                                    label: 'ผลจิต ๔',
+                                    labelEn: 'Fruition consciousness — 4',
+                                    labelTh: 'ผลจิต ๔',
                                     color: '#8fbbe0',
                                     match: (_t, id, subgroup) =>
                                       subgroup === 'phala' ||
@@ -1180,8 +1257,9 @@ export function MindStudy(): React.ReactElement {
                                 <span className="mindstudy-diagram-subgroup-brace" style={{ color: subgroup.color }} aria-hidden>
                                   {'}'}
                                 </span>
-                                <span className="mindstudy-diagram-subgroup-label" style={{ color: subgroup.color }}>
-                                  {subgroup.label}
+                                <span className="mindstudy-diagram-subgroup-label" style={{ color: subgroup.color }} lang="en">
+                                  {subgroup.labelEn}{' '}
+                                  <span lang="th">({subgroup.labelTh})</span>
                                 </span>
                               </div>
                             </div>
