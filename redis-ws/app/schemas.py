@@ -281,6 +281,14 @@ class StaticMindGroupListResponse(BaseModel):
 # Pancadvara Vithi (Five-door cognitive process)
 # ---------------------------------------------------------------------------
 
+class VithiMentalDetail(BaseModel):
+    id: int
+    name: str
+    pali: str = ''
+    category: str = ''
+    description: str = ''
+
+
 class VithiEventResponse(BaseModel):
     order: int
     stage: str
@@ -288,6 +296,8 @@ class VithiEventResponse(BaseModel):
     mind_id_range: Optional[List[int]] = None
     mind_name: Optional[str] = None
     description: str
+    mental_ids: List[int] = []
+    mental_details: List[VithiMentalDetail] = []
 
 
 class PancadvaraVithiRequest(BaseModel):
@@ -298,7 +308,6 @@ class PancadvaraVithiRequest(BaseModel):
     yoniso_manasikara: bool = False
     anusaya_dosa: float = 0.3
     anusaya_lobha: float = 0.2
-    experience_weight: Optional[dict] = None
     desirability: str = "excellent"
 
     class Config:
@@ -311,7 +320,6 @@ class PancadvaraVithiRequest(BaseModel):
                 "yoniso_manasikara": False,
                 "anusaya_dosa": 0.3,
                 "anusaya_lobha": 0.2,
-                "experience_weight": {},
                 "desirability": "excellent"
             }
         }
@@ -322,6 +330,13 @@ class PancadvaraVithiResponse(BaseModel):
     events: List[VithiEventResponse]
     updated_experience_weight: dict
     summary: dict
+
+
+class LifeResponse(BaseModel):
+    id: int
+    mind_id: Optional[int] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
 
 
 '''

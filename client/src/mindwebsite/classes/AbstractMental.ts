@@ -327,6 +327,20 @@ export class AbstractMental {
     }
   }
 
+  setGlow(active: boolean): void {
+    if (!this.material) return
+    if (active) {
+      this.material.emissiveIntensity = 1.5
+      this.material.opacity = 0.55
+    } else {
+      this.material.emissiveIntensity = 0.3
+      this.material.opacity = 0.15
+    }
+    this.material.transparent = true
+    this.material.depthWrite = false
+    this.material.needsUpdate = true
+  }
+
   setMetalness(value: number): void {
     this.metalness = value
     if (this.material) {

@@ -81,6 +81,14 @@ import angerEmojiModel from '../assets/emoji/anger_emoji.glb?url'
   
 type Vec3 = [number, number, number]
 
+interface VithiMentalDetail {
+  id: number
+  name: string
+  pali?: string
+  category?: string
+  description?: string
+}
+
 interface VithiEvent {
   order: number
   stage: string
@@ -88,6 +96,45 @@ interface VithiEvent {
   mind_id_range: number[] | null
   mind_name: string | null
   description: string
+  mental_ids?: number[]
+  mental_details?: VithiMentalDetail[]
+}
+
+interface VithiStageInfo {
+  mind_id: number | null
+  mind_id_range: number[] | null
+  mind_name: string | null
+  description: string
+  mental_ids: number[]
+  mental_details: VithiMentalDetail[]
+  blocked: boolean
+}
+
+const VITHI_STAGE_ORDER = [
+  'pancadvaravajjana',
+  'pancavinnana',
+  'sampaticchana',
+  'santirana',
+  'votthapana',
+  'javana',
+  'tadalammana',
+] as const
+
+const VITHI_STAGE_EXPLANATIONS: Record<string, string> = {
+  pancadvaravajjana:
+    'Five-door adverting (pancadvaravajjana) is the first active citta in a sense-door cognitive process. After the bhavanga stream is arrested, this functional mind-moment "turns towards" the object that has impinged on one of the five sense doors. It is accompanied by the 7 universal cetasikas plus initial application, sustained application, determination, and energy — 11 cetasikas in total. It is kammically indeterminate (kiriya) and lasts for one thought-moment.',
+  pancavinnana:
+    'Sense consciousness (pancavinnana) is the bare awareness that arises through one of the five sense doors — eye-consciousness for visible forms, ear-consciousness for sounds, and so on. It is a resultant (vipaka) citta that merely cognizes the raw sense datum without any interpretation. It is accompanied only by the 7 universal cetasikas and is the simplest type of consciousness in the vithi.',
+  sampaticchana:
+    'Receiving consciousness (sampaticchana) immediately follows sense consciousness and "receives" the object that was just cognized. It is a rootless resultant (ahetuka vipaka) accompanied by the 7 universals plus initial application, sustained application, determination, and energy — 11 cetasikas. It performs no evaluation; it simply takes delivery of the sense data for the next stage.',
+  santirana:
+    'Investigating consciousness (santirana) examines and investigates the object received by the previous citta. It "turns the object over," so to speak, assessing its nature. For a desirable object it is accompanied by pleasant feeling; for an undesirable one by indifferent feeling. It has 11 or 12 cetasikas (the universals, occasionals, and sometimes rapture). It is still a resultant citta — no kamma is made here.',
+  votthapana:
+    'Determining consciousness (votthapana) is a crucial turning point in the cognitive process. This functional (kiriya) citta determines whether the object is desirable or undesirable and "decides" the quality of the javana cittas that will follow. Although called "determining," it operates automatically based on conditions — wise attention (yoniso manasikara) or unwise attention shapes the outcome. It has 12 cetasikas.',
+  javana:
+    'Impulsion (javana) is where kamma is actually made. It runs for 7 thought-moments in normal consciousness, each lasting about a billionth of a finger-snap. The javana cittas are either wholesome (kusala) or unwholesome (akusala) depending on the determining consciousness that preceded them. The first javana is weakest, the 7th is stronger, and the middle five produce the most potent kamma. This is the ethically significant phase of the entire process.',
+  tadalammana:
+    'Registration (tadalammana) occurs only when the object is vivid enough (atimahantarammana or mahantarammana). It "registers" or re-cognizes the object for 2 thought-moments after javana, functioning as an echo of the cognitive process before the mind sinks back into the bhavanga stream. It is a resultant (vipaka) citta and makes no new kamma. If the object is weak, registration does not arise and the bhavanga resumes immediately after javana.',
 }
 
 const SENSE_BUTTON_TO_API: Record<string, string> = {
@@ -2560,6 +2607,11 @@ function TimelineCanvas({
   personType,
   onPersonTypeChange,
   vithiCurrentEvent,
+  timelineMode,
+  onTimelineModeChange,
+  slideshowPaused,
+  onSlideshowPausedChange,
+  vithiStageData,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -2574,6 +2626,11 @@ function TimelineCanvas({
   personType?: PersonType
   onPersonTypeChange?: (pt: PersonType) => void
   vithiCurrentEvent?: VithiEvent | null
+  timelineMode?: 'manual' | 'slideshow'
+  onTimelineModeChange?: (mode: 'manual' | 'slideshow') => void
+  slideshowPaused?: boolean
+  onSlideshowPausedChange?: (paused: boolean) => void
+  vithiStageData?: Map<number, VithiStageInfo> | null
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -2688,6 +2745,43 @@ function TimelineCanvas({
           </div>
           <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.45, color: '#9ca3af' }}>{activeStop.description}</p>
 
+          {vithiStageData && vithiStageData.has(selectedIndex) && (
+            (() => {
+              const stage = vithiStageData.get(selectedIndex)!
+              return stage.blocked ? (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>No citta at this stage</p>
+              ) : (
+                <div style={{ margin: '8px 0 0', fontSize: 12, color: '#a5b4fc' }}>
+                  {stage.mental_details.length} cetasika(s): {stage.mental_details.map(d => d.name).join(', ')}
+                </div>
+              )
+            })()
+          )}
+
+          {timelineMode === 'slideshow' && selectedIndex > 0 && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => onSlideshowPausedChange?.(!slideshowPaused)}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(148,163,184,0.4)',
+                  background: slideshowPaused ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)',
+                  color: slideshowPaused ? '#86efac' : '#fca5a5',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {slideshowPaused ? '▶ Play' : '⏸ Pause'}
+              </button>
+              <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                {slideshowPaused ? 'Paused' : 'Auto-advance every 10s'}
+              </span>
+            </div>
+          )}
+
           {selectedIndex === 0 && (
             <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
               <label style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Person type</label>
@@ -2708,6 +2802,33 @@ function TimelineCanvas({
                   <option key={pt} value={pt}>{pt}</option>
                 ))}
               </select>
+            </div>
+          )}
+          {selectedIndex === 0 && (
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Timeline mode</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['manual', 'slideshow'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => onTimelineModeChange?.(m)}
+                    style={{
+                      padding: '3px 10px',
+                      borderRadius: 6,
+                      border: timelineMode === m ? '1.5px solid #60a5fa' : '1px solid rgba(148,163,184,0.4)',
+                      background: timelineMode === m ? 'rgba(59,130,246,0.25)' : 'rgba(30,41,59,0.65)',
+                      color: timelineMode === m ? '#93c5fd' : '#e5e7eb',
+                      fontSize: 11,
+                      fontWeight: timelineMode === m ? 600 : 400,
+                      cursor: 'pointer',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {selectedIndex === 0 && !hasContactMental && (
@@ -2887,11 +3008,30 @@ function TimelineCanvas({
           >
             {showDetail ? 'Hide detail' : 'Explain detail'}
           </button>
-          {showDetail && (
-            <p style={{ margin: '10px 0 0', fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>
-              {stops[selectedIndex].description}
-            </p>
-          )}
+          {showDetail && (() => {
+            const stageName = VITHI_STAGE_ORDER[selectedIndex]
+            const explanation = stageName ? VITHI_STAGE_EXPLANATIONS[stageName] : null
+            const stageInfo = vithiStageData?.get(selectedIndex)
+            return (
+              <div style={{ margin: '10px 0 0' }}>
+                {explanation ? (
+                  <p style={{ fontSize: 12, lineHeight: 1.6, color: '#c4b5fd' }}>
+                    {explanation}
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 13, lineHeight: 1.5, color: '#9ca3af' }}>
+                    {stops[selectedIndex].description}
+                  </p>
+                )}
+                {stageInfo && !stageInfo.blocked && stageInfo.mental_details.length > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
+                    <span style={{ fontWeight: 600 }}>Active cetasikas:</span>{' '}
+                    {stageInfo.mental_details.map((d) => d.name).join(', ')}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
       )}
       <div
@@ -3634,11 +3774,18 @@ function XRTimelinePanel({
           <Text position={[-0.72, explainButtonY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.022} color="#f8fafc">
             {showDetail ? 'Hide detail' : 'Explain detail'}
           </Text>
-          {showDetail && (
-            <Text position={[-0.52, explainButtonY, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#93c5fd" maxWidth={0.38}>
-              {activeStop.description}
-            </Text>
-          )}
+          {showDetail && (() => {
+            const stageName = VITHI_STAGE_ORDER[selectedIndex]
+            const explanation = stageName ? VITHI_STAGE_EXPLANATIONS[stageName] : null
+            const text = explanation
+              ? (explanation.length > 200 ? explanation.slice(0, 200) + '...' : explanation)
+              : activeStop.description
+            return (
+              <Text position={[-0.52, explainButtonY, 0.007]} anchorX="left" anchorY="middle" fontSize={0.018} color="#c4b5fd" maxWidth={0.42}>
+                {text}
+              </Text>
+            )
+          })()}
 
           <mesh ref={closePanelButtonRef} position={[-0.16, headerIconY, 0.004]}>
             <planeGeometry args={[0.19, 0.075]} />
@@ -4117,6 +4264,9 @@ export function Simulation(): React.ReactElement {
   const [vithiQueue, setVithiQueue] = useState<VithiEvent[]>([])
   const vithiProcessingRef = useRef(false)
   const [vithiCurrentEvent, setVithiCurrentEvent] = useState<VithiEvent | null>(null)
+  const [vithiStageData, setVithiStageData] = useState<Map<number, VithiStageInfo> | null>(null)
+  const [backendMindId, setBackendMindId] = useState<number | null>(null)
+  const [activeVariants, setActiveVariants] = useState<Set<string>>(new Set())
   const vithiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [codeRunnerPos, setCodeRunnerPos] = useState<{ x: number; y: number }>({ x: 38, y: 104 })
   const codeRunnerDragRef = useRef<{ active: boolean; dx: number; dy: number }>({ active: false, dx: 0, dy: 0 })
@@ -4130,6 +4280,8 @@ export function Simulation(): React.ReactElement {
   const [menuRevealReady, setMenuRevealReady] = useState(false)
   const [menuLineProgress, setMenuLineProgress] = useState(1)
   const [timelineIndex, setTimelineIndex] = useState(0)
+  const [timelineMode, setTimelineMode] = useState<'manual' | 'slideshow'>('manual')
+  const [slideshowPaused, setSlideshowPaused] = useState(false)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
 
@@ -4275,9 +4427,26 @@ export function Simulation(): React.ReactElement {
   )
 
   useEffect(() => {
+    if (vithiStageData && vithiStageData.size > 0) {
+      const allVariants = new Set<MentalVariant>()
+      const currentVariants = new Set<string>()
+      for (let t = 0; t <= timelineIndex; t++) {
+        const stage = vithiStageData.get(t)
+        if (!stage || stage.blocked) continue
+        const stageVars = stage.mental_details.map((d) =>
+          d.name.toLowerCase().replace(/\s+/g, '_') as MentalVariant
+        )
+        stageVars.forEach((v) => allVariants.add(v))
+        if (t === timelineIndex) stageVars.forEach((v) => currentVariants.add(v))
+      }
+      setActiveVariants(currentVariants)
+      setMentals([...allVariants].map((v) => getOrCreateMental(v)))
+      return
+    }
+    setActiveVariants(new Set())
     const variants = getMentalVariantsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId)
     setMentals(variants.map((variant) => getOrCreateMental(variant)))
-  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex])
+  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, vithiStageData])
 
   const allMentals = useMemo(() => {
     const base = scriptResultActive ? [...scriptMatchedDefaultMentals] : [...mentals]
@@ -4286,6 +4455,14 @@ export function Simulation(): React.ReactElement {
     })
     return base
   }, [mentals, scriptMatchedDefaultMentals, scriptMentals, scriptResultActive])
+
+  useEffect(() => {
+    if (activeVariants.size === 0) return
+    allMentals.forEach((m) => {
+      const variant = m.getName().toLowerCase().replace(/\s+/g, '_')
+      m.setGlow(activeVariants.has(variant))
+    })
+  }, [allMentals, activeVariants])
 
   const hasContactMental = useMemo(
     () => allMentals.some((m) => m instanceof ContactMental),
@@ -4620,7 +4797,30 @@ export function Simulation(): React.ReactElement {
     timelineIndex,
   ])
 
-  const handleRunCodeRunner = useCallback(() => {
+  useEffect(() => {
+    if (timelineIndex !== 0 && codeRunnerOpen) {
+      setCodeRunnerOpen(false)
+      setCodeRunnerStatus('Code Runner closed — only available at T0 (Awakening).')
+    }
+  }, [timelineIndex, codeRunnerOpen])
+
+  useEffect(() => {
+    if (timelineMode !== 'slideshow' || slideshowPaused) return
+    const maxIdx = TIMELINE_STOPS.length - 1
+    if (timelineIndex >= maxIdx) return
+    const timer = setInterval(() => {
+      setTimelineIndex((prev) => {
+        if (prev >= maxIdx) {
+          setSlideshowPaused(true)
+          return prev
+        }
+        return prev + 1
+      })
+    }, 10000)
+    return () => clearInterval(timer)
+  }, [timelineMode, slideshowPaused, timelineIndex])
+
+  const handleRunCodeRunner = useCallback(async () => {
     const parser = new CodeParser()
     let actions: ParsedAction[]
     try {
@@ -4748,33 +4948,45 @@ export function Simulation(): React.ReactElement {
       return
     }
 
-    newMentalsByVar.forEach((mental, variable) => {
-      scriptMentalMapRef.current.set(variable, mental)
-    })
-
-    setScriptMentals(Array.from(newMentalsByVar.values()))
-    setScriptMatchedDefaultMentals(Array.from(usedDefaultMentals))
-    setScriptResultActive(true)
-
     const localMsg = `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${linkedMentalVars.size} linked mental var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
-    setCodeRunnerStatus(localMsg)
+    setCodeRunnerStatus(`${localMsg} Persisting...`)
 
     const pythonCode = convertDslToPython(codeRunnerCode)
-    fetch(`${API_BASE}/api/execute_code`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: pythonCode }),
-    })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data: { summary?: { minds_created?: number; mentals_created?: number } }) => {
-        const mc = data.summary?.minds_created ?? 0
-        const mtc = data.summary?.mentals_created ?? 0
-        setCodeRunnerStatus(`${localMsg} Persisted ${mc} mind(s) and ${mtc} mental(s).`)
+    try {
+      const res = await fetch(`${API_BASE}/api/execute_code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: pythonCode }),
       })
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Unknown error'
-        setCodeRunnerStatus(`${localMsg} (Backend: ${msg})`)
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+        setCodeRunnerStatus(`${localMsg} Backend error: ${errBody.detail || `HTTP ${res.status}`}`)
+        return
+      }
+      const data: {
+        summary?: { minds_created?: number; mentals_created?: number }
+        created_minds?: Array<{ id: number }>
+      } = await res.json()
+      const mc = data.summary?.minds_created ?? 0
+      const mtc = data.summary?.mentals_created ?? 0
+
+      const lastMindId = data.created_minds?.length
+        ? data.created_minds[data.created_minds.length - 1].id
+        : null
+      if (lastMindId !== null) setBackendMindId(lastMindId)
+
+      newMentalsByVar.forEach((mental, variable) => {
+        scriptMentalMapRef.current.set(variable, mental)
       })
+      setScriptMentals(Array.from(newMentalsByVar.values()))
+      setScriptMatchedDefaultMentals(Array.from(usedDefaultMentals))
+      setScriptResultActive(true)
+
+      setCodeRunnerStatus(`${localMsg} Persisted ${mc} mind(s) and ${mtc} mental(s).${lastMindId !== null ? ` Mind ID: ${lastMindId}` : ''}`)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      setCodeRunnerStatus(`${localMsg} (Backend: ${msg})`)
+    }
   }, [codeRunnerCode, mentals, mind, normalizeMentalName, parseNumberList, personType])
 
   useEffect(() => {
@@ -4797,7 +5009,6 @@ export function Simulation(): React.ReactElement {
   const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
     const sannaMental = allMentals.find((m) => m instanceof PerceptionMental) as PerceptionMental | undefined
-    const expWeight = sannaMental ? sannaMental.getExperienceWeight() : {}
     fetch(`${API_BASE}/api/vithi/pancadvara`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4805,7 +5016,6 @@ export function Simulation(): React.ReactElement {
         sense: apiSense,
         ...variantParams,
         person_type: personType,
-        experience_weight: expWeight,
       }),
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
@@ -4814,11 +5024,77 @@ export function Simulation(): React.ReactElement {
         if (data.updated_experience_weight && sannaMental) {
           sannaMental.updateExperienceWeightFromResponse(data.updated_experience_weight)
         }
+
+        if (data.events && data.events.length > 0) {
+          const stageMap = new Map<number, VithiStageInfo>()
+          const grouped = new Map<string, VithiEvent[]>()
+          for (const ev of data.events) {
+            const list = grouped.get(ev.stage) || []
+            list.push(ev)
+            grouped.set(ev.stage, list)
+          }
+
+          for (let tIdx = 0; tIdx < VITHI_STAGE_ORDER.length; tIdx++) {
+            const stageName = VITHI_STAGE_ORDER[tIdx]
+            const eventsForStage = grouped.get(stageName)
+            if (!eventsForStage || eventsForStage.length === 0) {
+              stageMap.set(tIdx, {
+                mind_id: null,
+                mind_id_range: null,
+                mind_name: null,
+                description: `No citta at ${stageName.replace(/_/g, ' ')}`,
+                mental_ids: [],
+                mental_details: [],
+                blocked: true,
+              })
+              continue
+            }
+
+            const allMentalIds = new Set<number>()
+            const allDetails = new Map<number, VithiMentalDetail>()
+            let firstMindId: number | null = null
+            let rangeMindIds: number[] | null = null
+            let mindName: string | null = null
+            let desc = ''
+
+            for (const ev of eventsForStage) {
+              if (ev.mind_id && !firstMindId) firstMindId = ev.mind_id
+              if (ev.mind_id_range) {
+                if (!rangeMindIds) rangeMindIds = [...ev.mind_id_range]
+                else {
+                  const lo = Math.min(rangeMindIds[0], ev.mind_id_range[0])
+                  const hi = Math.max(rangeMindIds[rangeMindIds.length - 1], ev.mind_id_range[ev.mind_id_range.length - 1])
+                  rangeMindIds = [lo, hi]
+                }
+              }
+              if (ev.mind_name && !mindName) mindName = ev.mind_name
+              if (ev.description) desc = ev.description
+              for (const mid of (ev.mental_ids ?? [])) allMentalIds.add(mid)
+              for (const d of (ev.mental_details ?? [])) allDetails.set(d.id, d)
+            }
+
+            stageMap.set(tIdx, {
+              mind_id: firstMindId,
+              mind_id_range: rangeMindIds,
+              mind_name: mindName,
+              description: desc,
+              mental_ids: Array.from(allMentalIds).sort((a, b) => a - b),
+              mental_details: Array.from(allDetails.values()),
+              blocked: false,
+            })
+          }
+          setVithiStageData(stageMap)
+
+          if (timelineMode === 'slideshow') {
+            setTimelineIndex(0)
+            setSlideshowPaused(false)
+          }
+        }
       })
       .catch((err: unknown) => {
         console.error('Vithi API error:', err)
       })
-  }, [allMentals, personType])
+  }, [allMentals, personType, timelineMode])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
@@ -4941,6 +5217,35 @@ export function Simulation(): React.ReactElement {
       }
     }
   }, [])
+
+  const VITHI_STAGE_LABELS: Record<string, string> = {
+    pancadvaravajjana: 'Pancadvaravajjana — five-door adverting',
+    pancavinnana: 'Pancavinnana — sense consciousness',
+    sampaticchana: 'Sampaticchana — receiving',
+    santirana: 'Santirana — investigating',
+    votthapana: 'Votthapana — determining',
+    javana: 'Javana — impulsion',
+    tadalammana: 'Tadalammana — registration',
+  }
+
+  const dynamicStops = useMemo(() => {
+    if (!vithiStageData || vithiStageData.size === 0) return TIMELINE_STOPS
+    return TIMELINE_STOPS.map((stop, i) => {
+      const stage = vithiStageData.get(i)
+      if (!stage) return stop
+      const stageName = VITHI_STAGE_ORDER[i]
+      const vithiLabel = stageName ? VITHI_STAGE_LABELS[stageName] : null
+      if (stage.blocked) {
+        return { label: stop.label, description: `${vithiLabel ?? stop.description} — (blocked)` }
+      }
+      return {
+        label: stop.label,
+        description: vithiLabel
+          ? `${vithiLabel}${stage.mind_name ? ` (${stage.mind_name})` : ''}`
+          : stop.description,
+      }
+    })
+  }, [vithiStageData])
 
   return (
     <main className="page simulation-page">
@@ -5173,6 +5478,10 @@ export function Simulation(): React.ReactElement {
           <button
             type="button"
             onClick={() => {
+              if (timelineIndex !== 0 && !codeRunnerOpen) {
+                setCodeRunnerStatus('Code Runner is only available at T0 (Awakening). Please navigate back to T0.')
+                return
+              }
               if (!codeRunnerOpen && !codeRunnerDirty) {
                 setCodeRunnerCode(generateCodeFromCurrentScene())
                 setCodeRunnerTimelinePreset('__current__')
@@ -5561,7 +5870,7 @@ export function Simulation(): React.ReactElement {
         >
           {!isXrActive && (
             <TimelineCanvas
-              stops={TIMELINE_STOPS}
+              stops={dynamicStops}
               selectedIndex={timelineIndex ?? 0}
               onSelect={setTimelineIndex}
               colors={TIMELINE_COLORS}
@@ -5574,6 +5883,11 @@ export function Simulation(): React.ReactElement {
               personType={personType}
               onPersonTypeChange={setPersonType}
               vithiCurrentEvent={vithiCurrentEvent}
+              timelineMode={timelineMode}
+              onTimelineModeChange={setTimelineMode}
+              slideshowPaused={slideshowPaused}
+              onSlideshowPausedChange={setSlideshowPaused}
+              vithiStageData={vithiStageData}
             />
           )}
         </div>

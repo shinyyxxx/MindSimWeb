@@ -22,7 +22,8 @@ from app.schemas import (
     StaticMentalGroupResponse, StaticMentalGroupListResponse,
     StaticMindResponse, StaticMindListResponse,
     StaticMindGroupResponse, StaticMindGroupListResponse,
-    VithiEventResponse, PancadvaraVithiRequest, PancadvaraVithiResponse,
+    VithiMentalDetail, VithiEventResponse, PancadvaraVithiRequest, PancadvaraVithiResponse,
+    LifeResponse,
 )
 from app.mind_helpers import (
     get_mind_zodb, list_minds_zodb, 
@@ -35,7 +36,7 @@ from app.experience_helpers import (
     get_kamma_statistics
 )
 from app.code_executor import persist_and_collect
-from app.vithi_helpers import run_pancadvara_vithi
+from app.life_helpers import get_or_create_life, set_life_mind, get_or_create_sanna, get_or_create_phassa
 from app.static_helpers import (
     init_static_data,
     get_static_mental, list_static_mentals,
@@ -616,6 +617,19 @@ async def execute_code_endpoint(request: ExecuteCodeRequest):
             await redis_client.publish(CHANNEL_MIND_UPDATES, json.dumps(mental_data))
         await redis_client.aclose()
 
+        last_mind_id = result["created_minds"][-1]["id"] if result["created_minds"] else None
+        if last_mind_id is not None:
+            set_life_mind(root, last_mind_id)
+
+            mental_names = {m["name"].lower() for m in result["created_mentals"] if m.get("name")}
+            has_contact = any(n in mental_names for n in ("contact", "phassa"))
+            has_perception = any(n in mental_names for n in ("perception", "sanna"))
+
+            if has_perception or has_contact:
+                sanna = get_or_create_sanna(root, last_mind_id)
+            if has_contact:
+                get_or_create_phassa(root, last_mind_id, sanna.get_id() if has_perception else None)
+
         return ExecuteCodeResponse(
             message=f"Code executed: created {result['summary']['minds_created']} mind(s) and {result['summary']['mentals_created']} mental(s)",
             created_minds=result["created_minds"],
@@ -633,13 +647,44 @@ async def execute_code_endpoint(request: ExecuteCodeRequest):
 
 
 # ---------------------------------------------------------------------------
+# Life singleton endpoint
+# ---------------------------------------------------------------------------
+
+@app.get("/api/life", response_model=LifeResponse)
+async def get_life_endpoint():
+    try:
+        _, root = get_connection()
+        life = get_or_create_life(root)
+        return LifeResponse(**life.to_dict())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
 # Pancadvara Vithi (Five-door cognitive process) endpoint
 # ---------------------------------------------------------------------------
 
 @app.post("/api/vithi/pancadvara", response_model=PancadvaraVithiResponse)
 async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
     try:
-        result = run_pancadvara_vithi(
+        _, root = get_connection()
+
+        if not hasattr(root, 'phassa') or root.phassa is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Phassa (Contact) must be created first via code runner before running vithi",
+            )
+        phassa = root.phassa
+
+        if not hasattr(root, 'sanna') or root.sanna is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Sanna (Perception) must be created first via code runner before running vithi",
+            )
+        sanna = root.sanna
+
+        result = phassa.run_vithi(
+            sanna=sanna,
             sense=request.sense,
             desire=request.desire,
             vividity=request.vividity,
@@ -647,11 +692,38 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
             yoniso_manasikara=request.yoniso_manasikara,
             anusaya_dosa=request.anusaya_dosa,
             anusaya_lobha=request.anusaya_lobha,
-            experience_weight=request.experience_weight,
             desirability=request.desirability,
         )
+        import transaction
+        transaction.commit()
 
-        _, root = get_connection()
+        def _resolve_mentals(mind_id_single, mind_id_range_list):
+            """Collect mental_ids and details from static data for a citta."""
+            ids_set = set()
+            if mind_id_single and hasattr(root, 'static_minds'):
+                obj = root.static_minds.get(mind_id_single)
+                if obj and hasattr(obj, 'mental_ids'):
+                    ids_set.update(obj.mental_ids)
+            if mind_id_range_list and hasattr(root, 'static_minds'):
+                for mid in range(mind_id_range_list[0], mind_id_range_list[-1] + 1):
+                    obj = root.static_minds.get(mid)
+                    if obj and hasattr(obj, 'mental_ids'):
+                        ids_set.update(obj.mental_ids)
+            mental_ids = sorted(ids_set)
+            details = []
+            if hasattr(root, 'static_mentals'):
+                for mid in mental_ids:
+                    m = root.static_mentals.get(mid)
+                    if m:
+                        details.append(VithiMentalDetail(
+                            id=mid,
+                            name=getattr(m, 'name', ''),
+                            pali=getattr(m, 'pali', ''),
+                            category=getattr(m, 'category', ''),
+                            description=getattr(m, 'description', ''),
+                        ))
+            return mental_ids, details
+
         response_events = []
         for ev in result["events"]:
             mind_name = None
@@ -659,6 +731,7 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
                 obj = root.static_minds.get(ev.mind_id)
                 if obj:
                     mind_name = obj.name
+            mental_ids, mental_details = _resolve_mentals(ev.mind_id, ev.mind_id_range)
             response_events.append(VithiEventResponse(
                 order=ev.order,
                 stage=ev.stage,
@@ -666,6 +739,8 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
                 mind_id_range=ev.mind_id_range,
                 mind_name=mind_name,
                 description=ev.description,
+                mental_ids=mental_ids,
+                mental_details=mental_details,
             ))
 
         total = len(response_events)

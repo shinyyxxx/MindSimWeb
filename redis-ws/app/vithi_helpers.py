@@ -1,12 +1,11 @@
 """
-Pancadvara Vithi (Five-door cognitive process) simulation.
+Pancadvara Vithi (Five-door cognitive process) — stage helper functions.
 
-Ports the user's Python pseudocode into pure logic functions.
-Each displayMental(id) call becomes a VithiEvent in an ordered list.
-Mind IDs reference static MINDS_DATA (1-89 cittas).
+The orchestration now lives in PhassaObject.run_vithi() (zodb_module/objects.py).
+These module-level helpers are called by that method.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -22,120 +21,6 @@ class VithiEvent:
 # Sense -> citta ID mappings
 _AKUSALA_VIPAKA_SENSE = {"eye": 13, "ear": 14, "nose": 15, "tongue": 16, "body": 17}
 _KUSALA_VIPAKA_SENSE = {"eye": 20, "ear": 21, "nose": 22, "tongue": 23, "body": 24}
-
-
-def run_pancadvara_vithi(
-    sense: str,
-    desire: str,
-    vividity: str,
-    person_type: str,
-    yoniso_manasikara: bool = False,
-    anusaya_dosa: float = 0.3,
-    anusaya_lobha: float = 0.2,
-    experience_weight: Optional[dict] = None,
-    desirability: str = "excellent",
-) -> dict:
-    """Run the full five-door cognitive process and return all events."""
-    if experience_weight is None:
-        experience_weight = {}
-
-    events: list[VithiEvent] = []
-    order = 0
-
-    is_bad_initial = (desire == "bad")
-
-    # Bhavanga calana + upaccheda (adverting)
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="bhavanga_calana", mind_id=28,
-        description="Bhavanga vibration — life-continuum disturbed",
-    ))
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="bhavanga_upaccheda", mind_id=28,
-        description="Bhavanga arrest — life-continuum cut off",
-    ))
-
-    # Pancadvaravajjana (five-door adverting)
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="pancadvaravajjana", mind_id=28,
-        description="Five-door adverting — attention turns to object",
-    ))
-
-    if vividity == "atiparittarammana":
-        order += 1
-        events.append(VithiEvent(
-            order=order, stage="vithi_blocked", mind_id=None,
-            description="Object too faint — vithi does not proceed",
-        ))
-        return {
-            "events": events,
-            "updated_experience_weight": experience_weight,
-            "result_type": "blocked",
-        }
-
-    # Pancavinnana (sense consciousness)
-    pv_id, pv_desc = _pancavinnana(sense, is_bad_initial)
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="pancavinnana", mind_id=pv_id,
-        description=pv_desc,
-    ))
-
-    # Sampaticchana (receiving)
-    sp_id, sp_desc = _sampaticchana(is_bad_initial)
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="sampaticchana", mind_id=sp_id,
-        description=sp_desc,
-    ))
-
-    # Santirana (investigating)
-    st_id, st_desc = _santirana(is_bad_initial, desire)
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="santirana", mind_id=st_id,
-        description=st_desc,
-    ))
-
-    # Votthapana (determining)
-    vt_id, vt_desc, final_is_bad = _votthapana(
-        is_bad_initial, sense, experience_weight,
-        anusaya_dosa, anusaya_lobha, yoniso_manasikara,
-    )
-    order += 1
-    events.append(VithiEvent(
-        order=order, stage="votthapana", mind_id=vt_id,
-        description=vt_desc,
-    ))
-
-    # Javana (impulsion) x7
-    javana_events = _javana(final_is_bad, vividity, person_type)
-    for jev in javana_events:
-        order += 1
-        jev.order = order
-        events.append(jev)
-
-    # Tadalammana (registration) x2
-    tada_events = _tadalammana(vividity, desire, desirability)
-    for tev in tada_events:
-        order += 1
-        tev.order = order
-        events.append(tev)
-
-    # Update memory
-    updated_weight = _update_memory(experience_weight, sense, final_is_bad)
-
-    result_type = "akusala" if final_is_bad else "kusala"
-    if person_type == "arahant":
-        result_type = "kiriya"
-
-    return {
-        "events": events,
-        "updated_experience_weight": updated_weight,
-        "result_type": result_type,
-    }
 
 
 def _pancavinnana(sense: str, is_bad: bool):
@@ -261,13 +146,3 @@ def _tadalammana(vividity: str, desire: str, desirability: str):
     return events
 
 
-def _update_memory(experience_weight: dict, sense: str, is_bad: bool) -> dict:
-    updated = dict(experience_weight)
-    memory_key = f"{sense}_{'BAD' if is_bad else 'GOOD'}"
-    current_weight = updated.get(memory_key, 0.5)
-    if is_bad:
-        new_weight = current_weight + 0.05
-    else:
-        new_weight = current_weight - 0.05
-    updated[memory_key] = max(0.0, min(1.0, new_weight))
-    return updated
