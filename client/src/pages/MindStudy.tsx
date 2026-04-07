@@ -522,6 +522,31 @@ export function MindStudy(): React.ReactElement {
     () => new Map(staticMinds.map((mind) => [`mind-${mind.id}`, mind])),
     [staticMinds],
   )
+  const staticMentalById = useMemo(
+    () => new Map(staticMentals.map((mental) => [mental.id, mental])),
+    [staticMentals],
+  )
+
+  const openCetasikaFromStaticMental = useCallback(
+    (mental: StaticMental, options?: { closeMindModal?: boolean }) => {
+      setSelectedCetasika({
+        id: `mental-${mental.id}`,
+        pali: mental.pali,
+        thai: mental.thai,
+        className: mental.name,
+        nameEn: mental.name,
+        description: mental.description,
+        highlights: [],
+        characteristic: mental.characteristic,
+        abhidhammaFunction: mental.function,
+        manifestation: mental.manifestation,
+        proximateCause: mental.proximate_cause,
+      })
+      if (options?.closeMindModal) setModalOpen(false)
+      setCetasikaModalOpen(true)
+    },
+    [],
+  )
 
   const mentalCategoryBlocks = useMemo(() => {
     const mentalById = new Map(staticMentals.map((mental) => [mental.id, mental]))
@@ -886,20 +911,7 @@ export function MindStudy(): React.ReactElement {
                                     className="mindstudy-diagram-node compact"
                                     style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
                                     onClick={() => {
-                                    setSelectedCetasika({
-                                      id: `mental-${mental.id}`,
-                                      pali: mental.pali,
-                                      thai: mental.thai,
-                                      className: mental.name,
-                                      nameEn: mental.name,
-                                      description: mental.description,
-                                      highlights: [],
-                                      characteristic: mental.characteristic,
-                                      abhidhammaFunction: mental.function,
-                                      manifestation: mental.manifestation,
-                                      proximateCause: mental.proximate_cause,
-                                    })
-                                      setCetasikaModalOpen(true)
+                                      openCetasikaFromStaticMental(mental)
                                     }}
                                     aria-label={`${mental.name} (${mental.thai})`}
                                   >
@@ -1397,7 +1409,7 @@ export function MindStudy(): React.ReactElement {
       {modalOpen && selectedMind && (
         <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setModalOpen(false)}>
           <div
-            className="mindstudy-modal"
+            className={`mindstudy-modal ${cetasikaModalOpen && selectedCetasika ? 'mindstudy-modal-with-side' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label={`Inspect ${selectedMind.title}`}
@@ -1414,22 +1426,38 @@ export function MindStudy(): React.ReactElement {
               <h3>{selectedMind.title}</h3>
               <p className="mindstudy-modal-sub">{selectedMind.modelLabel}</p>
               <p className="mindstudy-section-desc">{selectedMind.description}</p>
-              {(() => {
-                const sm = staticMindByAggregateId.get(String(selectedMind.id))
-                const ids = sm?.mental_ids ?? []
-                if (!ids.length) return null
-                return (
-                  <p className="mindstudy-modal-mental-ids">
-                    <span className="mindstudy-modal-mental-ids-label">เจตสิก IDs</span>
-                    {ids.join(', ')}
-                  </p>
-                )
-              })()}
               <ul className="mindstudy-list modal-list">
                 {selectedMind.highlights.slice(0, 3).map((point) => (
                   <li key={point}>{point}</li>
                 ))}
               </ul>
+              {(() => {
+                const sm = staticMindByAggregateId.get(String(selectedMind.id))
+                const ids = sm?.mental_ids ?? []
+                if (!ids.length) return null
+                const linkedMentals = ids
+                  .map((id) => staticMentalById.get(id))
+                  .filter((mental): mental is StaticMental => Boolean(mental))
+                if (!linkedMentals.length) return null
+                return (
+                  <div className="mindstudy-modal-mental-ids">
+                    <span className="mindstudy-modal-mental-ids-label">เจตสิกในจิตนี้</span>
+                    <div className="mindstudy-modal-mental-list">
+                      {linkedMentals.map((mental) => (
+                        <button
+                          key={mental.id}
+                          type="button"
+                          className="mindstudy-modal-mental-item"
+                          onClick={() => openCetasikaFromStaticMental(mental)}
+                        >
+                          {mental.name}
+                          {mental.thai?.trim() ? ` (${mental.thai.trim()})` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
             <div className="mindstudy-modal-actions">
               <button className="mindstudy-btn ghost" onClick={() => setModalOpen(false)}>
@@ -1462,10 +1490,15 @@ export function MindStudy(): React.ReactElement {
           { key: 'pc', label: 'Proximate cause (ปทฐาน)', text: c.proximateCause },
         ]
         const filledRows = abhidhammaRows.filter((row) => row.text?.trim())
+        const sideBySideWithMind = modalOpen && selectedMind
         return (
-        <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setCetasikaModalOpen(false)}>
+        <div
+          className={sideBySideWithMind ? 'mindstudy-modal-side-shell' : 'mindstudy-modal-backdrop'}
+          role="presentation"
+          onClick={() => setCetasikaModalOpen(false)}
+        >
           <div
-            className="mindstudy-modal"
+            className={`mindstudy-modal ${sideBySideWithMind ? 'mindstudy-modal-side' : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label={`Inspect ${titleEn}${thaiBracket}`}
