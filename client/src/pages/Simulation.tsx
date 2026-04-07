@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, Sky, Text } from '@react-three/drei'
+import { Environment, OrbitControls, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -1397,6 +1397,7 @@ function MentalsLayer({
   mentals,
   selectedMentalName,
   onSelectMental,
+  controlsRef,
   focusTargetRef,
   planeModelPath,
   sendMode,
@@ -1409,6 +1410,7 @@ function MentalsLayer({
   mentals: Mental[]
   selectedMentalName: string | null
   onSelectMental: (info: InspectSelection) => void
+  controlsRef?: React.RefObject<OrbitControlsImpl | null>
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
   planeModelPath: string
   sendMode: boolean
@@ -1443,6 +1445,16 @@ function MentalsLayer({
   const burstsRef = useRef<DissolveBurst[]>([])
   const burstPointRefs = useRef<Map<number, THREE.Object3D>>(new Map())
   const nextBurstIdRef = useRef(1)
+  const dragStateRef = useRef<{
+    mental: Mental
+    startX: number
+    startY: number
+    screenPos: { x: number; y: number }
+    plane: THREE.Plane
+  } | null>(null)
+  const dragActiveRef = useRef(false)
+  const dragPointRef = useRef(new THREE.Vector3())
+  const dragNormalRef = useRef(new THREE.Vector3())
   const particleSpriteTexture = useMemo(() => {
     const canvas = document.createElement('canvas')
     canvas.width = 128
@@ -1732,12 +1744,17 @@ function MentalsLayer({
 
   useEffect(() => {
     const canvas = gl.domElement
-
-    const handlePointer = (event: PointerEvent) => {
+    const DRAG_THRESHOLD_PX = 6
+    const setPointerFromEvent = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect()
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      const isRightButton = event.button === 2
+      const isLeftButton = event.button === 0
 
+      setPointerFromEvent(event)
       raycaster.setFromCamera(pointer, camera)
 
       const list = mind.getMentals()
@@ -1748,20 +1765,154 @@ function MentalsLayer({
 
       const found = findMentalForHitObject(list, hits[0].object)
 
-      if (found) {
-        const screenPos = {
-          x: event.clientX + window.scrollX,
-          y: event.clientY + window.scrollY,
-        }
+      if (!found) return
+
+      const screenPos = {
+        x: event.clientX + window.scrollX,
+        y: event.clientY + window.scrollY,
+      }
+
+      // Keep existing pointer-down behavior for send/emoji modes.
+      if (sendMode || emojiMode) {
         handleMentalPick(found, screenPos)
+        return
+      }
+
+      // Keep left-click select behavior in normal mode.
+      if (isLeftButton) {
+        handleMentalPick(found, screenPos)
+        return
+      }
+
+      // Right-click drag only in normal mode.
+      if (!isRightButton) return
+
+      const mesh = found.getMesh()
+      const mindMesh = mind.getMesh()
+      if (!mesh || !mindMesh) {
+        handleMentalPick(found, screenPos)
+        return
+      }
+
+      const worldPos = new THREE.Vector3()
+      mesh.getWorldPosition(worldPos)
+      camera.getWorldDirection(dragNormalRef.current)
+      const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(dragNormalRef.current, worldPos)
+
+      dragStateRef.current = {
+        mental: found,
+        startX: event.clientX,
+        startY: event.clientY,
+        screenPos,
+        plane: dragPlane,
+      }
+      dragActiveRef.current = false
+
+      // Freeze while dragging so physics never fights pointer movement.
+      found.setDragging(true)
+      found.setFrozen(true)
+      found.setVelocity(0, 0, 0)
+      controlsRef?.current && (controlsRef.current.enabled = false)
+      event.stopPropagation()
+      event.preventDefault()
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const state = dragStateRef.current
+      if (!state) return
+
+      const dx = event.clientX - state.startX
+      const dy = event.clientY - state.startY
+      const movedEnough = Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX
+      if (!dragActiveRef.current && movedEnough) {
+        dragActiveRef.current = true
+      }
+      if (!dragActiveRef.current) return
+
+      const mindMesh = mind.getMesh()
+      if (!mindMesh) return
+
+      setPointerFromEvent(event)
+      raycaster.setFromCamera(pointer, camera)
+      const hit = raycaster.ray.intersectPlane(state.plane, dragPointRef.current)
+      if (!hit) return
+
+      const local = mindMesh.worldToLocal(hit.clone())
+      state.mental.setPosition(local.x, local.y, local.z)
+      state.mental.setVelocity(0, 0, 0)
+    }
+
+    const handlePointerUp = () => {
+      const state = dragStateRef.current
+      dragStateRef.current = null
+      if (!state) return
+      controlsRef?.current && (controlsRef.current.enabled = true)
+
+      // If user only clicked (no drag), preserve current pointer-down pick behavior.
+      if (!dragActiveRef.current) {
+        state.mental.setDragging(false)
+        state.mental.setFrozen(false)
+        state.mental.normalizeVelocityToMotionSpeed()
+        return
+      }
+
+      const position = state.mental.getPosition()
+      const worldDistance = Math.sqrt(
+        position.x * position.x +
+        position.y * position.y +
+        position.z * position.z
+      ) * mind.scale
+      const mindRadius = mind.getRadius()
+      const mentalRadius = state.mental.getRadius() * mind.scale
+      const maxDistance = Math.max(mentalRadius + 0.005, mindRadius - mentalRadius - 0.01)
+      const outside = worldDistance > maxDistance + 1e-6
+
+      if (outside) {
+        state.mental.setOutsideMindPinned(true)
+        state.mental.setDragging(false)
+        state.mental.setFrozen(true)
+        state.mental.setVelocity(0, 0, 0)
+        // Outside the main sphere, show a readable floating name label.
+        state.mental.setLabelEnabled(true)
+        state.mental.setLabelWorldSize(0.3)
+        state.mental.setLabelOffset(0.12)
+        state.mental.setLabelDepthOcclusion(false)
+      } else {
+        state.mental.setOutsideMindPinned(false)
+        state.mental.setDragging(false)
+        state.mental.setFrozen(false)
+        // Restore default in-sphere styling (name on sphere only).
+        state.mental.setLabelEnabled(false)
+        state.mental.setLabelWorldSize(0.18)
+        state.mental.setLabelOffset(0.06)
+        state.mental.normalizeVelocityToMotionSpeed()
+      }
+      dragActiveRef.current = false
+    }
+
+    const handleContextMenu = (event: MouseEvent) => {
+      if (dragStateRef.current) {
+        event.preventDefault()
       }
     }
 
-    canvas.addEventListener('pointerdown', handlePointer)
+    canvas.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    canvas.addEventListener('contextmenu', handleContextMenu)
     return () => {
-      canvas.removeEventListener('pointerdown', handlePointer)
+      canvas.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      canvas.removeEventListener('contextmenu', handleContextMenu)
+      if (controlsRef?.current) controlsRef.current.enabled = true
+      if (dragStateRef.current) {
+        dragStateRef.current.mental.setDragging(false)
+      }
+      dragStateRef.current = null
+      dragActiveRef.current = false
     }
-  }, [camera, collectMentalTargets, findMentalForHitObject, gl, handleMentalPick, mind, pointer, raycaster])
+  }, [camera, collectMentalTargets, controlsRef, emojiMode, findMentalForHitObject, gl, handleMentalPick, mind, pointer, raycaster, sendMode])
 
   useEffect(() => {
     const xrRaycaster = new THREE.Raycaster()
@@ -2066,6 +2217,7 @@ function SoundReceiveEffect({
   planeModelPath,
   onHighlightChange,
   onComplete,
+  visualMode = 'sound',
 }: {
   requestId: number
   mind: Mind
@@ -2073,11 +2225,13 @@ function SoundReceiveEffect({
   planeModelPath: string
   onHighlightChange?: (objects: THREE.Object3D[]) => void
   onComplete?: () => void
+  visualMode?: 'sound' | 'scene'
 }) {
   const { gl } = useThree()
-  const earSideGap = 0.05
-  const earHeightOffset = 0
-  const earDepthOffset = 0.02
+  const isSceneMode = visualMode === 'scene'
+  const earSideGap = isSceneMode ? 0.03 : 0.05
+  const earHeightOffset = isSceneMode ? 0.08 : 0
+  const earDepthOffset = isSceneMode ? 0.11 : 0.02
   const earRotationXDeg = 0
   const earRotationYDeg = 270
   const earRotationZDeg = 0
@@ -2101,6 +2255,10 @@ function SoundReceiveEffect({
   const earWorld = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
+    if (isSceneMode) {
+      earModelRef.current = null
+      return
+    }
     let cancelled = false
     const loader = new GLTFLoader()
     const earCandidates = [
@@ -2140,7 +2298,7 @@ function SoundReceiveEffect({
       cancelled = true
       earModelRef.current = null
     }
-  }, [])
+  }, [isSceneMode])
 
   useEffect(() => {
     if (requestId <= 0 || requestId === prevRequestRef.current) return
@@ -2185,16 +2343,22 @@ function SoundReceiveEffect({
     const baseY = mind.position.y
     const baseZ = mind.position.z
     const radius = Math.max(1.1, mind.scale)
-    earWorld.set(baseX + radius + earSideGap, baseY + earHeightOffset, baseZ + earDepthOffset)
-
-    planeStartRef.current.copy(earWorld).add(new THREE.Vector3(0.46, 0.04, 0.04))
+    if (isSceneMode) {
+      // Scene mode: place two eyes in front of the mind sphere.
+      earWorld.set(baseX, baseY + 0.24, baseZ + radius + 0.12)
+      // Start farther away so the incoming scene-data flight is obvious.
+      planeStartRef.current.copy(earWorld).add(new THREE.Vector3(0, 0.16, 2.6))
+    } else {
+      earWorld.set(baseX + radius + earSideGap, baseY + earHeightOffset, baseZ + earDepthOffset)
+      planeStartRef.current.copy(earWorld).add(new THREE.Vector3(0.46, 0.04, 0.04))
+    }
 
     phaseRef.current = 'move_contact'
     phaseElapsedRef.current = 0
     sendStartedRef.current = false
     setEarVisible(true)
     setActive(true)
-  }, [earDepthOffset, earHeightOffset, earSideGap, earWorld, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
+  }, [earDepthOffset, earHeightOffset, earSideGap, earWorld, isSceneMode, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
 
   const resolveMentalByName = useCallback(
     (name: string): Mental | null => {
@@ -2244,7 +2408,7 @@ function SoundReceiveEffect({
       if (!targetMesh || !parent) return
 
       const sender = new Mental({
-        name: 'Sound Carrier',
+        name: isSceneMode ? 'Scene Carrier' : 'Sound Carrier',
         color: '#ffffff',
         scale: 0.03,
         transparent: true,
@@ -2277,7 +2441,67 @@ function SoundReceiveEffect({
         if (senderMentalRef.current === sender) senderMentalRef.current = null
       }
     },
-    [gl, planeModelPath]
+    [gl, isSceneMode, planeModelPath]
+  )
+
+  const sendFromWorldToWorld = useCallback(
+    async (startWorld: THREE.Vector3, endWorld: THREE.Vector3): Promise<void> => {
+      const parent = mind.getMesh()
+      if (!parent) return
+
+      const sender = new Mental({
+        name: isSceneMode ? 'Scene Carrier' : 'Sound Carrier',
+        color: '#ffffff',
+        scale: 0.03,
+        transparent: true,
+        opacity: 0,
+        motionSpeed: 0,
+        labelEnabled: false,
+      })
+      const receiver = new Mental({
+        name: 'Receiver Anchor',
+        color: '#ffffff',
+        scale: 0.03,
+        transparent: true,
+        opacity: 0,
+        motionSpeed: 0,
+        labelEnabled: false,
+      })
+      sender.setFrozen(true)
+      receiver.setFrozen(true)
+
+      const senderMesh = sender.getMesh()
+      const receiverMesh = receiver.getMesh()
+      if (!senderMesh || !receiverMesh) {
+        sender.dispose()
+        receiver.dispose()
+        return
+      }
+
+      const startLocal = parent.worldToLocal(startWorld.clone())
+      const endLocal = parent.worldToLocal(endWorld.clone())
+      sender.setPosition(startLocal.x, startLocal.y, startLocal.z)
+      receiver.setPosition(endLocal.x, endLocal.y, endLocal.z)
+      senderMesh.visible = false
+      receiverMesh.visible = false
+      parent.add(senderMesh)
+      parent.add(receiverMesh)
+
+      try {
+        await sender.sendDataTo(gl, receiver, {
+          planeModelPath,
+          durationMs: 980,
+          arcHeight: 0.12,
+          scale: 0.1,
+        })
+      } finally {
+        if (senderMesh.parent) senderMesh.parent.remove(senderMesh)
+        if (receiverMesh.parent) receiverMesh.parent.remove(receiverMesh)
+        sender.dispose()
+        receiver.dispose()
+      }
+    },
+    [gl, isSceneMode, mind, planeModelPath]
   )
 
   const sendMentalToMental = useCallback(
@@ -2320,7 +2544,7 @@ function SoundReceiveEffect({
       const runSequence = async () => {
         try {
           const chain = [
-            { mental: 'Contact', line: 'Hearing the music. Contact: Sound meets the ear and initiates awareness.' },
+            { mental: 'Contact', line: isSceneMode ? 'Seeing the scene. Contact: Visual form meets the eye and initiates awareness.' : 'Hearing the music. Contact: Sound meets the ear and initiates awareness.' },
             { mental: 'Attention', line: 'Turning toward the sound. Attention: The mind focuses on the music.' },
             { mental: 'Feeling', line: 'Feeling it is pleasant. Feeling: A pleasant emotional tone arises.' },
             { mental: 'Perception', line: 'Recognizing the song. Perception: The mind identifies it as a familiar liked song.' },
@@ -2339,10 +2563,20 @@ function SoundReceiveEffect({
           }
           const contactMesh = contactMental.getMesh()
           onHighlightChange?.(contactMesh ? [contactMesh] : [])
-          await Promise.all([
-            speakNarration(chain[0].line),
-            sendFromWorldToMental(planeStartRef.current, contactMental),
-          ])
+
+          if (isSceneMode) {
+            // Scene mode: travel from afar -> eyes -> Contact.
+            await sendFromWorldToWorld(planeStartRef.current, earWorld.clone())
+            await Promise.all([
+              speakNarration(chain[0].line),
+              sendFromWorldToMental(earWorld.clone(), contactMental),
+            ])
+          } else {
+            await Promise.all([
+              speakNarration(chain[0].line),
+              sendFromWorldToMental(planeStartRef.current, contactMental),
+            ])
+          }
           if (runToken !== runTokenRef.current) return
 
           for (let i = 1; i < chain.length; i += 1) {
@@ -2371,11 +2605,19 @@ function SoundReceiveEffect({
   useFrame(() => {
     if (!earVisible) return
     const radius = Math.max(1.1, mind.scale)
-    earWorld.set(
-      mind.position.x + radius + earSideGap,
-      mind.position.y + earHeightOffset,
-      mind.position.z + earDepthOffset
-    )
+    if (isSceneMode) {
+      earWorld.set(
+        mind.position.x,
+        mind.position.y + 0.24,
+        mind.position.z + radius + 0.12
+      )
+    } else {
+      earWorld.set(
+        mind.position.x + radius + earSideGap,
+        mind.position.y + earHeightOffset,
+        mind.position.z + earDepthOffset
+      )
+    }
   })
 
   useEffect(() => {
@@ -2399,19 +2641,52 @@ function SoundReceiveEffect({
     <>
       {earVisible && (
         <group position={[earWorld.x, earWorld.y, earWorld.z]}>
-          {earModelRef.current ? (
+          {!isSceneMode && earModelRef.current ? (
             <primitive object={earModelRef.current} />
           ) : (
-            <>
-              <mesh rotation={[0, 0, Math.PI / 2]}>
-                <torusGeometry args={[0.15, 0.05, 14, 36, Math.PI * 1.5]} />
-                <meshStandardMaterial color={0xf5c0a5} metalness={0.05} roughness={0.7} />
-              </mesh>
-              <mesh position={[0.04, -0.06, 0]}>
-                <sphereGeometry args={[0.05, 16, 16]} />
-                <meshStandardMaterial color={0xedb79a} metalness={0.04} roughness={0.72} />
-              </mesh>
-            </>
+            isSceneMode ? (
+              <>
+                <group position={[-0.18, 0, 0]}>
+                  <mesh>
+                    <sphereGeometry args={[0.15, 28, 28]} />
+                    <meshStandardMaterial color={0xffffff} metalness={0.03} roughness={0.32} />
+                  </mesh>
+                  <mesh position={[0, 0, 0.11]}>
+                    <ringGeometry args={[0.13, 0.165, 48]} />
+                    <meshBasicMaterial color={0x111111} side={THREE.DoubleSide} />
+                  </mesh>
+                  <mesh position={[0, 0, 0.14]}>
+                    <sphereGeometry args={[0.038, 20, 20]} />
+                    <meshStandardMaterial color={0x1f2937} metalness={0.15} roughness={0.45} />
+                  </mesh>
+                </group>
+                <group position={[0.18, 0, 0]}>
+                  <mesh>
+                    <sphereGeometry args={[0.15, 28, 28]} />
+                    <meshStandardMaterial color={0xffffff} metalness={0.03} roughness={0.32} />
+                  </mesh>
+                  <mesh position={[0, 0, 0.11]}>
+                    <ringGeometry args={[0.13, 0.165, 48]} />
+                    <meshBasicMaterial color={0x111111} side={THREE.DoubleSide} />
+                  </mesh>
+                  <mesh position={[0, 0, 0.14]}>
+                    <sphereGeometry args={[0.038, 20, 20]} />
+                    <meshStandardMaterial color={0x1f2937} metalness={0.15} roughness={0.45} />
+                  </mesh>
+                </group>
+              </>
+            ) : (
+              <>
+                <mesh rotation={[0, 0, Math.PI / 2]}>
+                  <torusGeometry args={[0.15, 0.05, 14, 36, Math.PI * 1.5]} />
+                  <meshStandardMaterial color={0xf5c0a5} metalness={0.05} roughness={0.7} />
+                </mesh>
+                <mesh position={[0.04, -0.06, 0]}>
+                  <sphereGeometry args={[0.05, 16, 16]} />
+                  <meshStandardMaterial color={0xedb79a} metalness={0.04} roughness={0.72} />
+                </mesh>
+              </>
+            )
           )}
         </group>
       )}
@@ -3975,8 +4250,11 @@ function ThreeScene({
   emojiMode,
   onSendSelection,
   soundReceiveRequestId,
+  sceneReceiveRequestId,
   onSoundReceiveHighlightChange,
+  onSceneReceiveHighlightChange,
   onSoundReceiveComplete,
+  onSceneReceiveComplete,
   showHumanModel,
   humanShape,
   xrMode,
@@ -4019,8 +4297,11 @@ function ThreeScene({
   emojiMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   soundReceiveRequestId: number
+  sceneReceiveRequestId: number
   onSoundReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
+  onSceneReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
   onSoundReceiveComplete?: () => void
+  onSceneReceiveComplete?: () => void
   showHumanModel: boolean
   humanShape: MorphShapeKey
   xrMode: 'vr' | 'ar' | null
@@ -4115,7 +4396,6 @@ function ThreeScene({
       <XRControllers />
       <XRExitByGrip enabled={isXrActive} />
       <XRMovement enabled={isXrActive} initialOffset={xrInitialOffset} />
-      {/* In AR, avoid overriding the camera passthrough with an HDR background */}
       {!isArMode && <Environment preset="dawn" background blur={1} backgroundIntensity={0.6} environmentIntensity={1.05} />}
       <OrbitControls
         ref={controlsRef}
@@ -4144,6 +4424,15 @@ function ThreeScene({
         onHighlightChange={onSoundReceiveHighlightChange}
         onComplete={onSoundReceiveComplete}
       />
+      <SoundReceiveEffect
+        requestId={sceneReceiveRequestId}
+        mind={mind}
+        mentals={mentals}
+        planeModelPath={paperPlaneModel}
+        onHighlightChange={onSceneReceiveHighlightChange}
+        onComplete={onSceneReceiveComplete}
+        visualMode="scene"
+      />
       {showHumanInScene && (
         <React.Suspense fallback={null}>
           <HumanBody
@@ -4161,6 +4450,7 @@ function ThreeScene({
           mentals={mentals}
           selectedMentalName={selectedMentalName}
           onSelectMental={onSelectMental}
+          controlsRef={controlsRef}
           focusTargetRef={focusTargetRef}
           planeModelPath={paperPlaneModel}
           sendMode={sendMode}
@@ -4246,6 +4536,8 @@ export function Simulation(): React.ReactElement {
   const [emojiMode, setEmojiMode] = useState(false)
   const [soundReceiveRequestId, setSoundReceiveRequestId] = useState(0)
   const [soundReceiveActive, setSoundReceiveActive] = useState(false)
+  const [sceneReceiveRequestId, setSceneReceiveRequestId] = useState(0)
+  const [sceneReceiveActive, setSceneReceiveActive] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
   const [humanShape, setHumanShape] = useState<MorphShapeKey>('human')
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
@@ -5328,23 +5620,51 @@ export function Simulation(): React.ReactElement {
               setSelected(null)
               setInspectOpen(false)
               setProfile(null)
+              setSceneReceiveActive(false)
               setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Receiving...' })
               setSoundReceiveActive(true)
               setSoundReceiveRequestId((prev) => prev + 1)
             }}
-            disabled={soundReceiveActive}
+            disabled={soundReceiveActive || sceneReceiveActive}
             style={{
               padding: '6px 10px',
               borderRadius: 6,
               border: 'none',
               background: soundReceiveActive ? '#22c55e' : '#6366f1',
               color: 'white',
-              cursor: soundReceiveActive ? 'wait' : 'pointer',
+              cursor: (soundReceiveActive || sceneReceiveActive) ? 'wait' : 'pointer',
               fontWeight: 600,
-              opacity: soundReceiveActive ? 0.9 : 1,
+              opacity: (soundReceiveActive || sceneReceiveActive) ? 0.9 : 1,
             }}
           >
             {soundReceiveActive ? 'Receiving Sound...' : 'Receive Sound Data'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSendMode(false)
+              setEmojiMode(false)
+              setSelected(null)
+              setInspectOpen(false)
+              setProfile(null)
+              setSoundReceiveActive(false)
+              setSendInfo({ sender: 'Scene', receiver: 'Contact', status: 'Receiving...' })
+              setSceneReceiveActive(true)
+              setSceneReceiveRequestId((prev) => prev + 1)
+            }}
+            disabled={soundReceiveActive || sceneReceiveActive}
+            style={{
+              padding: '6px 10px',
+              borderRadius: 6,
+              border: 'none',
+              background: sceneReceiveActive ? '#22c55e' : '#7c3aed',
+              color: 'white',
+              cursor: (soundReceiveActive || sceneReceiveActive) ? 'wait' : 'pointer',
+              fontWeight: 600,
+              opacity: (soundReceiveActive || sceneReceiveActive) ? 0.9 : 1,
+            }}
+          >
+            {sceneReceiveActive ? 'Receiving Scene...' : 'Receive Scene Data'}
           </button>
           <button
             type="button"
@@ -5946,11 +6266,18 @@ export function Simulation(): React.ReactElement {
           emojiMode={emojiMode}
           onSendSelection={setSendInfo}
           soundReceiveRequestId={soundReceiveRequestId}
+          sceneReceiveRequestId={sceneReceiveRequestId}
           onSoundReceiveHighlightChange={setSoundReceiveHighlight}
+          onSceneReceiveHighlightChange={setSoundReceiveHighlight}
           onSoundReceiveComplete={() => {
             setSoundReceiveActive(false)
             setSoundReceiveHighlight([])
             setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Delivered' })
+          }}
+          onSceneReceiveComplete={() => {
+            setSceneReceiveActive(false)
+            setSoundReceiveHighlight([])
+            setSendInfo({ sender: 'Scene', receiver: 'Contact', status: 'Delivered' })
           }}
           showHumanModel={showHumanModel}
           humanShape={humanShape}

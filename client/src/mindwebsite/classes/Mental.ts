@@ -13,6 +13,8 @@ export class Mental extends AbstractMental {
   private nameTexture: THREE.CanvasTexture | null
   private attachedModel: THREE.Object3D | null
   private frozen: boolean
+  private outsideMindPinned: boolean
+  private dragging: boolean
   private modelVisible: boolean
   private modelLoadToken: number
 
@@ -35,6 +37,8 @@ export class Mental extends AbstractMental {
     this.nameTexture = null
     this.attachedModel = null
     this.frozen = false
+    this.outsideMindPinned = false
+    this.dragging = false
     this.modelVisible = true
     this.modelLoadToken = 0
     
@@ -656,6 +660,22 @@ export class Mental extends AbstractMental {
 
   isFrozen(): boolean {
     return this.frozen
+  }
+
+  setOutsideMindPinned(value: boolean): void {
+    this.outsideMindPinned = value
+  }
+
+  isOutsideMindPinned(): boolean {
+    return this.outsideMindPinned
+  }
+
+  setDragging(value: boolean): void {
+    this.dragging = value
+  }
+
+  isDragging(): boolean {
+    return this.dragging
   }
 
   dispose(): void {

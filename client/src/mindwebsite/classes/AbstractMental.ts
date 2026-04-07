@@ -227,22 +227,19 @@ export class AbstractMental {
     ctx.stroke()
 
     const safe = text || ''
-    let fontSize = 10
+    let fontSize = 60
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.98)'
 
-    const thinFont = (size: number) =>
-      `100 ${size}px "Segoe UI", "Helvetica Neue", "Arial Narrow", Arial, sans-serif`
-
     const maxTextWidth = w - 100
-    while (fontSize > 26) {
-      ctx.font = thinFont(fontSize)
+    while (fontSize > 22) {
+      ctx.font = `700 ${fontSize}px Arial`
       if (ctx.measureText(safe).width <= maxTextWidth) break
       fontSize -= 4
     }
 
-    ctx.font = thinFont(fontSize)
+    ctx.font = `700 ${fontSize}px Arial`
     ctx.fillText(safe, logicalW / 2, logicalH / 2)
 
     const texture = new THREE.CanvasTexture(canvas)
@@ -387,6 +384,21 @@ export class AbstractMental {
   setName(name: string): void {
     this.name = name
     this.updateLabel()
+  }
+
+  setLabelEnabled(enabled: boolean): void {
+    this.labelEnabled = enabled
+    this.updateLabel()
+  }
+
+  setLabelWorldSize(size: number): void {
+    this.labelWorldSize = Math.max(0.01, size)
+    this.updateLabelTransform()
+  }
+
+  setLabelOffset(offset: number): void {
+    this.labelOffset = offset
+    this.updateLabelTransform()
   }
 
   setLabelDepthOcclusion(enabled: boolean): void {

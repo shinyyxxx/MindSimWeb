@@ -62,6 +62,8 @@ export class Mind extends AbstractMind {
    * @param mental The Mental instance to constrain
    */
   constrainMentalPosition(mental: Mental): void {
+    if (mental.isOutsideMindPinned() || mental.isDragging()) return
+
     const mindRadius = this.getRadius()
     // Mental radius in world space (local radius * Mind scale)
     const mentalRadius = mental.getRadius() * this.scale
@@ -281,6 +283,8 @@ export class Mind extends AbstractMind {
    * @param mental The Mental instance to check
    */
   handleBoundaryCollision(mental: Mental): void {
+    if (mental.isOutsideMindPinned() || mental.isDragging()) return
+
     const mindRadius = this.getRadius()
     // Mental radius in world space (local radius * Mind scale)
     const mentalRadius = mental.getRadius() * this.scale
@@ -360,6 +364,11 @@ export class Mind extends AbstractMind {
 
     // Update positions based on velocity with boundary prediction
     this.mentals.forEach((mental) => {
+      if (mental.isOutsideMindPinned() || mental.isDragging()) {
+        mental.setVelocity(0, 0, 0)
+        return
+      }
+
       if (mental.isFrozen()) {
         // Keep frozen mentals anchored; zero velocity to avoid drift
         mental.setVelocity(0, 0, 0)
@@ -427,6 +436,7 @@ export class Mind extends AbstractMind {
       for (let j = i + 1; j < this.mentals.length; j++) {
         const a = this.mentals[i]
         const b = this.mentals[j]
+        if (a.isOutsideMindPinned() || b.isOutsideMindPinned() || a.isDragging() || b.isDragging()) continue
         // Skip collision check only if BOTH are frozen (universal factors don't collide with each other)
         // But allow collisions between frozen and non-frozen spheres
         if (a.isFrozen() && b.isFrozen()) continue
@@ -437,6 +447,7 @@ export class Mind extends AbstractMind {
     // Final clamp: just ensure nobody escaped numerically.
     // (We avoid snapping/bouncing here to prevent "sticking" artifacts.)
     this.mentals.forEach(mental => {
+      if (mental.isOutsideMindPinned() || mental.isDragging()) return
       this.constrainMentalPosition(mental)
       mental.normalizeVelocityToMotionSpeed()
     })
