@@ -1402,6 +1402,7 @@ function MentalsLayer({
   planeModelPath,
   sendMode,
   emojiMode,
+  blockXrMentalPick = false,
   onSendSelection,
   onHoverSelection,
   onSendMeshSelection,
@@ -1415,11 +1416,12 @@ function MentalsLayer({
   planeModelPath: string
   sendMode: boolean
   emojiMode: boolean
+  blockXrMentalPick?: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   onHoverSelection?: (objects: THREE.Object3D[]) => void
   onSendMeshSelection?: (meshes: THREE.Object3D[]) => void
 }) {
-  const { gl, camera } = useThree()
+  const { gl, camera, scene } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const cameraWorldQuaternion = useMemo(() => new THREE.Quaternion(), [])
@@ -1536,6 +1538,14 @@ function MentalsLayer({
     })
     return targets
   }, [])
+
+  const collectXrUiBlockers = useCallback((): THREE.Object3D[] => {
+    const blockers: THREE.Object3D[] = []
+    scene.traverse((obj) => {
+      if (obj.userData?.xrUiBlocker) blockers.push(obj)
+    })
+    return blockers
+  }, [scene])
 
   const findMentalForHitObject = useCallback((list: Mental[], hitObject: THREE.Object3D): Mental | undefined => {
     return list.find((mental) => {
@@ -1922,6 +1932,7 @@ function MentalsLayer({
 
     const handleXrSelect = (event: unknown) => {
       if (!gl.xr.isPresenting) return
+      if (blockXrMentalPick) return
       // Avoid click-through: while a mental is already selected in XR,
       // panel interactions should not also re-pick underlying mentals.
       if (selectedMentalName && !sendMode && !emojiMode) return
@@ -1935,6 +1946,12 @@ function MentalsLayer({
       rayOrigin.setFromMatrixPosition(controller.matrixWorld)
       rayDirection.set(0, 0, -1).transformDirection(controller.matrixWorld)
       xrRaycaster.set(rayOrigin, rayDirection)
+
+      const uiBlockers = collectXrUiBlockers()
+      if (uiBlockers.length > 0) {
+        const uiHits = xrRaycaster.intersectObjects(uiBlockers, true)
+        if (uiHits.length > 0) return
+      }
 
       const hits = xrRaycaster.intersectObjects(targets, true)
       if (!hits.length) return
@@ -1954,7 +1971,7 @@ function MentalsLayer({
         controller.removeEventListener('selectstart', handleXrSelect as unknown as (event: { data: XRInputSource }) => void)
       })
     }
-  }, [collectMentalTargets, emojiMode, findMentalForHitObject, gl, handleMentalPick, mind, selectedMentalName, sendMode])
+  }, [blockXrMentalPick, collectMentalTargets, collectXrUiBlockers, emojiMode, findMentalForHitObject, gl, handleMentalPick, mind, selectedMentalName, sendMode])
 
   useEffect(() => {
     if (!onHoverSelection) return
@@ -3459,6 +3476,7 @@ function XRTimelineToggle({
 }
 
 function XRTimelinePanel({
+  stops,
   selectedIndex,
   onSelect,
   panelOpen,
@@ -3470,8 +3488,16 @@ function XRTimelinePanel({
   onT5Change,
   onSenseSelect,
   hasContactMental,
+  personType,
+  onPersonTypeChange,
+  timelineMode,
+  onTimelineModeChange,
+  slideshowPaused,
+  onSlideshowPausedChange,
   vithiCurrentEvent,
+  vithiStageData,
 }: {
+  stops: Array<{ label: string; description: string }>
   selectedIndex: number
   onSelect: (index: number) => void
   panelOpen: boolean
@@ -3483,7 +3509,14 @@ function XRTimelinePanel({
   onT5Change?: (id: string | null) => void
   onSenseSelect?: (senseId: string, params: VithiParams) => void
   hasContactMental?: boolean
+  personType?: PersonType
+  onPersonTypeChange?: (pt: PersonType) => void
+  timelineMode?: 'manual' | 'slideshow'
+  onTimelineModeChange?: (mode: 'manual' | 'slideshow') => void
+  slideshowPaused?: boolean
+  onSlideshowPausedChange?: (paused: boolean) => void
   vithiCurrentEvent?: VithiEvent | null
+  vithiStageData?: Map<number, VithiStageInfo> | null
 }) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
@@ -3495,6 +3528,11 @@ function XRTimelinePanel({
   const t5PrevButtonRef = useRef<THREE.Mesh | null>(null)
   const t5NextButtonRef = useRef<THREE.Mesh | null>(null)
   const t5ClearButtonRef = useRef<THREE.Mesh | null>(null)
+  const personTypePrevButtonRef = useRef<THREE.Mesh | null>(null)
+  const personTypeNextButtonRef = useRef<THREE.Mesh | null>(null)
+  const modeManualButtonRef = useRef<THREE.Mesh | null>(null)
+  const modeSlideshowButtonRef = useRef<THREE.Mesh | null>(null)
+  const slideshowPauseButtonRef = useRef<THREE.Mesh | null>(null)
   const senseButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const variantButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -3505,6 +3543,8 @@ function XRTimelinePanel({
   const hoveredActionRef = useRef<string | null>(null)
   const [showDetail, setShowDetail] = useState(false)
   const [selectedSense, setSelectedSense] = useState<string>('')
+  const personTypes = PERSON_TYPES
+  const personTypeIndex = Math.max(0, personTypes.indexOf(personType ?? 'puthujjana'))
 
   useStationaryDraggableXrPanel({
     groupRef,
@@ -3520,7 +3560,7 @@ function XRTimelinePanel({
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
 
     const resolveIndexForHit = (hitObject: THREE.Object3D): number | null => {
-      for (let i = 0; i < TIMELINE_STOPS.length; i += 1) {
+      for (let i = 0; i < stops.length; i += 1) {
         const mesh = buttonRefs.current[i]
         if (!mesh) continue
         let node: THREE.Object3D | null = hitObject
@@ -3554,6 +3594,11 @@ function XRTimelinePanel({
         t5PrevButtonRef.current,
         t5NextButtonRef.current,
         t5ClearButtonRef.current,
+        personTypePrevButtonRef.current,
+        personTypeNextButtonRef.current,
+        modeManualButtonRef.current,
+        modeSlideshowButtonRef.current,
+        slideshowPauseButtonRef.current,
         ...Object.values(senseButtonRefs.current),
         ...Object.values(variantButtonRefs.current),
       ].filter(Boolean) as THREE.Object3D[]
@@ -3606,6 +3651,30 @@ function XRTimelinePanel({
           return
         }
       }
+      if (selectedIndex === 0) {
+        if (isHitInside(personTypePrevButtonRef.current, hits[0].object)) {
+          const prev = (personTypeIndex - 1 + personTypes.length) % personTypes.length
+          onPersonTypeChange?.(personTypes[prev])
+          return
+        }
+        if (isHitInside(personTypeNextButtonRef.current, hits[0].object)) {
+          const next = (personTypeIndex + 1) % personTypes.length
+          onPersonTypeChange?.(personTypes[next])
+          return
+        }
+        if (isHitInside(modeManualButtonRef.current, hits[0].object)) {
+          onTimelineModeChange?.('manual')
+          return
+        }
+        if (isHitInside(modeSlideshowButtonRef.current, hits[0].object)) {
+          onTimelineModeChange?.('slideshow')
+          return
+        }
+      }
+      if (timelineMode === 'slideshow' && selectedIndex > 0 && isHitInside(slideshowPauseButtonRef.current, hits[0].object)) {
+        onSlideshowPausedChange?.(!slideshowPaused)
+        return
+      }
       if (selectedIndex === 0 && hasContactMental) {
         for (const opt of T0_SENSE_OPTIONS) {
           const mesh = senseButtonRefs.current[opt.id]
@@ -3642,14 +3711,22 @@ function XRTimelinePanel({
     hasContactMental,
     onClosePanel,
     onOpenPanel,
+    onPersonTypeChange,
     onSelect,
     onSenseSelect,
     onT3HappyChange,
+    onTimelineModeChange,
     onT5Change,
+    onSlideshowPausedChange,
+    personTypeIndex,
+    personTypes,
     selectedIndex,
     selectedSense,
+    slideshowPaused,
     t3HappySelected,
+    timelineMode,
     t5SelectedId,
+    stops,
   ])
 
   useFrame(() => {
@@ -3666,6 +3743,11 @@ function XRTimelinePanel({
         ...buttonRefs.current.filter(Boolean),
         openPanelButtonRef.current,
         closePanelButtonRef.current,
+        personTypePrevButtonRef.current,
+        personTypeNextButtonRef.current,
+        modeManualButtonRef.current,
+        modeSlideshowButtonRef.current,
+        slideshowPauseButtonRef.current,
       ].filter(Boolean) as THREE.Object3D[]
       for (const controller of controllers) {
         if (!targets.length) break
@@ -3697,6 +3779,11 @@ function XRTimelinePanel({
         if (!nextHoveredAction && hitInside(t5PrevButtonRef.current)) nextHoveredAction = 't5-prev'
         if (!nextHoveredAction && hitInside(t5NextButtonRef.current)) nextHoveredAction = 't5-next'
         if (!nextHoveredAction && hitInside(t5ClearButtonRef.current)) nextHoveredAction = 't5-clear'
+        if (!nextHoveredAction && hitInside(personTypePrevButtonRef.current)) nextHoveredAction = 'person-prev'
+        if (!nextHoveredAction && hitInside(personTypeNextButtonRef.current)) nextHoveredAction = 'person-next'
+        if (!nextHoveredAction && hitInside(modeManualButtonRef.current)) nextHoveredAction = 'mode-manual'
+        if (!nextHoveredAction && hitInside(modeSlideshowButtonRef.current)) nextHoveredAction = 'mode-slideshow'
+        if (!nextHoveredAction && hitInside(slideshowPauseButtonRef.current)) nextHoveredAction = 'slideshow-pause'
         if (!nextHoveredAction) {
           for (const opt of T0_SENSE_OPTIONS) {
             if (hitInside(senseButtonRefs.current[opt.id])) {
@@ -3743,7 +3830,7 @@ function XRTimelinePanel({
     }
   })
 
-  const activeStop = TIMELINE_STOPS[selectedIndex] ?? TIMELINE_STOPS[0]
+  const activeStop = stops[selectedIndex] ?? stops[0]
   const selectedVariants = selectedSense ? (SENSE_VARIANTS[selectedSense] ?? []) : []
   const t5CurrentLabel = t5SelectedId
     ? (T5_MENTAL_OPTIONS.find((opt) => opt.id === t5SelectedId)?.label ?? 'Custom selection')
@@ -3754,17 +3841,26 @@ function XRTimelinePanel({
   const headerTitleY = 0.52
   const headerSubtitleY = 0.46
   const headerDescTopY = 0.39
-  const senseHeaderY = 0.14
-  const senseRowStartY = 0.07
+  const stageInfoY = 0.31
+  const personTypeRowY = 0.23
+  const modeRowY = 0.16
+  const senseHeaderY = 0.06
+  const senseRowStartY = -0.01
   const senseRowGap = 0.1
-  const variantHeaderY = -0.14
-  const variantStartY = -0.2
+  let variantHeaderY = -0.14
+  let variantStartY = -0.2
   let contentBottomY = -0.12
   if (selectedIndex === 0 && hasContactMental) {
-    contentBottomY = -0.04
+    const senseRowCount = Math.max(1, Math.ceil(T0_SENSE_OPTIONS.length / 3))
+    const lastSenseRowY = senseRowStartY - (senseRowCount - 1) * senseRowGap
+    // Keep "What kind?" clearly below the sense-door rows.
+    variantHeaderY = lastSenseRowY - 0.06
+    variantStartY = variantHeaderY - 0.07
+    contentBottomY = lastSenseRowY - 0.06
     if (selectedVariants.length > 0) {
       const visibleVariantCount = Math.min(3, selectedVariants.length)
-      contentBottomY = variantStartY - (visibleVariantCount - 1) * 0.08 - 0.04
+      const lastVariantY = variantStartY - (visibleVariantCount - 1) * 0.08
+      contentBottomY = Math.min(contentBottomY, lastVariantY - 0.06)
     }
   }
   if (selectedIndex === 3) contentBottomY = -0.2
@@ -3779,6 +3875,10 @@ function XRTimelinePanel({
 
   return (
     <group ref={groupRef}>
+      <mesh position={[0, -0.01, 0.03]} userData={{ xrUiBlocker: true }}>
+        <planeGeometry args={[0.24, 1.08]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
       {/* Outer capsule frame */}
       <mesh position={[0, -0.01, 0]}>
         <planeGeometry args={[0.074, 0.9]} />
@@ -3790,10 +3890,10 @@ function XRTimelinePanel({
         <meshBasicMaterial color={0x0f172a} side={THREE.DoubleSide} />
       </mesh>
 
-      {TIMELINE_STOPS.map((stop, i) => {
+      {stops.map((stop, i) => {
         const yTop = 0.36
         const yBottom = -0.38
-        const t = TIMELINE_STOPS.length > 1 ? i / (TIMELINE_STOPS.length - 1) : 0
+        const t = stops.length > 1 ? i / (stops.length - 1) : 0
         const y = yTop + (yBottom - yTop) * t
         const isSelected = selectedIndex === i
         const isHovered = hoveredIndex === i
@@ -3840,6 +3940,10 @@ function XRTimelinePanel({
 
       {panelOpen && (
         <group>
+          <mesh position={[-0.48, panelCenterY, 0.02]} userData={{ xrUiBlocker: true }}>
+            <planeGeometry args={[0.96, panelHeight + 0.08]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+          </mesh>
           <mesh position={[-0.48, panelCenterY, 0.001]}>
             <planeGeometry args={[0.9, panelHeight]} />
             <meshBasicMaterial color={0x111827} transparent opacity={0.96} side={THREE.DoubleSide} />
@@ -3873,6 +3977,75 @@ function XRTimelinePanel({
           >
             {activeStop.description}
           </Text>
+
+          {vithiStageData && vithiStageData.has(selectedIndex) && (
+            (() => {
+              const stage = vithiStageData.get(selectedIndex)!
+              const stageText = stage.blocked
+                ? 'No citta at this stage'
+                : `${stage.mental_details.length} cetasika(s): ${stage.mental_details.map((d) => d.name).join(', ')}`
+              return (
+                <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.018} color={stage.blocked ? '#6b7280' : '#a5b4fc'} maxWidth={0.78}>
+                  {stageText}
+                </Text>
+              )
+            })()
+          )}
+
+          {selectedIndex === 0 && (
+            <>
+              <Text position={[-0.88, personTypeRowY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.02} color="#94a3b8">
+                Person type
+              </Text>
+              <mesh ref={personTypePrevButtonRef} position={[-0.56, personTypeRowY, 0.005]}>
+                <planeGeometry args={[0.1, 0.06]} />
+                <meshBasicMaterial color={isActionHovered('person-prev') ? 0x475569 : 0x334155} />
+              </mesh>
+              <Text position={[-0.56, personTypeRowY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.022} color="#f8fafc">
+                ◀
+              </Text>
+              <mesh ref={personTypeNextButtonRef} position={[-0.32, personTypeRowY, 0.005]}>
+                <planeGeometry args={[0.1, 0.06]} />
+                <meshBasicMaterial color={isActionHovered('person-next') ? 0x475569 : 0x334155} />
+              </mesh>
+              <Text position={[-0.32, personTypeRowY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.022} color="#f8fafc">
+                ▶
+              </Text>
+              <Text position={[-0.50, personTypeRowY, 0.007]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.16}>
+                {personType ?? 'puthujjana'}
+              </Text>
+
+              <Text position={[-0.88, modeRowY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.02} color="#94a3b8">
+                Timeline mode
+              </Text>
+              <mesh ref={modeManualButtonRef} position={[-0.58, modeRowY, 0.005]}>
+                <planeGeometry args={[0.16, 0.06]} />
+                <meshBasicMaterial color={timelineMode === 'manual' ? 0x1d4ed8 : isActionHovered('mode-manual') ? 0x334155 : 0x1f2937} />
+              </mesh>
+              <Text position={[-0.58, modeRowY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.018} color="#f8fafc">
+                Manual
+              </Text>
+              <mesh ref={modeSlideshowButtonRef} position={[-0.38, modeRowY, 0.005]}>
+                <planeGeometry args={[0.2, 0.06]} />
+                <meshBasicMaterial color={timelineMode === 'slideshow' ? 0x1d4ed8 : isActionHovered('mode-slideshow') ? 0x334155 : 0x1f2937} />
+              </mesh>
+              <Text position={[-0.38, modeRowY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.018} color="#f8fafc">
+                Slideshow
+              </Text>
+            </>
+          )}
+
+          {timelineMode === 'slideshow' && selectedIndex > 0 && (
+            <>
+              <mesh ref={slideshowPauseButtonRef} position={[-0.72, 0.09, 0.005]}>
+                <planeGeometry args={[0.26, 0.065]} />
+                <meshBasicMaterial color={isActionHovered('slideshow-pause') ? 0x475569 : 0x334155} />
+              </mesh>
+              <Text position={[-0.72, 0.09, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color="#f8fafc">
+                {slideshowPaused ? 'Play' : 'Pause'}
+              </Text>
+            </>
+          )}
 
           {selectedIndex === 0 && !hasContactMental && (
             <Text position={[-0.88, senseHeaderY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.02} color="#f87171" maxWidth={0.78}>
@@ -4272,6 +4445,14 @@ function ThreeScene({
   onSenseSelect,
   hasContactMental,
   vithiCurrentEvent,
+  stops,
+  personType,
+  onPersonTypeChange,
+  timelineMode,
+  onTimelineModeChange,
+  slideshowPaused,
+  onSlideshowPausedChange,
+  vithiStageData,
   xrTimelineOpen,
   xrTimelineDetailOpen,
   onToggleXrTimeline,
@@ -4319,6 +4500,14 @@ function ThreeScene({
   onSenseSelect: (senseId: string, params: VithiParams) => void
   hasContactMental: boolean
   vithiCurrentEvent: VithiEvent | null
+  stops: Array<{ label: string; description: string }>
+  personType: PersonType
+  onPersonTypeChange: (pt: PersonType) => void
+  timelineMode: 'manual' | 'slideshow'
+  onTimelineModeChange: (mode: 'manual' | 'slideshow') => void
+  slideshowPaused: boolean
+  onSlideshowPausedChange: (paused: boolean) => void
+  vithiStageData: Map<number, VithiStageInfo> | null
   xrTimelineOpen: boolean
   xrTimelineDetailOpen: boolean
   onToggleXrTimeline: () => void
@@ -4354,6 +4543,11 @@ function ThreeScene({
     const mesh = selectedMental?.getMesh()
     return mesh ? [mesh] : []
   }, [mentals, selectedMentalName])
+
+  const handleSelectMental = useCallback((info: InspectSelection) => {
+    if (isXrActive && xrTimelineOpen) return
+    onSelectMental(info)
+  }, [isXrActive, onSelectMental, xrTimelineOpen])
 
   // Priority: active explanation sphere, search results, send mode picks, selected sphere, then hover.
   const outlineSelection =
@@ -4449,12 +4643,13 @@ function ThreeScene({
           mind={mind}
           mentals={mentals}
           selectedMentalName={selectedMentalName}
-          onSelectMental={onSelectMental}
+          onSelectMental={handleSelectMental}
           controlsRef={controlsRef}
           focusTargetRef={focusTargetRef}
           planeModelPath={paperPlaneModel}
           sendMode={sendMode}
           emojiMode={emojiMode}
+          blockXrMentalPick={isXrActive && xrTimelineOpen}
           onSendSelection={onSendSelection}
           onHoverSelection={setHoverSelection}
           onSendMeshSelection={setSendMeshSelection}
@@ -4485,6 +4680,7 @@ function ThreeScene({
       )}
       {isXrActive && xrTimelineOpen && (
         <XRTimelinePanel
+          stops={stops}
           selectedIndex={timelineIndex}
           onSelect={onTimelineSelect}
           panelOpen={xrTimelineDetailOpen}
@@ -4496,7 +4692,14 @@ function ThreeScene({
           onT5Change={onT5Change}
           onSenseSelect={onSenseSelect}
           hasContactMental={hasContactMental}
+          personType={personType}
+          onPersonTypeChange={onPersonTypeChange}
+          timelineMode={timelineMode}
+          onTimelineModeChange={onTimelineModeChange}
+          slideshowPaused={slideshowPaused}
+          onSlideshowPausedChange={onSlideshowPausedChange}
           vithiCurrentEvent={vithiCurrentEvent}
+          vithiStageData={vithiStageData}
         />
       )}
       <XROccludedConnector
@@ -6286,6 +6489,7 @@ export function Simulation(): React.ReactElement {
           defaultMindScale={DEFAULT_MIND_SCALE}
           searchHighlight={searchHighlight}
           explainHighlight={soundReceiveHighlight.length > 0 ? soundReceiveHighlight : explainHighlight}
+          stops={dynamicStops}
           timelineIndex={timelineIndex}
           onTimelineSelect={setTimelineIndex}
           t3HappySelected={t3HappySelected}
@@ -6294,7 +6498,14 @@ export function Simulation(): React.ReactElement {
           onT5Change={setT5SelectedId}
           onSenseSelect={handleSenseSelect}
           hasContactMental={hasContactMental}
+          personType={personType}
+          onPersonTypeChange={setPersonType}
+          timelineMode={timelineMode}
+          onTimelineModeChange={setTimelineMode}
+          slideshowPaused={slideshowPaused}
+          onSlideshowPausedChange={setSlideshowPaused}
           vithiCurrentEvent={vithiCurrentEvent}
+          vithiStageData={vithiStageData}
           xrTimelineOpen={xrTimelineOpen}
           xrTimelineDetailOpen={xrTimelineDetailOpen}
           onToggleXrTimeline={() =>

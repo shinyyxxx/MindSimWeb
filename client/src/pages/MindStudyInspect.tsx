@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import { useNavigate, useParams } from 'react-router-dom'
 import Mind from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
@@ -69,10 +70,14 @@ import type { InspectSelection } from '../types/InspectSelection'
 import { EffectComposer, Outline } from '@react-three/postprocessing'
 import { BlendFunction } from 'postprocessing'
 import InspectPanel from '../components/InspectPanel'
+import XRInspectPanel from '../components/XRInspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
+import { useXRSession } from './simulation/useXRSession'
+import { XRClearMode, XRControllers, XRExitByGrip, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
+const DESKTOP_INSPECT_CAMERA_POS: [number, number, number] = [0, 0, 5]
 
 /** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
 const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330
@@ -106,6 +111,7 @@ type ApiStaticMentalRow = {
 type ApiStaticMindRow = {
   id: number
   name: string
+  name_en?: string
   pali?: string
   thai?: string
   category?: string
@@ -623,6 +629,56 @@ function PanelPositionSync({
   return null
 }
 
+function RendererBridge({
+  onRendererReady,
+}: {
+  onRendererReady?: (renderer: THREE.WebGLRenderer) => void
+}) {
+  const { gl } = useThree()
+  useEffect(() => {
+    onRendererReady?.(gl)
+  }, [gl, onRendererReady])
+  return null
+}
+
+function ExitArCameraReset({
+  isArActive,
+  controlsRef,
+  mind,
+}: {
+  isArActive?: boolean
+  controlsRef: React.RefObject<OrbitControlsImpl | null>
+  mind: Mind
+}) {
+  const { camera } = useThree()
+  const wasArActiveRef = useRef(Boolean(isArActive))
+
+  useEffect(() => {
+    const wasArActive = wasArActiveRef.current
+    const nowArActive = Boolean(isArActive)
+    wasArActiveRef.current = nowArActive
+
+    if (!wasArActive || nowArActive) return
+
+    camera.position.set(
+      DESKTOP_INSPECT_CAMERA_POS[0],
+      DESKTOP_INSPECT_CAMERA_POS[1],
+      DESKTOP_INSPECT_CAMERA_POS[2],
+    )
+    camera.up.set(0, 1, 0)
+    const target = new THREE.Vector3(mind.position.x, mind.position.y, mind.position.z)
+    camera.lookAt(target)
+    camera.updateProjectionMatrix()
+
+    if (controlsRef.current) {
+      controlsRef.current.target.set(target.x, target.y, target.z)
+      controlsRef.current.update()
+    }
+  }, [camera, controlsRef, isArActive, mind])
+
+  return null
+}
+
 function FlyToCameraEffect({
   mind,
   targetName,
@@ -724,6 +780,8 @@ function NeutralMentalsLayer({
   selectedMentalName,
   onSelectMental,
   focusTargetRef,
+  controlsRef,
+  isXrActive,
   onHoverSelection,
 }: {
   mind: Mind
@@ -731,21 +789,82 @@ function NeutralMentalsLayer({
   selectedMentalName: string | null
   onSelectMental: (info: InspectSelection) => void
   focusTargetRef: React.MutableRefObject<THREE.Vector3 | null>
+  controlsRef?: React.RefObject<OrbitControlsImpl | null>
+  isXrActive?: boolean
   onHoverSelection?: (objects: THREE.Object3D[]) => void
 }) {
   const { gl, camera } = useThree()
   const raycaster = useMemo(() => new THREE.Raycaster(), [])
   const pointer = useMemo(() => new THREE.Vector2(), [])
   const hoveredMeshRef = useRef<THREE.Object3D | null>(null)
+  const dragStateRef = useRef<{
+    mental: Mental
+    startX: number
+    startY: number
+    plane: THREE.Plane
+  } | null>(null)
+  const xrDragStateRef = useRef<{
+    mental: Mental
+    controller: THREE.Object3D
+    distance: number
+    moved: boolean
+  } | null>(null)
+  const dragActiveRef = useRef(false)
+  const dragPointRef = useRef(new THREE.Vector3())
+  const dragNormalRef = useRef(new THREE.Vector3())
+  const xrRayOriginRef = useRef(new THREE.Vector3())
+  const xrRayDirectionRef = useRef(new THREE.Vector3())
+
+  const finalizeDraggedMental = useCallback((mental: Mental, didDrag: boolean) => {
+    if (!didDrag) {
+      mental.setDragging(false)
+      mental.setFrozen(false)
+      mental.normalizeVelocityToMotionSpeed()
+      return
+    }
+
+    const position = mental.getPosition()
+    const worldDistance = Math.sqrt(position.x * position.x + position.y * position.y + position.z * position.z) * mind.scale
+    const mindRadius = mind.getRadius()
+    const mentalRadius = mental.getRadius() * mind.scale
+    const maxDistance = Math.max(mentalRadius + 0.005, mindRadius - mentalRadius - 0.01)
+    const outside = worldDistance > maxDistance + 1e-6
+
+    if (outside) {
+      mental.setOutsideMindPinned(true)
+      mental.setDragging(false)
+      mental.setFrozen(true)
+      mental.setVelocity(0, 0, 0)
+      mental.setLabelEnabled(true)
+      mental.setLabelWorldSize(0.3)
+      mental.setLabelOffset(0.12)
+      mental.setLabelDepthOcclusion(false)
+      return
+    }
+
+    mental.setOutsideMindPinned(false)
+    mental.setDragging(false)
+    mental.setFrozen(false)
+    mental.setLabelEnabled(false)
+    mental.setLabelWorldSize(0.18)
+    mental.setLabelOffset(0.06)
+    mental.normalizeVelocityToMotionSpeed()
+  }, [mind])
 
   useEffect(() => {
     const canvas = gl.domElement
-
-    const handlePointer = (event: PointerEvent) => {
+    const DRAG_THRESHOLD_PX = 6
+    const setPointerFromEvent = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect()
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    }
 
+    const handlePointer = (event: PointerEvent) => {
+      const isRightButton = event.button === 2
+      const isLeftButton = event.button === 0
+
+      setPointerFromEvent(event)
       raycaster.setFromCamera(pointer, camera)
 
       const list = mind.getMentals()
@@ -771,40 +890,238 @@ function NeutralMentalsLayer({
       })
 
       if (found) {
-        // Same as Simulation `handleMentalPick`: only the picked mental stays unfrozen (frozen = held in place).
-        mind.getMentals().forEach((m) => m.setFrozen(m === found))
-        found.setFrozen(true)
+        if (isLeftButton) {
+          // Same as Simulation `handleMentalPick`: only the picked mental stays unfrozen (frozen = held in place).
+          mind.getMentals().forEach((m) => m.setFrozen(m === found))
+          found.setFrozen(true)
 
-        const foundMesh = found.getMesh()
+          const foundMesh = found.getMesh()
+          const worldPos = new THREE.Vector3()
+          foundMesh?.getWorldPosition(worldPos)
+          focusTargetRef.current = worldPos
+
+          const screenPos = { x: event.clientX, y: event.clientY }
+
+          const idx = list.indexOf(found)
+          onSelectMental({
+            name: found.getName(),
+            detail: found.getDetail(),
+            type: found.getType?.() ?? 'mental',
+            labelNumber: idx + 1,
+            screenPosition: screenPos,
+            modelPath: found.getModelPath?.(),
+          })
+          return
+        }
+
+        if (!isRightButton) return
+
+        const mesh = found.getMesh()
+        const mindMesh = mind.getMesh()
+        if (!mesh || !mindMesh) return
+
         const worldPos = new THREE.Vector3()
-        foundMesh?.getWorldPosition(worldPos)
-        focusTargetRef.current = worldPos
+        mesh.getWorldPosition(worldPos)
+        camera.getWorldDirection(dragNormalRef.current)
+        const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(dragNormalRef.current, worldPos)
 
-        const screenPos = { x: event.clientX, y: event.clientY }
-
-        const idx = list.indexOf(found)
-        onSelectMental({
-          name: found.getName(),
-          detail: found.getDetail(),
-          type: found.getType?.() ?? 'mental',
-          labelNumber: idx + 1,
-          screenPosition: screenPos,
-          modelPath: found.getModelPath?.(),
-        })
+        dragStateRef.current = {
+          mental: found,
+          startX: event.clientX,
+          startY: event.clientY,
+          plane: dragPlane,
+        }
+        dragActiveRef.current = false
+        found.setOutsideMindPinned(false)
+        found.setDragging(true)
+        found.setFrozen(true)
+        found.setVelocity(0, 0, 0)
+        if (controlsRef?.current) controlsRef.current.enabled = false
+        event.stopPropagation()
+        event.preventDefault()
       }
     }
 
+    const handlePointerMove = (event: PointerEvent) => {
+      const state = dragStateRef.current
+      if (!state) return
+
+      const dx = event.clientX - state.startX
+      const dy = event.clientY - state.startY
+      const movedEnough = Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX
+      if (!dragActiveRef.current && movedEnough) {
+        dragActiveRef.current = true
+      }
+      if (!dragActiveRef.current) return
+
+      const mindMesh = mind.getMesh()
+      if (!mindMesh) return
+
+      setPointerFromEvent(event)
+      raycaster.setFromCamera(pointer, camera)
+      const hit = raycaster.ray.intersectPlane(state.plane, dragPointRef.current)
+      if (!hit) return
+
+      const local = mindMesh.worldToLocal(hit.clone())
+      state.mental.setPosition(local.x, local.y, local.z)
+      state.mental.setVelocity(0, 0, 0)
+    }
+
+    const handlePointerUp = () => {
+      const state = dragStateRef.current
+      dragStateRef.current = null
+      if (!state) return
+      if (controlsRef?.current) controlsRef.current.enabled = true
+
+      finalizeDraggedMental(state.mental, dragActiveRef.current)
+      dragActiveRef.current = false
+    }
+
     canvas.addEventListener('pointerdown', handlePointer)
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    const handleContextMenu = (event: MouseEvent) => {
+      if (dragStateRef.current) event.preventDefault()
+    }
+    canvas.addEventListener('contextmenu', handleContextMenu)
     return () => {
       canvas.removeEventListener('pointerdown', handlePointer)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      canvas.removeEventListener('contextmenu', handleContextMenu)
+      if (controlsRef?.current) controlsRef.current.enabled = true
+      if (dragStateRef.current) {
+        dragStateRef.current.mental.setDragging(false)
+      }
+      dragStateRef.current = null
+      dragActiveRef.current = false
     }
-  }, [camera, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef])
+  }, [camera, controlsRef, finalizeDraggedMental, gl, mind, onSelectMental, pointer, raycaster, focusTargetRef])
+
+  useEffect(() => {
+    if (!isXrActive) return
+
+    const xrRaycaster = new THREE.Raycaster()
+    xrRaycaster.camera = camera
+    const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
+    const listMentals = () => mind.getMentals()
+    const findMentalHit = (controller: THREE.Object3D): { mental: Mental; distance: number } | null => {
+      const list = listMentals()
+      const targets: THREE.Object3D[] = []
+      list.forEach((mental) => {
+        const mesh = mental.getMesh()
+        if (mesh) targets.push(mesh)
+      })
+      if (!targets.length) return null
+
+      xrRayOriginRef.current.setFromMatrixPosition(controller.matrixWorld)
+      xrRayDirectionRef.current.set(0, 0, -1).transformDirection(controller.matrixWorld)
+      xrRaycaster.set(xrRayOriginRef.current, xrRayDirectionRef.current)
+      const hits = xrRaycaster.intersectObjects(targets, false)
+      if (!hits.length) return null
+
+      const hit = hits[0]
+      const found = list.find((mental) => {
+        const mesh = mental.getMesh()
+        if (!mesh) return false
+        let node: THREE.Object3D | null = hit.object
+        while (node) {
+          if (node === mesh) return true
+          node = node.parent
+        }
+        return false
+      })
+      if (!found) return null
+      return { mental: found, distance: hit.distance }
+    }
+
+    const handleXrSelectStart = (controller: THREE.Object3D, event: Event) => {
+      if (!gl.xr.isPresenting) return
+      if (!controller) return
+
+      const hit = findMentalHit(controller)
+      if (!hit) return
+
+      const handedness = (event as { data?: XRInputSource }).data?.handedness
+      const isRightHand = handedness === 'right'
+      const isLeftHand = handedness === 'left'
+
+      if (isRightHand) {
+        hit.mental.setOutsideMindPinned(false)
+        hit.mental.setDragging(true)
+        hit.mental.setFrozen(true)
+        hit.mental.setVelocity(0, 0, 0)
+        xrDragStateRef.current = {
+          mental: hit.mental,
+          controller,
+          distance: THREE.MathUtils.clamp(hit.distance, 0.35, 5),
+          moved: false,
+        }
+        return
+      }
+
+      if (!isLeftHand) return
+      if (selectedMentalName) return
+
+      mind.getMentals().forEach((m) => m.setFrozen(m === hit.mental))
+      hit.mental.setFrozen(true)
+
+      const foundMesh = hit.mental.getMesh()
+      const worldPos = new THREE.Vector3()
+      foundMesh?.getWorldPosition(worldPos)
+      focusTargetRef.current = worldPos
+
+      const list = listMentals()
+      const idx = list.indexOf(hit.mental)
+      onSelectMental({
+        name: hit.mental.getName(),
+        detail: hit.mental.getDetail(),
+        type: hit.mental.getType?.() ?? 'mental',
+        labelNumber: idx + 1,
+        modelPath: hit.mental.getModelPath?.(),
+      })
+    }
+
+    const handleXrSelectEnd = (controller: THREE.Object3D) => {
+      const state = xrDragStateRef.current
+      if (!state) return
+      if (!controller || controller !== state.controller) return
+      finalizeDraggedMental(state.mental, state.moved)
+      xrDragStateRef.current = null
+    }
+
+    const teardown: Array<() => void> = []
+    controllers.forEach((controller) => {
+      const onSelectStart = (event: { data: XRInputSource }) => {
+        handleXrSelectStart(controller, event as unknown as Event)
+      }
+      const onSelectEnd = () => {
+        handleXrSelectEnd(controller)
+      }
+      controller.addEventListener('selectstart', onSelectStart)
+      controller.addEventListener('selectend', onSelectEnd)
+      teardown.push(() => {
+        controller.removeEventListener('selectstart', onSelectStart)
+        controller.removeEventListener('selectend', onSelectEnd)
+      })
+    })
+
+    return () => {
+      teardown.forEach((fn) => fn())
+      if (xrDragStateRef.current) {
+        xrDragStateRef.current.mental.setDragging(false)
+        xrDragStateRef.current.mental.setFrozen(false)
+        xrDragStateRef.current = null
+      }
+    }
+  }, [camera, finalizeDraggedMental, focusTargetRef, gl, isXrActive, mind, onSelectMental, selectedMentalName])
 
   useEffect(() => {
     if (!onHoverSelection) return
     const canvas = gl.domElement
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (dragStateRef.current) return
       const rect = canvas.getBoundingClientRect()
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
@@ -858,6 +1175,25 @@ function NeutralMentalsLayer({
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef, mind])
+
+  useFrame(() => {
+    const state = xrDragStateRef.current
+    if (!state || !gl.xr.isPresenting || !isXrActive) return
+    const mindMesh = mind.getMesh()
+    if (!mindMesh) return
+
+    const controller = state.controller
+    xrRayOriginRef.current.setFromMatrixPosition(controller.matrixWorld)
+    xrRayDirectionRef.current.set(0, 0, -1).transformDirection(controller.matrixWorld)
+    const worldTarget = xrRayOriginRef.current.clone().addScaledVector(xrRayDirectionRef.current, state.distance)
+    const local = mindMesh.worldToLocal(worldTarget)
+    const prev = state.mental.getPosition()
+    if (Math.hypot(local.x - prev.x, local.y - prev.y, local.z - prev.z) > 1e-4) {
+      state.moved = true
+    }
+    state.mental.setPosition(local.x, local.y, local.z)
+    state.mental.setVelocity(0, 0, 0)
+  })
 
   return null
 }
@@ -1134,6 +1470,14 @@ function NeutralMindScene({
   highlightSelection,
   flyTargetName,
   onFlyComplete,
+  onRendererReady,
+  isArActive,
+  selected,
+  inspectOpen,
+  onViewDetail,
+  onBackFromDetail,
+  onVoiceSelection,
+  onCloseSelection,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -1144,34 +1488,55 @@ function NeutralMindScene({
   highlightSelection?: THREE.Object3D[]
   flyTargetName?: string | null
   onFlyComplete?: () => void
+  onRendererReady?: (renderer: THREE.WebGLRenderer) => void
+  isArActive?: boolean
+  selected?: InspectSelection | null
+  inspectOpen?: boolean
+  onViewDetail?: (selection: InspectSelection) => void
+  onBackFromDetail?: () => void
+  onVoiceSelection?: (selection: InspectSelection) => void
+  onCloseSelection?: () => void
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
+  const controlsRef = useRef<OrbitControlsImpl | null>(null)
   const combinedSelection = useMemo(
     () => [...hoverSelection, ...(highlightSelection ?? [])],
     [hoverSelection, highlightSelection],
   )
 
   return (
-    <Canvas camera={{ position: [0, 0, 10], fov: 60 }} shadows gl={{ antialias: true, toneMappingExposure: 1.05 }}>
-      <Environment preset="dawn" background blur={1} backgroundIntensity={0.58} environmentIntensity={0.95} />
+    <Canvas
+      camera={{ position: DESKTOP_INSPECT_CAMERA_POS, fov: 60 }}
+      shadows
+      gl={{ antialias: true, toneMappingExposure: 1.05, alpha: true }}
+    >
+      {!isArActive ? (
+        <Environment preset="dawn" background blur={1} backgroundIntensity={0.58} environmentIntensity={0.95} />
+      ) : null}
+      <XRClearMode isArMode={Boolean(isArActive)} />
+      <XRControllers />
+      <XRExitByGrip enabled={Boolean(isArActive)} holdMs={5000} />
       <OrbitControls
+        ref={controlsRef}
+        enabled={!isArActive}
         enableDamping
         dampingFactor={0.05}
         enableZoom
-        enablePan
+        enablePan={false}
         enableRotate
         minDistance={2}
         maxDistance={18}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
+      <ExitArCameraReset isArActive={isArActive} controlsRef={controlsRef} mind={mind} />
       <ambientLight intensity={0.52} />
       <directionalLight position={[6, 8, 6]} intensity={1.35} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
       <directionalLight position={[-4, 5, -6]} intensity={0.55} />
       <pointLight position={[0, 5, 0]} intensity={1.05} distance={14} decay={2} />
       <pointLight position={[0, 0, 5]} intensity={0.85} distance={14} decay={2} />
       <pointLight position={[4, 2, -4]} intensity={0.45} distance={16} decay={2} />
-      <GroundPlane />
+      {!isArActive ? <GroundPlane /> : null}
       <NeutralMindContents mind={mind} mentals={mentals} />
       <MindSphere mind={mind} />
       <NeutralMentalsLayer
@@ -1180,8 +1545,21 @@ function NeutralMindScene({
         selectedMentalName={selectedMentalName}
         onSelectMental={onSelectMental}
         focusTargetRef={focusTargetRef}
+        controlsRef={controlsRef}
+        isXrActive={isArActive}
         onHoverSelection={setHoverSelection}
       />
+      {isArActive && selected && (
+        <XRInspectPanel
+          selection={selected}
+          inspectOpen={Boolean(inspectOpen)}
+          onViewDetail={onViewDetail ?? (() => {})}
+          onBack={onBackFromDetail ?? (() => {})}
+          onShowProfile={onViewDetail ?? (() => {})}
+          onVoice={onVoiceSelection}
+          onClose={onCloseSelection ?? (() => {})}
+        />
+      )}
       <FlyToCameraEffect mind={mind} targetName={flyTargetName ?? null} onDone={onFlyComplete} />
       <PanelPositionSync
         focusTargetRef={focusTargetRef}
@@ -1200,6 +1578,7 @@ function NeutralMindScene({
           xRay
         />
       </EffectComposer>
+      <XRStatusBridge onRendererReady={onRendererReady} />
     </Canvas>
   )
 }
@@ -1226,6 +1605,33 @@ export function MindStudyInspect(): React.ReactElement {
   const [mindDetail, setMindDetail] = useState<string>('Neutral mentals playground')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState<boolean>(false)
+  const [renderer, setRenderer] = useState<THREE.WebGLRenderer | null>(null)
+  const {
+    activeXrMode,
+    arMessage,
+    arButtonDisabled,
+    arButtonTitle,
+    handleToggleAr,
+  } = useXRSession({
+    renderer,
+    overlayRoot: overlayRootRef.current,
+  })
+
+  useEffect(() => {
+    if (!renderer) return
+    renderer.xr.enabled = true
+  }, [renderer])
+
+  const isArActive = activeXrMode === 'ar'
+  const wasArActiveRef = useRef(isArActive)
+
+  useEffect(() => {
+    const wasArActive = wasArActiveRef.current
+    wasArActiveRef.current = isArActive
+    if (wasArActive && !isArActive) {
+      window.location.reload()
+    }
+  }, [isArActive])
 
   useEffect(() => {
     if (!selected) {
@@ -1270,9 +1676,19 @@ export function MindStudyInspect(): React.ReactElement {
             if (staticMind) {
               const mentalById = new Map(mentalsList.map((x) => [x.id, x]))
               const built = buildMentalsFromBackendMentalIds(staticMind.mental_ids ?? [], mentalById)
-              setMindLabel(staticMind.thai || staticMind.thai || formatMindName(targetIdEarly))
+              const englishMindName =
+                staticMind.name_en?.trim() ||
+                staticMind.name?.trim() ||
+                staticMind.thai?.trim() ||
+                formatMindName(targetIdEarly)
+              setMindLabel(englishMindName)
               const meta = [staticMind.pali, staticMind.category].filter(Boolean).join(' · ')
-              setMindDetail(staticMind.description?.trim() || meta || 'Canonical citta from /api/static/minds')
+              const thaiMeta = staticMind.thai?.trim() ? `Thai: ${staticMind.thai.trim()}` : ''
+              setMindDetail(
+                staticMind.description?.trim() ||
+                  [meta, thaiMeta].filter(Boolean).join(' · ') ||
+                  'Canonical citta from /api/static/minds',
+              )
               setMentals((prev) => {
                 prev.forEach((m) => m.dispose())
                 return built
@@ -1375,6 +1791,17 @@ export function MindStudyInspect(): React.ReactElement {
 
   useEffect(() => () => mind.dispose(), [mind])
 
+  useEffect(() => {
+    if (isArActive) {
+      mind.setScale(1)
+      mind.setPosition(0, 1.5, -2)
+      return
+    }
+    // Default desktop inspect framing.
+    mind.setScale(1.6)
+    mind.setPosition(0, -0.25, 0)
+  }, [isArActive, mind])
+
   const mentalNames = useMemo(() => mentals.map((m) => m.getName()), [mentals])
 
   /** Same idea as `Simulation` `selectedOutlineSelection` — post outline on the picked mental. */
@@ -1422,6 +1849,13 @@ export function MindStudyInspect(): React.ReactElement {
     setInspectOpen(false)
     setMenuRevealReady(false)
     setMenuLineProgress(0)
+    if (isArActive) {
+      setFocusScreenPosition(null)
+      setPanelPosition(null)
+      setMenuRevealReady(true)
+      setMenuLineProgress(1)
+      return
+    }
 
     if (info.screenPosition && overlayRootRef.current) {
       const rect = overlayRootRef.current.getBoundingClientRect()
@@ -1554,6 +1988,10 @@ export function MindStudyInspect(): React.ReactElement {
     setInspectOpen(true)
   }
 
+  const handleBackFromDetail = useCallback(() => {
+    setInspectOpen(false)
+  }, [])
+
   /** `focusScreenPosition` / `panelPosition` are overlay-local; `selection.screenPosition` is viewport (client). */
   const clientToOverlayLocal = useCallback((point: { x: number; y: number } | null): { x: number; y: number } | null => {
     if (!point || !overlayRootRef.current) return null
@@ -1630,178 +2068,200 @@ export function MindStudyInspect(): React.ReactElement {
       <div
         ref={overlayRootRef}
         className="simulation-full"
-        style={{ position: 'relative', minHeight: '70vh', borderRadius: 16, overflow: 'hidden' }}
+        style={{ position: 'relative', width: '100%', height: '100vh', minHeight: '100vh', borderRadius: 16, overflow: 'hidden' }}
       >
-        <div style={mindBadgeStyle}>{mindLabel}</div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 10,
-            pointerEvents: 'none',
-            zIndex: 22,
-          }}
-        >
-          {searchOpen ? (
-            <>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
-                  background: 'rgba(17, 24, 39, 0.9)',
-                  color: '#e5e7eb',
-                  padding: '10px 10px',
-                  borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  pointerEvents: 'auto',
-                }}
-              >
-                <button
-                  type="button"
-                  aria-label="Back to Mind Study"
-                  title="Back to Mind Study"
-                  onClick={() => navigate('/mind-study')}
-                  style={MINDSTUDY_INSPECT_FLOATING_BTN}
-                >
-                  ←
-                </button>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSearch()
-                  }}
-                  placeholder="Search mind / mental"
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid rgba(148, 163, 184, 0.6)',
-                    background: 'rgba(30, 41, 59, 0.95)',
-                    color: '#e5e7eb',
-                    minWidth: 220,
-                  }}
-                />
-                <button
-                  className="mindstudy-btn primary"
-                  type="button"
-                  onClick={() => handleSearch()}
-                  style={{ padding: '10px 12px', height: 44, display: 'flex', alignItems: 'center', gap: 6, fontSize: 18 }}
-                >
-                  🔍
-                </button>
-                <button
-                  className="mindstudy-btn ghost"
-                  type="button"
-                  onClick={() => setSearchOpen(false)}
-                  style={{ padding: '10px 12px', height: 44, fontSize: 16 }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div
-                style={{
-                  background: 'rgba(17, 24, 39, 0.9)',
-                  color: '#e5e7eb',
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  maxHeight: 180,
-                  overflow: 'auto',
-                  minWidth: 240,
-                  pointerEvents: 'auto',
-                }}
-              >
-                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 6 }}>Mind</div>
-                <div style={{ marginBottom: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => handlePickSuggestion(mind.getName())}
+        {!isArActive ? (
+          <>
+            <div style={mindBadgeStyle}>{mindLabel}</div>
+            <div
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: 10,
+                pointerEvents: 'none',
+                zIndex: 22,
+              }}
+            >
+              {searchOpen ? (
+                <>
+                  <div
                     style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      background: 'rgba(30,41,59,0.65)',
+                      display: 'flex',
+                      gap: 8,
+                      alignItems: 'center',
+                      background: 'rgba(17, 24, 39, 0.9)',
                       color: '#e5e7eb',
-                      border: '1px solid rgba(148, 163, 184, 0.6)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      cursor: 'pointer',
+                      padding: '10px 10px',
+                      borderRadius: 12,
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      pointerEvents: 'auto',
                     }}
                   >
-                    {mind.getName()}
+                    <button
+                      type="button"
+                      aria-label="Back to Mind Study"
+                      title="Back to Mind Study"
+                      onClick={() => navigate('/mind-study')}
+                      style={MINDSTUDY_INSPECT_FLOATING_BTN}
+                    >
+                      ←
+                    </button>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSearch()
+                      }}
+                      placeholder="Search mind / mental"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(148, 163, 184, 0.6)',
+                        background: 'rgba(30, 41, 59, 0.95)',
+                        color: '#e5e7eb',
+                        minWidth: 220,
+                      }}
+                    />
+                    <button
+                      className="mindstudy-btn primary"
+                      type="button"
+                      onClick={() => handleSearch()}
+                      style={{ padding: '10px 12px', height: 44, display: 'flex', alignItems: 'center', gap: 6, fontSize: 18 }}
+                    >
+                      🔍
+                    </button>
+                    <button
+                      className="mindstudy-btn ghost"
+                      type="button"
+                      onClick={() => setSearchOpen(false)}
+                      style={{ padding: '10px 12px', height: 44, fontSize: 16 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      background: 'rgba(17, 24, 39, 0.9)',
+                      color: '#e5e7eb',
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      maxHeight: 180,
+                      overflow: 'auto',
+                      minWidth: 240,
+                      pointerEvents: 'auto',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 6 }}>Mind</div>
+                    <div style={{ marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePickSuggestion(mind.getName())}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'rgba(30,41,59,0.65)',
+                          color: '#e5e7eb',
+                          border: '1px solid rgba(148, 163, 184, 0.6)',
+                          borderRadius: 10,
+                          padding: '8px 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {mind.getName()}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 4 }}>Mentals</div>
+                    <ul style={{ margin: 0, paddingLeft: 0, display: 'grid', gap: 6, listStyle: 'none' }}>
+                      {filteredSuggestions
+                        .filter((name) => name !== mind.getName())
+                        .map((m) => (
+                          <li key={m}>
+                            <button
+                              type="button"
+                              onClick={() => handlePickSuggestion(m)}
+                              style={{
+                                width: '100%',
+                                textAlign: 'left',
+                                background: 'rgba(30,41,59,0.65)',
+                                color: '#e5e7eb',
+                                border: '1px solid rgba(148, 163, 184, 0.6)',
+                                borderRadius: 10,
+                                padding: '8px 10px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {m}
+                            </button>
+                          </li>
+                        ))}
+                      {!filteredSuggestions.filter((name) => name !== mind.getName()).length ? (
+                        <li style={{ color: '#9ca3af', fontSize: 12 }}>No matches</li>
+                      ) : null}
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
+                  <button
+                    type="button"
+                    aria-label="Back to Mind Study"
+                    title="Back to Mind Study"
+                    onClick={() => navigate('/mind-study')}
+                    style={MINDSTUDY_INSPECT_FLOATING_BTN}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Enter AR"
+                    title={arButtonTitle}
+                    onClick={() => {
+                      void handleToggleAr()
+                    }}
+                    disabled={arButtonDisabled}
+                    style={{
+                      ...MINDSTUDY_INSPECT_FLOATING_BTN,
+                      fontSize: 16,
+                      fontWeight: 800,
+                      opacity: arButtonDisabled ? 0.55 : 1,
+                      cursor: arButtonDisabled ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    AR
+                  </button>
+                  <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search" style={MINDSTUDY_INSPECT_FLOATING_BTN}>
+                    🔍
                   </button>
                 </div>
-                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 4 }}>Mentals</div>
-                <ul style={{ margin: 0, paddingLeft: 0, display: 'grid', gap: 6, listStyle: 'none' }}>
-                  {filteredSuggestions
-                    .filter((name) => name !== mind.getName())
-                    .map((m) => (
-                      <li key={m}>
-                        <button
-                          type="button"
-                          onClick={() => handlePickSuggestion(m)}
-                          style={{
-                            width: '100%',
-                            textAlign: 'left',
-                            background: 'rgba(30,41,59,0.65)',
-                            color: '#e5e7eb',
-                            border: '1px solid rgba(148, 163, 184, 0.6)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {m}
-                        </button>
-                      </li>
-                    ))}
-                  {!filteredSuggestions.filter((name) => name !== mind.getName()).length ? (
-                    <li style={{ color: '#9ca3af', fontSize: 12 }}>No matches</li>
-                  ) : null}
-                </ul>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
-              <button
-                type="button"
-                aria-label="Back to Mind Study"
-                title="Back to Mind Study"
-                onClick={() => navigate('/mind-study')}
-                style={MINDSTUDY_INSPECT_FLOATING_BTN}
+              )}
+              <div
+                style={{
+                  fontSize: 12,
+                  color: loadError ? '#fca5a5' : '#bfdbfe',
+                  background: 'rgba(17, 24, 39, 0.75)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10,
+                  padding: '6px 10px',
+                  boxShadow: '0 8px 18px rgba(0,0,0,0.3)',
+                  maxWidth: 260,
+                }}
               >
-                ←
-              </button>
-              <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search" style={MINDSTUDY_INSPECT_FLOATING_BTN}>
-                🔍
-              </button>
+                {loading ? 'Loading MindElement.xlsx…' : arMessage ?? loadError ?? mindDetail}
+              </div>
             </div>
-          )}
-          <div
-            style={{
-              fontSize: 12,
-              color: loadError ? '#fca5a5' : '#bfdbfe',
-              background: 'rgba(17, 24, 39, 0.75)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 10,
-              padding: '6px 10px',
-              boxShadow: '0 8px 18px rgba(0,0,0,0.3)',
-              maxWidth: 260,
-            }}
-          >
-            {loading ? 'Loading MindElement.xlsx…' : loadError ?? mindDetail}
-          </div>
-        </div>
-        {selected && !inspectOpen && menuRevealReady && (
+          </>
+        ) : null}
+        {selected && !isArActive && !inspectOpen && menuRevealReady && (
           <OptionMenu
             selection={selected}
             panelPosition={panelPosition}
@@ -1813,7 +2273,7 @@ export function MindStudyInspect(): React.ReactElement {
             onDragPositionChange={setPanelPosition}
           />
         )}
-        {selected && inspectOpen && (
+        {selected && !isArActive && inspectOpen && (
           <InspectPanel
             selection={selected}
             panelPosition={panelPosition}
@@ -1835,8 +2295,16 @@ export function MindStudyInspect(): React.ReactElement {
           highlightSelection={sceneOutlineSelection}
           flyTargetName={flyTargetName}
           onFlyComplete={() => setFlyTargetName(null)}
+          onRendererReady={setRenderer}
+          isArActive={isArActive}
+          selected={selected}
+          inspectOpen={inspectOpen}
+          onViewDetail={handleViewDetail}
+          onBackFromDetail={handleBackFromDetail}
+          onVoiceSelection={handleVoice}
+          onCloseSelection={handleClose}
         />
-        {showMenuConnector && menuConnectorStart && connectorAnimatedEnd && (
+        {!isArActive && showMenuConnector && menuConnectorStart && connectorAnimatedEnd && (
           <svg
             style={{
               position: 'absolute',
@@ -1865,7 +2333,7 @@ export function MindStudyInspect(): React.ReactElement {
             />
           </svg>
         )}
-        {selected && inspectOpen && (
+        {selected && !isArActive && inspectOpen && (
           <InspectConnector
             panelRect={panelRect}
             target={focusScreenPosition ?? panelPosition}
