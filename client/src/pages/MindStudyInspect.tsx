@@ -74,7 +74,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { useXRSession } from './simulation/useXRSession'
-import { XRClearMode, XRControllers, XRStatusBridge } from './simulation/XRSceneHelpers'
+import { XRClearMode, XRControllers, XRExitByGrip, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
@@ -1477,6 +1477,7 @@ function NeutralMindScene({
       ) : null}
       <XRClearMode isArMode={Boolean(isArActive)} />
       <XRControllers />
+      <XRExitByGrip enabled={Boolean(isArActive)} holdMs={5000} />
       <OrbitControls
         ref={controlsRef}
         enabled={!isArActive}
@@ -2020,193 +2021,197 @@ export function MindStudyInspect(): React.ReactElement {
         className="simulation-full"
         style={{ position: 'relative', width: '100%', height: '100vh', minHeight: '100vh', borderRadius: 16, overflow: 'hidden' }}
       >
-        <div style={mindBadgeStyle}>{mindLabel}</div>
-        <div
-          style={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            gap: 10,
-            pointerEvents: 'none',
-            zIndex: 22,
-          }}
-        >
-          {searchOpen ? (
-            <>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'center',
-                  background: 'rgba(17, 24, 39, 0.9)',
-                  color: '#e5e7eb',
-                  padding: '10px 10px',
-                  borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  pointerEvents: 'auto',
-                }}
-              >
-                <button
-                  type="button"
-                  aria-label="Back to Mind Study"
-                  title="Back to Mind Study"
-                  onClick={() => navigate('/mind-study')}
-                  style={MINDSTUDY_INSPECT_FLOATING_BTN}
-                >
-                  ←
-                </button>
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSearch()
-                  }}
-                  placeholder="Search mind / mental"
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    border: '1px solid rgba(148, 163, 184, 0.6)',
-                    background: 'rgba(30, 41, 59, 0.95)',
-                    color: '#e5e7eb',
-                    minWidth: 220,
-                  }}
-                />
-                <button
-                  className="mindstudy-btn primary"
-                  type="button"
-                  onClick={() => handleSearch()}
-                  style={{ padding: '10px 12px', height: 44, display: 'flex', alignItems: 'center', gap: 6, fontSize: 18 }}
-                >
-                  🔍
-                </button>
-                <button
-                  className="mindstudy-btn ghost"
-                  type="button"
-                  onClick={() => setSearchOpen(false)}
-                  style={{ padding: '10px 12px', height: 44, fontSize: 16 }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div
-                style={{
-                  background: 'rgba(17, 24, 39, 0.9)',
-                  color: '#e5e7eb',
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  maxHeight: 180,
-                  overflow: 'auto',
-                  minWidth: 240,
-                  pointerEvents: 'auto',
-                }}
-              >
-                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 6 }}>Mind</div>
-                <div style={{ marginBottom: 10 }}>
-                  <button
-                    type="button"
-                    onClick={() => handlePickSuggestion(mind.getName())}
+        {!isArActive ? (
+          <>
+            <div style={mindBadgeStyle}>{mindLabel}</div>
+            <div
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+                gap: 10,
+                pointerEvents: 'none',
+                zIndex: 22,
+              }}
+            >
+              {searchOpen ? (
+                <>
+                  <div
                     style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      background: 'rgba(30,41,59,0.65)',
+                      display: 'flex',
+                      gap: 8,
+                      alignItems: 'center',
+                      background: 'rgba(17, 24, 39, 0.9)',
                       color: '#e5e7eb',
-                      border: '1px solid rgba(148, 163, 184, 0.6)',
-                      borderRadius: 10,
-                      padding: '8px 10px',
-                      cursor: 'pointer',
+                      padding: '10px 10px',
+                      borderRadius: 12,
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      pointerEvents: 'auto',
                     }}
                   >
-                    {mind.getName()}
+                    <button
+                      type="button"
+                      aria-label="Back to Mind Study"
+                      title="Back to Mind Study"
+                      onClick={() => navigate('/mind-study')}
+                      style={MINDSTUDY_INSPECT_FLOATING_BTN}
+                    >
+                      ←
+                    </button>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSearch()
+                      }}
+                      placeholder="Search mind / mental"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(148, 163, 184, 0.6)',
+                        background: 'rgba(30, 41, 59, 0.95)',
+                        color: '#e5e7eb',
+                        minWidth: 220,
+                      }}
+                    />
+                    <button
+                      className="mindstudy-btn primary"
+                      type="button"
+                      onClick={() => handleSearch()}
+                      style={{ padding: '10px 12px', height: 44, display: 'flex', alignItems: 'center', gap: 6, fontSize: 18 }}
+                    >
+                      🔍
+                    </button>
+                    <button
+                      className="mindstudy-btn ghost"
+                      type="button"
+                      onClick={() => setSearchOpen(false)}
+                      style={{ padding: '10px 12px', height: 44, fontSize: 16 }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      background: 'rgba(17, 24, 39, 0.9)',
+                      color: '#e5e7eb',
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      maxHeight: 180,
+                      overflow: 'auto',
+                      minWidth: 240,
+                      pointerEvents: 'auto',
+                    }}
+                  >
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 6 }}>Mind</div>
+                    <div style={{ marginBottom: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => handlePickSuggestion(mind.getName())}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'rgba(30,41,59,0.65)',
+                          color: '#e5e7eb',
+                          border: '1px solid rgba(148, 163, 184, 0.6)',
+                          borderRadius: 10,
+                          padding: '8px 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {mind.getName()}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 4 }}>Mentals</div>
+                    <ul style={{ margin: 0, paddingLeft: 0, display: 'grid', gap: 6, listStyle: 'none' }}>
+                      {filteredSuggestions
+                        .filter((name) => name !== mind.getName())
+                        .map((m) => (
+                          <li key={m}>
+                            <button
+                              type="button"
+                              onClick={() => handlePickSuggestion(m)}
+                              style={{
+                                width: '100%',
+                                textAlign: 'left',
+                                background: 'rgba(30,41,59,0.65)',
+                                color: '#e5e7eb',
+                                border: '1px solid rgba(148, 163, 184, 0.6)',
+                                borderRadius: 10,
+                                padding: '8px 10px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {m}
+                            </button>
+                          </li>
+                        ))}
+                      {!filteredSuggestions.filter((name) => name !== mind.getName()).length ? (
+                        <li style={{ color: '#9ca3af', fontSize: 12 }}>No matches</li>
+                      ) : null}
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
+                  <button
+                    type="button"
+                    aria-label="Back to Mind Study"
+                    title="Back to Mind Study"
+                    onClick={() => navigate('/mind-study')}
+                    style={MINDSTUDY_INSPECT_FLOATING_BTN}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Enter AR"
+                    title={arButtonTitle}
+                    onClick={() => {
+                      void handleToggleAr()
+                    }}
+                    disabled={arButtonDisabled}
+                    style={{
+                      ...MINDSTUDY_INSPECT_FLOATING_BTN,
+                      fontSize: 16,
+                      fontWeight: 800,
+                      opacity: arButtonDisabled ? 0.55 : 1,
+                      cursor: arButtonDisabled ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    AR
+                  </button>
+                  <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search" style={MINDSTUDY_INSPECT_FLOATING_BTN}>
+                    🔍
                   </button>
                 </div>
-                <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.6, color: '#9ca3af', marginBottom: 4 }}>Mentals</div>
-                <ul style={{ margin: 0, paddingLeft: 0, display: 'grid', gap: 6, listStyle: 'none' }}>
-                  {filteredSuggestions
-                    .filter((name) => name !== mind.getName())
-                    .map((m) => (
-                      <li key={m}>
-                        <button
-                          type="button"
-                          onClick={() => handlePickSuggestion(m)}
-                          style={{
-                            width: '100%',
-                            textAlign: 'left',
-                            background: 'rgba(30,41,59,0.65)',
-                            color: '#e5e7eb',
-                            border: '1px solid rgba(148, 163, 184, 0.6)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {m}
-                        </button>
-                      </li>
-                    ))}
-                  {!filteredSuggestions.filter((name) => name !== mind.getName()).length ? (
-                    <li style={{ color: '#9ca3af', fontSize: 12 }}>No matches</li>
-                  ) : null}
-                </ul>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10, pointerEvents: 'auto' }}>
-              <button
-                type="button"
-                aria-label="Back to Mind Study"
-                title="Back to Mind Study"
-                onClick={() => navigate('/mind-study')}
-                style={MINDSTUDY_INSPECT_FLOATING_BTN}
-              >
-                ←
-              </button>
-              <button
-                type="button"
-                aria-label={activeXrMode === 'ar' ? 'Exit AR' : 'Enter AR'}
-                title={arButtonTitle}
-                onClick={() => {
-                  void handleToggleAr()
-                }}
-                disabled={arButtonDisabled}
+              )}
+              <div
                 style={{
-                  ...MINDSTUDY_INSPECT_FLOATING_BTN,
-                  fontSize: 16,
-                  fontWeight: 800,
-                  opacity: arButtonDisabled ? 0.55 : 1,
-                  cursor: arButtonDisabled ? 'not-allowed' : 'pointer',
+                  fontSize: 12,
+                  color: loadError ? '#fca5a5' : '#bfdbfe',
+                  background: 'rgba(17, 24, 39, 0.75)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10,
+                  padding: '6px 10px',
+                  boxShadow: '0 8px 18px rgba(0,0,0,0.3)',
+                  maxWidth: 260,
                 }}
               >
-                {activeXrMode === 'ar' ? 'AR✓' : 'AR'}
-              </button>
-              <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search" style={MINDSTUDY_INSPECT_FLOATING_BTN}>
-                🔍
-              </button>
+                {loading ? 'Loading MindElement.xlsx…' : arMessage ?? loadError ?? mindDetail}
+              </div>
             </div>
-          )}
-          <div
-            style={{
-              fontSize: 12,
-              color: loadError ? '#fca5a5' : '#bfdbfe',
-              background: 'rgba(17, 24, 39, 0.75)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 10,
-              padding: '6px 10px',
-              boxShadow: '0 8px 18px rgba(0,0,0,0.3)',
-              maxWidth: 260,
-            }}
-          >
-            {loading ? 'Loading MindElement.xlsx…' : arMessage ?? loadError ?? mindDetail}
-          </div>
-        </div>
+          </>
+        ) : null}
         {selected && !isArActive && !inspectOpen && menuRevealReady && (
           <OptionMenu
             selection={selected}
