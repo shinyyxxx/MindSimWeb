@@ -8,11 +8,26 @@ import * as THREE from 'three'
  * Provides a concrete implementation for Mind sphere objects
  * Can contain Mental spheres inside it
  */
+type PassthroughGlassBackup = {
+  transmission: number
+  thickness: number
+  roughness: number
+  metalness: number
+  opacity: number
+  emissive: THREE.Color
+  emissiveIntensity: number
+  clearcoat: number
+  clearcoatRoughness: number
+  ior: number
+}
+
 export class Mind extends AbstractMind {
   mentals: Mental[] = []
   private explanationRunId = 0
   private explanationPromise: Promise<void> | null = null
   private explanationSuspendPhysics = false
+  private passthroughGlassActive = false
+  private passthroughGlassBackup: PassthroughGlassBackup | null = null
 
   constructor(options: MindBaseOptions = {}) {
     super(options)
@@ -47,6 +62,64 @@ export class Mind extends AbstractMind {
       this.mesh.castShadow = true
       this.mesh.receiveShadow = true
     }
+  }
+
+  /**
+   * immersive AR passthrough has no scene backdrop, so transmission reads as a flat disc.
+   * Use a shaded translucent shell instead while enabled.
+   */
+  setPassthroughFriendlyGlass(enabled: boolean): void {
+    const mat = this.material
+    if (!(mat instanceof THREE.MeshPhysicalMaterial)) return
+
+    if (enabled) {
+      if (this.passthroughGlassActive) return
+      this.passthroughGlassBackup = {
+        transmission: mat.transmission,
+        thickness: mat.thickness,
+        roughness: mat.roughness,
+        metalness: mat.metalness,
+        opacity: mat.opacity,
+        emissive: mat.emissive.clone(),
+        emissiveIntensity: mat.emissiveIntensity,
+        clearcoat: mat.clearcoat,
+        clearcoatRoughness: mat.clearcoatRoughness,
+        ior: mat.ior,
+      }
+      mat.transmission = 0
+      mat.thickness = 0
+      mat.roughness = 0.42
+      mat.metalness = 0
+      mat.clearcoat = 0.45
+      mat.clearcoatRoughness = 0.28
+      mat.ior = 1.35
+      mat.opacity = Math.min(0.38, Math.max(mat.opacity, 0.22))
+      mat.emissive.copy(mat.color).multiplyScalar(0.08)
+      mat.emissiveIntensity = 0.35
+      mat.transparent = true
+      mat.depthWrite = false
+      mat.envMap = null
+      mat.envMapIntensity = 0
+      mat.needsUpdate = true
+      this.passthroughGlassActive = true
+      return
+    }
+
+    if (!this.passthroughGlassActive || !this.passthroughGlassBackup) return
+    const b = this.passthroughGlassBackup
+    mat.transmission = b.transmission
+    mat.thickness = b.thickness
+    mat.roughness = b.roughness
+    mat.metalness = b.metalness
+    mat.opacity = b.opacity
+    mat.emissive.copy(b.emissive)
+    mat.emissiveIntensity = b.emissiveIntensity
+    mat.clearcoat = b.clearcoat
+    mat.clearcoatRoughness = b.clearcoatRoughness
+    mat.ior = b.ior
+    mat.needsUpdate = true
+    this.passthroughGlassBackup = null
+    this.passthroughGlassActive = false
   }
 
   /**

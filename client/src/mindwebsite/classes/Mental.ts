@@ -5,6 +5,18 @@ import { AbstractMental } from './AbstractMental'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import type { MentalBaseOptions } from './AbstractMental'
 
+type MentalPassthroughGlassBackup = {
+  transmission: number
+  thickness: number
+  roughness: number
+  clearcoat: number
+  clearcoatRoughness: number
+  opacity: number
+  iridescence: number
+  iridescenceIOR: number
+  emissiveIntensity: number
+}
+
 export class Mental extends AbstractMental {
   modelPath?: string
   modelTargetWorldSize: number
@@ -17,6 +29,8 @@ export class Mental extends AbstractMental {
   private dragging: boolean
   private modelVisible: boolean
   private modelLoadToken: number
+  private passthroughGlassActive = false
+  private passthroughGlassBackup: MentalPassthroughGlassBackup | null = null
 
   constructor(options: MentalBaseOptions = {}) {
     // Default: no floating labels for mentals unless explicitly enabled
@@ -84,6 +98,59 @@ export class Mental extends AbstractMental {
     }
 
     this.material = bubbleMaterial
+  }
+
+  /**
+   * Same as Mind: transmission without a scene background looks like a flat disc in passthrough AR.
+   */
+  setPassthroughFriendlyGlass(enabled: boolean): void {
+    const mat = this.material
+    if (!(mat instanceof THREE.MeshPhysicalMaterial)) return
+
+    if (enabled) {
+      if (this.passthroughGlassActive) return
+      this.passthroughGlassBackup = {
+        transmission: mat.transmission,
+        thickness: mat.thickness,
+        roughness: mat.roughness,
+        clearcoat: mat.clearcoat,
+        clearcoatRoughness: mat.clearcoatRoughness,
+        opacity: mat.opacity,
+        iridescence: mat.iridescence,
+        iridescenceIOR: mat.iridescenceIOR,
+        emissiveIntensity: mat.emissiveIntensity,
+      }
+      mat.transmission = 0
+      mat.thickness = 0
+      mat.roughness = 0.28
+      mat.clearcoat = 0.55
+      mat.clearcoatRoughness = 0.22
+      mat.iridescence = 0
+      mat.opacity = Math.min(0.58, mat.opacity + 0.12)
+      mat.emissiveIntensity = Math.min(0.85, mat.emissiveIntensity + 0.12)
+      mat.transparent = true
+      mat.depthWrite = false
+      mat.envMap = null
+      mat.envMapIntensity = 0
+      mat.needsUpdate = true
+      this.passthroughGlassActive = true
+      return
+    }
+
+    if (!this.passthroughGlassActive || !this.passthroughGlassBackup) return
+    const b = this.passthroughGlassBackup
+    mat.transmission = b.transmission
+    mat.thickness = b.thickness
+    mat.roughness = b.roughness
+    mat.clearcoat = b.clearcoat
+    mat.clearcoatRoughness = b.clearcoatRoughness
+    mat.opacity = b.opacity
+    mat.iridescence = b.iridescence
+    mat.iridescenceIOR = b.iridescenceIOR
+    mat.emissiveIntensity = b.emissiveIntensity
+    mat.needsUpdate = true
+    this.passthroughGlassBackup = null
+    this.passthroughGlassActive = false
   }
 
   setModelPath(path?: string): void {

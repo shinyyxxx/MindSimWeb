@@ -1812,6 +1812,11 @@ export function MindStudyInspect(): React.ReactElement {
     mind.setPosition(0, -0.25, 0)
   }, [isArActive, mind])
 
+  useEffect(() => {
+    mind.setPassthroughFriendlyGlass(isArActive)
+    mentals.forEach((m) => m.setPassthroughFriendlyGlass(isArActive))
+  }, [isArActive, mind, mentals])
+
   const mentalNames = useMemo(() => mentals.map((m) => m.getName()), [mentals])
 
   /** Same idea as `Simulation` `selectedOutlineSelection` — post outline on the picked mental. */
