@@ -1,7 +1,7 @@
 """
 ZODB Persistent Objects for static Abhidhamma reference data.
 Stored under separate root keys: root.static_mentals, root.static_mental_groups,
-root.static_minds, root.static_mind_groups.
+root.static_minds, root.static_mind_groups, root.static_rupas.
 """
 
 import persistent
@@ -124,4 +124,28 @@ class StaticMindGroup(persistent.Persistent):
             'name_en': getattr(self, 'name_en', ''),
             'description': getattr(self, 'description', ''),
             'mind_ids': list(getattr(self, 'mind_ids', []) or []),
+        }
+
+
+class StaticRupa(persistent.Persistent):
+    """A rūpa (material phenomenon) — 28 canonical entries."""
+
+    def __init__(self, id, name, name_en, pali, description='', group='', subgroup=''):
+        self.id = id
+        self.name = name
+        self.name_en = name_en
+        self.pali = pali
+        self.description = description
+        self.group = group
+        self.subgroup = subgroup
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'name_en': self.name_en,
+            'pali': self.pali,
+            'description': getattr(self, 'description', ''),
+            'group': getattr(self, 'group', ''),
+            'subgroup': getattr(self, 'subgroup', ''),
         }
