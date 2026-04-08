@@ -10,7 +10,7 @@ export function XRStatusBridge({
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
   onPresentingChange?: (presenting: boolean) => void
 }) {
-  const { gl } = useThree()
+  const { gl, camera } = useThree()
   const lastPresentingRef = useRef<boolean | null>(null)
 
   useEffect(() => {
@@ -23,6 +23,24 @@ export function XRStatusBridge({
     if (lastPresentingRef.current !== presenting) {
       lastPresentingRef.current = presenting
       onPresentingChange?.(presenting)
+      if (!presenting) {
+        // After XR exits, some runtimes leave a stale drawing buffer/aspect.
+        // Force a canvas+camera sync so desktop/non-XR view isn't squished.
+        const syncViewport = () => {
+          const canvas = gl.domElement
+          const width = Math.max(1, canvas.clientWidth || window.innerWidth || 1)
+          const height = Math.max(1, canvas.clientHeight || window.innerHeight || 1)
+          gl.setSize(width, height, false)
+          if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+            const perspective = camera as THREE.PerspectiveCamera
+            perspective.aspect = width / height
+            perspective.updateProjectionMatrix()
+          }
+        }
+        syncViewport()
+        requestAnimationFrame(syncViewport)
+        window.setTimeout(syncViewport, 120)
+      }
     }
   })
 
