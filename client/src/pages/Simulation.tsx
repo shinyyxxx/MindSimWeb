@@ -3847,14 +3847,20 @@ function XRTimelinePanel({
   const senseHeaderY = 0.06
   const senseRowStartY = -0.01
   const senseRowGap = 0.1
-  const variantHeaderY = -0.14
-  const variantStartY = -0.2
+  let variantHeaderY = -0.14
+  let variantStartY = -0.2
   let contentBottomY = -0.12
   if (selectedIndex === 0 && hasContactMental) {
-    contentBottomY = -0.04
+    const senseRowCount = Math.max(1, Math.ceil(T0_SENSE_OPTIONS.length / 3))
+    const lastSenseRowY = senseRowStartY - (senseRowCount - 1) * senseRowGap
+    // Keep "What kind?" clearly below the sense-door rows.
+    variantHeaderY = lastSenseRowY - 0.06
+    variantStartY = variantHeaderY - 0.07
+    contentBottomY = lastSenseRowY - 0.06
     if (selectedVariants.length > 0) {
       const visibleVariantCount = Math.min(3, selectedVariants.length)
-      contentBottomY = variantStartY - (visibleVariantCount - 1) * 0.08 - 0.04
+      const lastVariantY = variantStartY - (visibleVariantCount - 1) * 0.08
+      contentBottomY = Math.min(contentBottomY, lastVariantY - 0.06)
     }
   }
   if (selectedIndex === 3) contentBottomY = -0.2
