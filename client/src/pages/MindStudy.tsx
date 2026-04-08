@@ -64,6 +64,16 @@ interface StaticMindGroup {
   mind_ids: number[]
 }
 
+interface StaticRupa {
+  id: number
+  name: string
+  name_en: string
+  pali: string
+  description: string
+  group: string
+  subgroup: string
+}
+
 type Topic = {
   id: string
   title: string
@@ -98,6 +108,39 @@ const MENTAL_CHART = {
   viratiDeepOrange: '#FF5722',
   highlightRed: '#F44336',
 } as const
+
+const RUPA_GROUP_META: Record<string, { titleEn: string; titleTh: string; color: string }> = {
+  nipphanna: { titleEn: 'Concrete Materiality — 18', titleTh: 'นิปผันนรูป 18', color: '#7eb7e8' },
+  anipphanna: { titleEn: 'Non-concrete Materiality — 10', titleTh: 'อนิปผันนรูป 10', color: '#9f88db' },
+}
+
+const RUPA_SUBGROUP_META: Record<string, { titleEn: string; titleTh: string; color: string }> = {
+  mahabhuta: { titleEn: 'Great Elements — 4', titleTh: 'มหาภูตรูป 4', color: '#7eb7e8' },
+  pasada: { titleEn: 'Sensitivity — 5', titleTh: 'ปสาทรูป 5', color: '#69ad4f' },
+  visaya: { titleEn: 'Sense-field — 4', titleTh: 'วิสัยรูป 4', color: '#ef9b54' },
+  bhava: { titleEn: 'Sex / Gender — 2', titleTh: 'ภาวรูป 2', color: '#b76c84' },
+  hadaya: { titleEn: 'Heart-base — 1', titleTh: 'หทยรูป 1', color: '#e9b45a' },
+  jivita: { titleEn: 'Life Faculty — 1', titleTh: 'ชีวิตินทรีย์รูป 1', color: '#8eb8dc' },
+  ahara: { titleEn: 'Nutriment — 1', titleTh: 'อาหารรูป 1', color: '#a7c95d' },
+  pariccheda: { titleEn: 'Space Element — 1', titleTh: 'ปริจเฉทรูป 1', color: '#d9b49c' },
+  vinatti: { titleEn: 'Intimation — 2', titleTh: 'วิญญัติรูป 2', color: '#e39a73' },
+  vikara: { titleEn: 'Mutability — 3', titleTh: 'วิการรูป 3', color: '#95bfdc' },
+  lakkhana: { titleEn: 'Characteristics — 4', titleTh: 'ลักขณรูป 4', color: '#9fbe4c' },
+}
+
+const RUPA_SUBGROUP_ORDER = [
+  'mahabhuta',
+  'pasada',
+  'visaya',
+  'bhava',
+  'hadaya',
+  'jivita',
+  'ahara',
+  'pariccheda',
+  'vinatti',
+  'vikara',
+  'lakkhana',
+]
 
 function mentalSphereRingClass(mentalId: number): string {
   if (mentalId === 52) return 'mental-ring-thick'
@@ -208,28 +251,49 @@ export function MindStudy(): React.ReactElement {
   const [staticMentalGroups, setStaticMentalGroups] = useState<StaticMentalGroup[]>([])
   const [staticMinds, setStaticMinds] = useState<StaticMind[]>([])
   const [staticMindGroups, setStaticMindGroups] = useState<StaticMindGroup[]>([])
+  const [staticRupas, setStaticRupas] = useState<StaticRupa[]>([])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    const loadRupas = async (): Promise<{ rupas: StaticRupa[] }> => {
+      try {
+        const base = await fetch(`${API_BASE}/api/static/rupas`).then((r) => r.json())
+        let rupas: StaticRupa[] = base.rupas ?? []
+        if (rupas.length === 0) {
+          const [nRes, aRes] = await Promise.all([
+            fetch(`${API_BASE}/api/static/rupas?group=nipphanna`).then((r) => r.json()),
+            fetch(`${API_BASE}/api/static/rupas?group=anipphanna`).then((r) => r.json()),
+          ])
+          const merged = [...(nRes.rupas ?? []), ...(aRes.rupas ?? [])] as StaticRupa[]
+          const byId = new Map<number, StaticRupa>()
+          merged.forEach((rupa) => byId.set(rupa.id, rupa))
+          rupas = Array.from(byId.values()).sort((a, b) => a.id - b.id)
+        }
+        return { rupas }
+      } catch {
+        return { rupas: [] }
+      }
+    }
+
     Promise.all([
       fetch(`${API_BASE}/api/static/mentals`).then((r) => r.json()),
       fetch(`${API_BASE}/api/static/mental-groups`).then((r) => r.json()),
       fetch(`${API_BASE}/api/static/minds`).then((r) => r.json()),
       fetch(`${API_BASE}/api/static/mind-groups`).then((r) => r.json()),
+      loadRupas(),
     ])
-      .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes]) => {
-        for (const m of mentalsRes.mentals ?? []) console.log('Mental:', JSON.stringify(m))
-        for (const g of mentalGroupsRes.mental_groups ?? []) console.log('Mental Group:', JSON.stringify(g))
-        for (const m of mindsRes.minds ?? []) console.log('Mind:', JSON.stringify(m))
-        for (const g of mindGroupsRes.mind_groups ?? []) console.log('Mind Group:', JSON.stringify(g))
+      .then(([mentalsRes, mentalGroupsRes, mindsRes, mindGroupsRes, rupasRes]) => {
+        for (const r of rupasRes.rupas ?? []) console.log('Rupa:', JSON.stringify(r))
         const fetchedMentals: StaticMental[] = mentalsRes.mentals ?? []
         const fetchedMinds: StaticMind[] = mindsRes.minds ?? []
+        const fetchedRupas: StaticRupa[] = rupasRes.rupas ?? []
         if (cancelled) return
         setStaticMentals(fetchedMentals)
         setStaticMentalGroups(mentalGroupsRes.mental_groups ?? [])
         setStaticMinds(fetchedMinds)
         setStaticMindGroups(mindGroupsRes.mind_groups ?? [])
+        setStaticRupas(fetchedRupas)
         setAggregates(
           fetchedMinds.map(
             (mind) =>
@@ -523,6 +587,64 @@ export function MindStudy(): React.ReactElement {
     () => new Map(staticMinds.map((mind) => [`mind-${mind.id}`, mind])),
     [staticMinds],
   )
+
+  const rupaCategoryBlocks = useMemo(() => {
+    const rowsByGroup = new Map<string, Array<{
+      id: string
+      subgroup: string
+      titleEn: string
+      titleTh: string
+      color: string
+      items: StaticRupa[]
+    }>>()
+
+    const bucket = new Map<string, StaticRupa[]>()
+    staticRupas.forEach((rupa) => {
+      const key = `${rupa.group}:${rupa.subgroup}`
+      if (!bucket.has(key)) bucket.set(key, [])
+      bucket.get(key)?.push(rupa)
+    })
+
+    for (const [key, items] of bucket.entries()) {
+      const [group, subgroup] = key.split(':')
+      const subgroupMeta = RUPA_SUBGROUP_META[subgroup] ?? {
+        titleEn: subgroup,
+        titleTh: subgroup,
+        color: DIAGRAM_COLORS[0],
+      }
+      const row = {
+        id: `rupa-row-${group}-${subgroup}`,
+        subgroup,
+        titleEn: subgroupMeta.titleEn,
+        titleTh: subgroupMeta.titleTh,
+        color: subgroupMeta.color,
+        items: [...items].sort((a, b) => a.id - b.id),
+      }
+      if (!rowsByGroup.has(group)) rowsByGroup.set(group, [])
+      rowsByGroup.get(group)?.push(row)
+    }
+
+    return Array.from(rowsByGroup.entries())
+      .map(([group, rows]) => {
+        const groupMeta = RUPA_GROUP_META[group] ?? {
+          titleEn: group,
+          titleTh: group,
+          color: DIAGRAM_COLORS[1],
+        }
+        const sortedRows = rows.sort(
+          (a, b) => RUPA_SUBGROUP_ORDER.indexOf(a.subgroup) - RUPA_SUBGROUP_ORDER.indexOf(b.subgroup),
+        )
+        return {
+          id: `rupa-group-${group}`,
+          titleEn: groupMeta.titleEn,
+          titleTh: groupMeta.titleTh,
+          color: groupMeta.color,
+          rows: sortedRows,
+        }
+      })
+      .sort((a, b) => (a.id.includes('nipphanna') ? -1 : 1) - (b.id.includes('nipphanna') ? -1 : 1))
+  }, [staticRupas])
+
   const staticMentalById = useMemo(
     () => new Map(staticMentals.map((mental) => [mental.id, mental])),
     [staticMentals],
@@ -781,6 +903,21 @@ export function MindStudy(): React.ReactElement {
                   </a>
                 ))}
               </div>
+            </div>
+
+            <div className="mindstudy-nav-divider" role="presentation" />
+
+            <div className="mindstudy-nav-section">
+              <p className="mindstudy-nav-section-title">Rupa</p>
+              <p className="mindstudy-nav-section-desc">Materiality (รูป) · 28</p>
+              <a className="mindstudy-nav-item" href="#topic-rupa">
+                Rupa diagram
+              </a>
+              {rupaCategoryBlocks.map((group) => (
+                <a key={group.id} className="mindstudy-nav-item sub" href={`#${group.id}`}>
+                  {group.titleEn} ({group.titleTh})
+                </a>
+              ))}
             </div>
           </div>
         </aside>
@@ -1293,6 +1430,94 @@ export function MindStudy(): React.ReactElement {
                   </div>
                   </div>
                 </article>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+        <section
+          className="mindstudy-topic-section"
+          id="topic-rupa"
+          aria-labelledby="topic-rupa-heading"
+        >
+          <header className="mindstudy-topic-section-header">
+            <span className="mindstudy-topic-section-kicker">Rupa</span>
+            <h2 id="topic-rupa-heading" className="mindstudy-topic-section-title">
+              Materiality (รูป)
+            </h2>
+            <p className="mindstudy-topic-section-desc">
+              28 material phenomena from `/api/static/rupas`, grouped by category and subcategory.
+            </p>
+          </header>
+          <div className="mindstudy-diagram-surface" id="rupa-diagram">
+            <p className="mindstudy-grid-hint">
+              Circular rupa diagram from `/api/static/rupas`.
+              {loading ? ' Loading…' : ''}
+              {!loading && loadError ? ` ${loadError}` : ''}
+            </p>
+            <div className="mindstudy-diagram">
+              {rupaCategoryBlocks.map((group) => {
+                const rupaGroupOpen = isStudyGroupExpanded(group.id)
+                return (
+                  <article
+                    key={group.id}
+                    id={group.id}
+                    className={`mindstudy-diagram-group ${rupaGroupOpen ? '' : 'is-collapsed'}`}
+                  >
+                    <button
+                      type="button"
+                      className="mindstudy-diagram-group-head mindstudy-diagram-group-toggle"
+                      aria-expanded={rupaGroupOpen}
+                      aria-controls={`mindstudy-rupa-body-${group.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
+                      onClick={() => toggleStudyGroup(group.id)}
+                    >
+                      <span className="mindstudy-diagram-group-dot" style={{ background: group.color }} aria-hidden />
+                      <h3 lang="en">{group.titleEn}</h3>
+                      <p lang="th">({group.titleTh})</p>
+                      <span className={`mindstudy-caret ${rupaGroupOpen ? 'open' : ''}`} aria-hidden>
+                        ▼
+                      </span>
+                    </button>
+                    <div
+                      id={`mindstudy-rupa-body-${group.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`}
+                      className={`mindstudy-diagram-group-body ${rupaGroupOpen ? 'open' : ''}`}
+                      role="region"
+                      aria-label={`${group.titleEn} (${group.titleTh})`}
+                      aria-hidden={!rupaGroupOpen}
+                    >
+                      <div className="mindstudy-diagram-group-body-inner">
+                        <div className="mindstudy-diagram-subgroups">
+                          {group.rows.map((row) => (
+                            <div key={row.id} id={row.id} className="mindstudy-diagram-subgroup-row">
+                              <div className="mindstudy-diagram-circles compact">
+                                {row.items.map((rupa) => (
+                                  <button
+                                    key={rupa.id}
+                                    id={`rupa-${rupa.id}`}
+                                    type="button"
+                                    className="mindstudy-diagram-node compact"
+                                    style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
+                                    aria-label={`${rupa.name_en} (${rupa.name})`}
+                                    title={`${rupa.name_en} (${rupa.pali})`}
+                                  >
+                                    <span className="mindstudy-diagram-node-index">{rupa.id}</span>
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="mindstudy-diagram-subgroup-label-wrap">
+                                <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
+                                  {'}'}
+                                </span>
+                                <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="en">
+                                  {row.titleEn} <span lang="th">({row.titleTh})</span>
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
                 )
               })}
             </div>
