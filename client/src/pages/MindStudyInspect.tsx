@@ -74,6 +74,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { useXRSession } from './simulation/useXRSession'
+import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
@@ -1467,6 +1468,9 @@ function NeutralMindScene({
       {!isArActive ? (
         <Environment preset="dawn" background blur={1} backgroundIntensity={0.58} environmentIntensity={0.95} />
       ) : null}
+      <XRClearMode isArMode={Boolean(isArActive)} />
+      <XRControllers />
+      <XRMovement enabled={Boolean(isArActive)} initialOffset={[0, 0, 0]} />
       <OrbitControls
         ref={controlsRef}
         enabled={!isArActive}
@@ -1527,7 +1531,7 @@ function NeutralMindScene({
           xRay
         />
       </EffectComposer>
-      <RendererBridge onRendererReady={onRendererReady} />
+      <XRStatusBridge onRendererReady={onRendererReady} />
     </Canvas>
   )
 }
