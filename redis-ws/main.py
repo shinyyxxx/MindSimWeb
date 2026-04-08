@@ -22,6 +22,7 @@ from app.schemas import (
     StaticMentalGroupResponse, StaticMentalGroupListResponse,
     StaticMindResponse, StaticMindListResponse,
     StaticMindGroupResponse, StaticMindGroupListResponse,
+    StaticRupaResponse, StaticRupaListResponse,
     VithiMentalDetail, VithiEventResponse, PancadvaraVithiRequest, PancadvaraVithiResponse,
     LifeResponse,
 )
@@ -43,6 +44,7 @@ from app.static_helpers import (
     get_static_mental_group, list_static_mental_groups,
     get_static_mind, list_static_minds,
     get_static_mind_group, list_static_mind_groups,
+    get_static_rupa, list_static_rupas,
 )
 from zodb_module.zodb_management import get_connection, init_zodb, close_zodb
 from app.database import init_database
@@ -826,6 +828,22 @@ async def static_mind_group_endpoint(group_id: int):
     if not group:
         raise HTTPException(status_code=404, detail=f"Static mind group {group_id} not found")
     return StaticMindGroupResponse(**group)
+
+
+@app.get("/api/static/rupas", response_model=StaticRupaListResponse)
+async def static_rupas_endpoint(group: str = None):
+    _, root = get_connection()
+    rupas = list_static_rupas(root, group=group)
+    return StaticRupaListResponse(rupas=rupas, count=len(rupas))
+
+
+@app.get("/api/static/rupas/{rupa_id}", response_model=StaticRupaResponse)
+async def static_rupa_endpoint(rupa_id: int):
+    _, root = get_connection()
+    rupa = get_static_rupa(root, rupa_id)
+    if not rupa:
+        raise HTTPException(status_code=404, detail=f"Static rupa {rupa_id} not found")
+    return StaticRupaResponse(**rupa)
 
 
 @app.get("/", response_class=HTMLResponse)

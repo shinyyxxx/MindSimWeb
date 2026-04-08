@@ -9,10 +9,10 @@ from persistent.mapping import PersistentMapping
 from persistent.list import PersistentList
 
 from zodb_module.static_objects import (
-    StaticMental, StaticMentalGroup, StaticMind, StaticMindGroup,
+    StaticMental, StaticMentalGroup, StaticMind, StaticMindGroup, StaticRupa,
 )
 from app.static_seed_data import (
-    MENTALS_DATA, MENTAL_GROUPS_DATA, MINDS_DATA, MIND_GROUPS_DATA,
+    MENTALS_DATA, MENTAL_GROUPS_DATA, MINDS_DATA, MIND_GROUPS_DATA, RUPAS_DATA,
 )
 
 
@@ -120,6 +120,34 @@ def _sync_static_mind_group_obj(obj, d):
     return changed
 
 
+def _rupa_from_dict(d):
+    return StaticRupa(
+        id=d['id'], name=d['name'], name_en=d['name_en'], pali=d['pali'],
+        description=d.get('description', ''),
+        group=d.get('group', ''), subgroup=d.get('subgroup', ''),
+    )
+
+
+def _sync_static_rupa_obj(obj, d):
+    """Update an existing ZODB StaticRupa from seed dict; return True if mutated."""
+    changed = False
+    pairs = [
+        ('name', d['name']),
+        ('name_en', d['name_en']),
+        ('pali', d['pali']),
+        ('description', d.get('description', '')),
+        ('group', d.get('group', '')),
+        ('subgroup', d.get('subgroup', '')),
+    ]
+    for attr, val in pairs:
+        if getattr(obj, attr, None) != val:
+            setattr(obj, attr, val)
+            changed = True
+    if changed:
+        obj._p_changed = True
+    return changed
+
+
 # ── seeding ──────────────────────────────────────────────────────────────────
 
 def init_static_data(root):
@@ -190,6 +218,23 @@ def init_static_data(root):
             mind_groups_changed = True
     if mind_groups_changed:
         print(f"[STATIC] Mind groups synced: {len(MIND_GROUPS_DATA)} entries")
+
+    rupas_changed = False
+    if not hasattr(root, 'static_rupas'):
+        root.static_rupas = PersistentMapping()
+        changed = True
+
+    for d in RUPAS_DATA:
+        rid = d['id']
+        if rid not in root.static_rupas:
+            root.static_rupas[rid] = _rupa_from_dict(d)
+            changed = True
+            rupas_changed = True
+        elif _sync_static_rupa_obj(root.static_rupas[rid], d):
+            changed = True
+            rupas_changed = True
+    if rupas_changed:
+        print(f"[STATIC] Rupas synced: {len(RUPAS_DATA)} entries")
 
     if changed:
         transaction.commit()
@@ -273,4 +318,25 @@ def list_static_mind_groups(root):
         return []
     result = [obj.to_dict() for obj in root.static_mind_groups.values()]
     result.sort(key=lambda g: g['id'])
+    return result
+
+
+# Rupa (material phenomenon)
+
+def get_static_rupa(root, rupa_id):
+    if not hasattr(root, 'static_rupas'):
+        return None
+    obj = root.static_rupas.get(rupa_id)
+    return obj.to_dict() if obj else None
+
+
+def list_static_rupas(root, group=None):
+    if not hasattr(root, 'static_rupas'):
+        return []
+    result = []
+    for obj in root.static_rupas.values():
+        if group and obj.group != group:
+            continue
+        result.append(obj.to_dict())
+    result.sort(key=lambda r: r['id'])
     return result
