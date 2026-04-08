@@ -1550,15 +1550,17 @@ function NeutralMindScene({
         onHoverSelection={setHoverSelection}
       />
       {isArActive && selected && (
-        <XRInspectPanel
-          selection={selected}
-          inspectOpen={Boolean(inspectOpen)}
-          onViewDetail={onViewDetail ?? (() => {})}
-          onBack={onBackFromDetail ?? (() => {})}
-          onShowProfile={onViewDetail ?? (() => {})}
-          onVoice={onVoiceSelection}
-          onClose={onCloseSelection ?? (() => {})}
-        />
+        <group scale={0.5}>
+          <XRInspectPanel
+            selection={selected}
+            inspectOpen={Boolean(inspectOpen)}
+            onViewDetail={onViewDetail ?? (() => {})}
+            onBack={onBackFromDetail ?? (() => {})}
+            onShowProfile={onViewDetail ?? (() => {})}
+            onVoice={onVoiceSelection}
+            onClose={onCloseSelection ?? (() => {})}
+          />
+        </group>
       )}
       <FlyToCameraEffect mind={mind} targetName={flyTargetName ?? null} onDone={onFlyComplete} />
       <PanelPositionSync
@@ -1793,7 +1795,7 @@ export function MindStudyInspect(): React.ReactElement {
 
   useEffect(() => {
     if (isArActive) {
-      mind.setScale(1)
+      mind.setScale(0.5)
       mind.setPosition(0, 1.5, -2)
       return
     }
