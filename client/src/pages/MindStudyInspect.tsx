@@ -79,6 +79,11 @@ import { XRClearMode, XRControllers, XRExitByGrip, XRStatusBridge } from './simu
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 const DESKTOP_INSPECT_CAMERA_POS: [number, number, number] = [0, 0, 5]
 
+/** Uniform scale multiplier for AR mode only (mind + in-XR UI). */
+const MINDSTUDY_INSPECT_AR_SCALE = 1.1
+const MINDSTUDY_INSPECT_AR_MIND_SCALE_BASE = 0.5
+const MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE = 0.5
+
 /** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
 const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330
 
@@ -1550,7 +1555,7 @@ function NeutralMindScene({
         onHoverSelection={setHoverSelection}
       />
       {isArActive && selected && (
-        <group scale={0.5}>
+        <group scale={MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE * MINDSTUDY_INSPECT_AR_SCALE}>
           <XRInspectPanel
             selection={selected}
             inspectOpen={Boolean(inspectOpen)}
@@ -1795,7 +1800,7 @@ export function MindStudyInspect(): React.ReactElement {
 
   useEffect(() => {
     if (isArActive) {
-      mind.setScale(0.5)
+      mind.setScale(MINDSTUDY_INSPECT_AR_MIND_SCALE_BASE * MINDSTUDY_INSPECT_AR_SCALE)
       mind.setPosition(0, 1.5, -2)
       return
     }
