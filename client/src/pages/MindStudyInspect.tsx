@@ -77,6 +77,7 @@ import { useXRSession } from './simulation/useXRSession'
 import { XRClearMode, XRControllers, XRExitByGrip, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
+const DESKTOP_INSPECT_CAMERA_POS: [number, number, number] = [0, 0, 5]
 
 /** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
 const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330
@@ -637,6 +638,44 @@ function RendererBridge({
   useEffect(() => {
     onRendererReady?.(gl)
   }, [gl, onRendererReady])
+  return null
+}
+
+function ExitArCameraReset({
+  isArActive,
+  controlsRef,
+  mind,
+}: {
+  isArActive?: boolean
+  controlsRef: React.RefObject<OrbitControlsImpl | null>
+  mind: Mind
+}) {
+  const { camera } = useThree()
+  const wasArActiveRef = useRef(Boolean(isArActive))
+
+  useEffect(() => {
+    const wasArActive = wasArActiveRef.current
+    const nowArActive = Boolean(isArActive)
+    wasArActiveRef.current = nowArActive
+
+    if (!wasArActive || nowArActive) return
+
+    camera.position.set(
+      DESKTOP_INSPECT_CAMERA_POS[0],
+      DESKTOP_INSPECT_CAMERA_POS[1],
+      DESKTOP_INSPECT_CAMERA_POS[2],
+    )
+    camera.up.set(0, 1, 0)
+    const target = new THREE.Vector3(mind.position.x, mind.position.y, mind.position.z)
+    camera.lookAt(target)
+    camera.updateProjectionMatrix()
+
+    if (controlsRef.current) {
+      controlsRef.current.target.set(target.x, target.y, target.z)
+      controlsRef.current.update()
+    }
+  }, [camera, controlsRef, isArActive, mind])
+
   return null
 }
 
@@ -1468,7 +1507,7 @@ function NeutralMindScene({
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 10], fov: 60 }}
+      camera={{ position: DESKTOP_INSPECT_CAMERA_POS, fov: 60 }}
       shadows
       gl={{ antialias: true, toneMappingExposure: 1.05, alpha: true }}
     >
@@ -1490,6 +1529,7 @@ function NeutralMindScene({
         maxDistance={18}
         target={[mind.position.x, mind.position.y, mind.position.z]}
       />
+      <ExitArCameraReset isArActive={isArActive} controlsRef={controlsRef} mind={mind} />
       <ambientLight intensity={0.52} />
       <directionalLight position={[6, 8, 6]} intensity={1.35} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
       <directionalLight position={[-4, 5, -6]} intensity={0.55} />
@@ -1583,6 +1623,15 @@ export function MindStudyInspect(): React.ReactElement {
   }, [renderer])
 
   const isArActive = activeXrMode === 'ar'
+  const wasArActiveRef = useRef(isArActive)
+
+  useEffect(() => {
+    const wasArActive = wasArActiveRef.current
+    wasArActiveRef.current = isArActive
+    if (wasArActive && !isArActive) {
+      window.location.reload()
+    }
+  }, [isArActive])
 
   useEffect(() => {
     if (!selected) {
