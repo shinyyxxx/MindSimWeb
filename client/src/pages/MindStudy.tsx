@@ -110,22 +110,22 @@ const MENTAL_CHART = {
 } as const
 
 const RUPA_GROUP_META: Record<string, { titleEn: string; titleTh: string; color: string }> = {
-  nipphanna: { titleEn: 'Concrete Materiality — 18', titleTh: 'นิปผันนรูป 18', color: '#7eb7e8' },
-  anipphanna: { titleEn: 'Non-concrete Materiality — 10', titleTh: 'อนิปผันนรูป 10', color: '#9f88db' },
+  nipphanna: { titleEn: 'Concrete Materiality (18)', titleTh: 'นิปผันนรูป 18', color: '#7eb7e8' },
+  anipphanna: { titleEn: 'Non-concrete Materiality (10)', titleTh: 'อนิปผันนรูป 10', color: '#9f88db' },
 }
 
 const RUPA_SUBGROUP_META: Record<string, { titleEn: string; titleTh: string; color: string }> = {
-  mahabhuta: { titleEn: 'Great Elements — 4', titleTh: 'มหาภูตรูป 4', color: '#7eb7e8' },
-  pasada: { titleEn: 'Sensitivity — 5', titleTh: 'ปสาทรูป 5', color: '#69ad4f' },
-  visaya: { titleEn: 'Sense-field — 4', titleTh: 'วิสัยรูป 4', color: '#ef9b54' },
-  bhava: { titleEn: 'Sex / Gender — 2', titleTh: 'ภาวรูป 2', color: '#b76c84' },
-  hadaya: { titleEn: 'Heart-base — 1', titleTh: 'หทยรูป 1', color: '#e9b45a' },
-  jivita: { titleEn: 'Life Faculty — 1', titleTh: 'ชีวิตินทรีย์รูป 1', color: '#8eb8dc' },
-  ahara: { titleEn: 'Nutriment — 1', titleTh: 'อาหารรูป 1', color: '#a7c95d' },
-  pariccheda: { titleEn: 'Space Element — 1', titleTh: 'ปริจเฉทรูป 1', color: '#d9b49c' },
-  vinatti: { titleEn: 'Intimation — 2', titleTh: 'วิญญัติรูป 2', color: '#e39a73' },
-  vikara: { titleEn: 'Mutability — 3', titleTh: 'วิการรูป 3', color: '#95bfdc' },
-  lakkhana: { titleEn: 'Characteristics — 4', titleTh: 'ลักขณรูป 4', color: '#9fbe4c' },
+  mahabhuta: { titleEn: 'Great Elements (4)', titleTh: 'มหาภูตรูป 4', color: '#7eb7e8' },
+  pasada: { titleEn: 'Sensitivity (5)', titleTh: 'ปสาทรูป 5', color: '#69ad4f' },
+  visaya: { titleEn: 'Sense-field (4)', titleTh: 'วิสัยรูป 4', color: '#ef9b54' },
+  bhava: { titleEn: 'Sex / Gender (2)', titleTh: 'ภาวรูป 2', color: '#b76c84' },
+  hadaya: { titleEn: 'Heart-base (1)', titleTh: 'หทยรูป 1', color: '#e9b45a' },
+  jivita: { titleEn: 'Life Faculty (1)', titleTh: 'ชีวิตินทรีย์รูป 1', color: '#8eb8dc' },
+  ahara: { titleEn: 'Nutriment (1)', titleTh: 'อาหารรูป 1', color: '#a7c95d' },
+  pariccheda: { titleEn: 'Space Element (1)', titleTh: 'ปริจเฉทรูป 1', color: '#d9b49c' },
+  vinatti: { titleEn: 'Intimation (2)', titleTh: 'วิญญัติรูป 2', color: '#e39a73' },
+  vikara: { titleEn: 'Mutability (3)', titleTh: 'วิการรูป 3', color: '#95bfdc' },
+  lakkhana: { titleEn: 'Characteristics (4)', titleTh: 'ลักขณรูป 4', color: '#9fbe4c' },
 }
 
 const RUPA_SUBGROUP_ORDER = [
@@ -158,21 +158,23 @@ function toThaiDigitString(n: number): string {
     .join('')
 }
 
+function stripTrailingCountLabel(text: string): string {
+  return text
+    .replace(/\s*[\(\[]?\s*[0-9๐-๙]+\s*[\)\]]?\s*$/u, '')
+    .trim()
+}
+
 /** True if string contains Thai script (for EN-primary labels: show Thai in parentheses). */
 function containsThaiScript(s: string): boolean {
   return /[\u0E00-\u0E7F]/.test(s)
 }
 
-/**
- * API `name_en` often already includes the subgroup size in parentheses, e.g. "Moha catukka (4)".
- * In that case we must not append `items.length` again (avoids "… (4) 4").
- */
 function englishLabelAlreadyStatesItemCount(titleEn: string, itemCount: number): boolean {
   const want = String(itemCount)
-  const re = /\(\s*(\d+)\s*\)/g
+  const re = new RegExp(`(?:\\(\\s*${want}\\s*\\)|[—-]\\s*${want}(?!\\d)|\\b${want}\\b)`, 'g')
   let m: RegExpExecArray | null
   while ((m = re.exec(titleEn)) !== null) {
-    if (m[1] === want) return true
+    if (m[0]) return true
   }
   return false
 }
@@ -238,6 +240,8 @@ export function MindStudy(): React.ReactElement {
   const [showDuckPool, setShowDuckPool] = useState<boolean>(false)
   const [selectedCetasika, setSelectedCetasika] = useState<CetasikaCard | null>(null)
   const [cetasikaModalOpen, setCetasikaModalOpen] = useState<boolean>(false)
+  const [selectedRupa, setSelectedRupa] = useState<StaticRupa | null>(null)
+  const [rupaModalOpen, setRupaModalOpen] = useState<boolean>(false)
   const [mindNavOpen, setMindNavOpen] = useState(true)
   /** Diagram section ids in this set are collapsed (default: all expanded). */
   const [collapsedStudyGroups, setCollapsedStudyGroups] = useState<Set<string>>(() => new Set())
@@ -671,6 +675,11 @@ export function MindStudy(): React.ReactElement {
     [],
   )
 
+  const openRupaDetail = useCallback((rupa: StaticRupa) => {
+    setSelectedRupa(rupa)
+    setRupaModalOpen(true)
+  }, [])
+
   const mentalCategoryBlocks = useMemo(() => {
     const mentalById = new Map(staticMentals.map((mental) => [mental.id, mental]))
     const rows = staticMentalGroups
@@ -893,13 +902,8 @@ export function MindStudy(): React.ReactElement {
               >
                 {mindDiagramGroups.map((g) => (
                   <a key={g.id} className="mindstudy-nav-item sub" href={`#${g.id}`}>
-                    {g.title || g.subtitle}
-                    {g.title &&
-                    g.subtitle &&
-                    g.title !== g.subtitle &&
-                    !containsThaiScript(g.subtitle || '')
-                      ? ` (${g.subtitle})`
-                      : ''}
+                    {g.subtitle || g.title}
+                    {g.title && g.subtitle && g.title !== g.subtitle ? ` (${g.title})` : ''}
                   </a>
                 ))}
               </div>
@@ -1124,12 +1128,14 @@ export function MindStudy(): React.ReactElement {
                       style={{ background: group.color }}
                       aria-hidden
                     />
-                    <h3 lang="th">{group.title || group.subtitle}</h3>
+                    <h3 lang={containsThaiScript(group.subtitle || group.title || '') ? 'th' : 'en'}>
+                      {group.subtitle || group.title}
+                    </h3>
                     {group.title &&
                     group.subtitle &&
                     group.title !== group.subtitle &&
-                    containsThaiScript(group.title) ? (
-                      <p lang="en">({group.subtitle})</p>
+                    !containsThaiScript(group.subtitle || '') ? (
+                      <p lang="th">({group.title})</p>
                     ) : null}
                     <span className={`mindstudy-caret ${mindGroupOpen ? 'open' : ''}`} aria-hidden>
                       ▼
@@ -1169,7 +1175,7 @@ export function MindStudy(): React.ReactElement {
                       ? [
                           {
                             key: 'lobha',
-                            labelEn: 'Greed-rooted minds — 8',
+                            labelEn: 'Greed-rooted minds (8)',
                             labelTh: 'โลภมูลจิต ๘',
                             color: '#b76c84',
                             match: (mindTitle, mindId, subgroup) =>
@@ -1179,7 +1185,7 @@ export function MindStudy(): React.ReactElement {
                           },
                           {
                             key: 'dosa',
-                            labelEn: 'Hatred-rooted minds — 2',
+                            labelEn: 'Hatred-rooted minds (2)',
                             labelTh: 'โทสมูลจิต ๒',
                             color: '#ef9b54',
                             match: (mindTitle, mindId, subgroup) =>
@@ -1189,7 +1195,7 @@ export function MindStudy(): React.ReactElement {
                           },
                           {
                             key: 'moha',
-                            labelEn: 'Delusion-rooted minds — 2',
+                            labelEn: 'Delusion-rooted minds (2)',
                             labelTh: 'โมหมูลจิต ๒',
                             color: '#d9b49c',
                             match: (mindTitle, mindId, subgroup) =>
@@ -1202,7 +1208,7 @@ export function MindStudy(): React.ReactElement {
                         ? [
                             {
                               key: 'ahetuka-akusala-vipaka',
-                              labelEn: 'Unwholesome resultant — 7',
+                              labelEn: 'Unwholesome resultant (7)',
                               labelTh: 'อกุศลวิปากจิต ๗',
                               color: '#9fbe4c',
                               match: (mindTitle, mindId, subgroup) =>
@@ -1212,7 +1218,7 @@ export function MindStudy(): React.ReactElement {
                             },
                             {
                               key: 'ahetuka-kusala-vipaka',
-                              labelEn: 'Rootless wholesome resultant — 8',
+                              labelEn: 'Rootless wholesome resultant (8)',
                               labelTh: 'อเหตุกกุศลวิปากจิต ๘',
                               color: '#a9c75a',
                               match: (mindTitle, mindId, subgroup) =>
@@ -1222,7 +1228,7 @@ export function MindStudy(): React.ReactElement {
                             },
                             {
                               key: 'ahetuka-kiriya',
-                              labelEn: 'Rootless functional — 3',
+                              labelEn: 'Rootless functional (3)',
                               labelTh: 'อเหตุกกิริยาจิต ๓',
                               color: '#8eb8dc',
                               match: (mindTitle, mindId, subgroup) =>
@@ -1235,7 +1241,7 @@ export function MindStudy(): React.ReactElement {
                           ? [
                               {
                                 key: 'maha-kusala',
-                                labelEn: 'Great wholesome — 8',
+                                labelEn: 'Great wholesome (8)',
                                 labelTh: 'มหากุศลจิต ๘',
                                 color: '#ef9b54',
                                 match: (_mindTitle, mindId, subgroup) =>
@@ -1244,7 +1250,7 @@ export function MindStudy(): React.ReactElement {
                               },
                               {
                                 key: 'maha-vipaka',
-                                labelEn: 'Great resultant — 8',
+                                labelEn: 'Great resultant (8)',
                                 labelTh: 'มหาวิปากจิต ๘',
                                 color: '#9fbe4c',
                                 match: (_mindTitle, mindId, subgroup) =>
@@ -1253,7 +1259,7 @@ export function MindStudy(): React.ReactElement {
                               },
                               {
                                 key: 'maha-kiriya',
-                                labelEn: 'Great functional — 8',
+                                labelEn: 'Great functional (8)',
                                 labelTh: 'มหากิริยาจิต ๘',
                                 color: '#8eb8dc',
                                 match: (_mindTitle, mindId, subgroup) =>
@@ -1265,7 +1271,7 @@ export function MindStudy(): React.ReactElement {
                             ? [
                                 {
                                   key: 'rupa-kusala',
-                                  labelEn: 'Rūpāvacara wholesome — 5',
+                                  labelEn: 'Rūpāvacara wholesome (5)',
                                   labelTh: 'รูปาวจรกุศลจิต ๕',
                                   color: '#f0b563',
                                   match: (_t, id, subgroup) =>
@@ -1274,7 +1280,7 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'rupa-vipaka',
-                                  labelEn: 'Rūpāvacara resultant — 5',
+                                  labelEn: 'Rūpāvacara resultant (5)',
                                   labelTh: 'รูปาวจรวิปากจิต ๕',
                                   color: '#a7c95d',
                                   match: (_t, id, subgroup) =>
@@ -1283,7 +1289,7 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'rupa-kiriya',
-                                  labelEn: 'Rūpāvacara functional — 5',
+                                  labelEn: 'Rūpāvacara functional (5)',
                                   labelTh: 'รูปาวจรกิริยาจิต ๕',
                                   color: '#8eb8dc',
                                   match: (_t, id, subgroup) =>
@@ -1295,7 +1301,7 @@ export function MindStudy(): React.ReactElement {
                               ? [
                                 {
                                   key: 'arupa-kusala',
-                                  labelEn: 'Arūpāvacara wholesome — 4',
+                                  labelEn: 'Arūpāvacara wholesome (4)',
                                   labelTh: 'อรูปาวจรกุศลจิต ๔',
                                   color: '#e39a73',
                                   match: (_t, id, subgroup) =>
@@ -1304,7 +1310,7 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'arupa-vipaka',
-                                  labelEn: 'Arūpāvacara resultant — 4',
+                                  labelEn: 'Arūpāvacara resultant (4)',
                                   labelTh: 'อรูปาวจรวิปากจิต ๔',
                                   color: '#b4cd75',
                                   match: (_t, id, subgroup) =>
@@ -1313,7 +1319,7 @@ export function MindStudy(): React.ReactElement {
                                 },
                                 {
                                   key: 'arupa-kiriya',
-                                  labelEn: 'Arūpāvacara functional — 4',
+                                  labelEn: 'Arūpāvacara functional (4)',
                                   labelTh: 'อรูปาวจรกิริยาจิต ๔',
                                   color: '#95bfdc',
                                   match: (_t, id, subgroup) =>
@@ -1325,7 +1331,7 @@ export function MindStudy(): React.ReactElement {
                               ? [
                                   {
                                     key: 'lokuttara-magga',
-                                    labelEn: 'Path consciousness — 4',
+                                    labelEn: 'Path consciousness (4)',
                                     labelTh: 'มรรคจิต ๔',
                                     color: '#e89d74',
                                     match: (_t, id, subgroup) =>
@@ -1334,7 +1340,7 @@ export function MindStudy(): React.ReactElement {
                                   },
                                   {
                                     key: 'lokuttara-phala',
-                                    labelEn: 'Fruition consciousness — 4',
+                                    labelEn: 'Fruition consciousness (4)',
                                     labelTh: 'ผลจิต ๔',
                                     color: '#8fbbe0',
                                     match: (_t, id, subgroup) =>
@@ -1417,8 +1423,13 @@ export function MindStudy(): React.ReactElement {
                                   {'}'}
                                 </span>
                                 <span className="mindstudy-diagram-subgroup-label" style={{ color: subgroup.color }} lang="en">
-                                  {subgroup.labelEn}{' '}
-                                  <span lang="th">({subgroup.labelTh})</span>
+                                  {subgroup.labelEn}
+                                  {!englishLabelAlreadyStatesItemCount(subgroup.labelEn, subgroupMinds.length)
+                                    ? ` ${subgroupMinds.length}`
+                                    : ''}
+                                  {subgroup.labelTh
+                                    ? ` (${stripTrailingCountLabel(subgroup.labelTh)} ${toThaiDigitString(subgroupMinds.length)})`
+                                    : ''}
                                 </span>
                               </div>
                             </div>
@@ -1499,6 +1510,7 @@ export function MindStudy(): React.ReactElement {
                                     style={{ background: `${row.color}33`, borderColor: row.color, color: '#1f2937' }}
                                     aria-label={`${rupa.name_en} (${rupa.name})`}
                                     title={`${rupa.name_en} (${rupa.pali})`}
+                                    onClick={() => openRupaDetail(rupa)}
                                   >
                                     <span className="mindstudy-diagram-node-index">{rupa.id}</span>
                                   </button>
@@ -1509,7 +1521,13 @@ export function MindStudy(): React.ReactElement {
                                   {'}'}
                                 </span>
                                 <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="en">
-                                  {row.titleEn} <span lang="th">({row.titleTh})</span>
+                                  {row.titleEn}
+                                  {!englishLabelAlreadyStatesItemCount(row.titleEn, row.items.length)
+                                    ? ` ${row.items.length}`
+                                    : ''}
+                                  {row.titleTh
+                                    ? ` (${stripTrailingCountLabel(row.titleTh)} ${toThaiDigitString(row.items.length)})`
+                                    : ''}
                                 </span>
                               </div>
                             </div>
@@ -1641,6 +1659,51 @@ export function MindStudy(): React.ReactElement {
           </div>
         </div>
       )}
+      {rupaModalOpen && selectedRupa && (
+        <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setRupaModalOpen(false)}>
+          <div
+            className="mindstudy-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Inspect ${selectedRupa.name_en}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mindstudy-modal-glow" aria-hidden />
+            <div className="mindstudy-modal-header">
+              <span className="mindstudy-level-pill small">Rupa (รูป)</span>
+              <button className="mindstudy-modal-close" onClick={() => setRupaModalOpen(false)} aria-label="Close dialog">
+                ✕
+              </button>
+            </div>
+            <div className="mindstudy-modal-body">
+              <h3 lang="en">
+                {selectedRupa.name_en}
+                {selectedRupa.name?.trim() ? (
+                  <span lang="th" className="mindstudy-modal-title-thai">
+                    {' '}
+                    ({selectedRupa.name.trim()})
+                  </span>
+                ) : null}
+              </h3>
+              <p className="mindstudy-modal-sub">
+                Pali: <span lang="pi">{selectedRupa.pali || '-'}</span>
+              </p>
+              <p className="mindstudy-modal-sub">
+                Group: <span lang="en">{selectedRupa.group || '-'}</span> · Subgroup:{' '}
+                <span lang="en">{selectedRupa.subgroup || '-'}</span>
+              </p>
+              {selectedRupa.description?.trim() ? (
+                <p className="mindstudy-section-desc">{selectedRupa.description.trim()}</p>
+              ) : null}
+            </div>
+            <div className="mindstudy-modal-actions">
+              <button className="mindstudy-btn primary" onClick={() => setRupaModalOpen(false)}>
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {modalOpen && selectedMind && (
         <div className="mindstudy-modal-backdrop" role="presentation" onClick={() => setModalOpen(false)}>
           <div
@@ -1708,7 +1771,7 @@ export function MindStudy(): React.ReactElement {
                   navigate(`/mind-study/${pathId}`)
                 }}
               >
-                Inspect
+                Illustrate
               </button>
             </div>
           </div>
@@ -1781,9 +1844,6 @@ export function MindStudy(): React.ReactElement {
               ) : null}
             </div>
             <div className="mindstudy-modal-actions">
-              <button className="mindstudy-btn ghost" onClick={() => setCetasikaModalOpen(false)}>
-                Maybe later
-              </button>
               <button
                 className="mindstudy-btn primary"
                 onClick={() => {
