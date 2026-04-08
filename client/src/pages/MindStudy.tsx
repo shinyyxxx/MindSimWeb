@@ -324,7 +324,7 @@ export function MindStudy(): React.ReactElement {
         console.warn('[MindStudy] Failed to load static data:', err)
         if (!cancelled) {
           setAggregates(defaultAggregates)
-          setLoadError('Unable to load data from /api/static/minds; showing fallback content.')
+          setLoadError('Unable to load study data; showing fallback content.')
         }
       })
       .finally(() => {
@@ -989,12 +989,12 @@ export function MindStudy(): React.ReactElement {
                 Cetasikas (เจตสิก)
               </h2>
               <p className="mindstudy-topic-section-desc">
-                52 factors from `/api/static/mentals`, grouped as circular rows by family.
+                52 factors grouped as circular rows by family.
               </p>
             </header>
             <div className="mindstudy-diagram-surface" id="mental-diagram">
             <p className="mindstudy-grid-hint">
-              Mental factors from `/api/static/mentals`, grouped as circular rows.
+              Mental factors grouped as circular rows.
             </p>
             <div className="mindstudy-diagram">
               {mentalCategoryBlocks.map((block) => {
@@ -1098,12 +1098,12 @@ export function MindStudy(): React.ReactElement {
                 Citta (จิต)
               </h2>
               <p className="mindstudy-topic-section-desc">
-                89 consciousness types from `/api/static/minds` in API group order.
+                89 consciousness types shown in group order.
               </p>
             </header>
             <div className="mindstudy-diagram-surface" id="mind-diagram">
             <p className="mindstudy-grid-hint">
-              Circular mind diagram from `/api/static/minds`.
+              Circular mind diagram.
               {loading ? ' Loading…' : ''}
               {!loading && loadError ? ` ${loadError}` : ''}
             </p>
@@ -1382,6 +1382,129 @@ export function MindStudy(): React.ReactElement {
                       )
                     }
 
+                    if (isLokuttara) {
+                      const lokuttaraDisplayStart = 82
+                      const lokuttaraRows: Array<{
+                        key: string
+                        color: string
+                        labelEn: string
+                        labelTh: string
+                        mindIds: number[]
+                      }> = [
+                        {
+                          key: 'sotapatti-magga',
+                          color: '#ef9b54',
+                          labelEn: 'Sotapatti path consciousness (1 or 5)',
+                          labelTh: 'โสดาปัตติมรรคจิต ๑ หรือ ๕',
+                          mindIds: [82],
+                        },
+                        {
+                          key: 'sakadagami-magga',
+                          color: '#ef9b54',
+                          labelEn: 'Sakadagami path consciousness (1 or 5)',
+                          labelTh: 'สกทาคามิมรรคจิต ๑ หรือ ๕',
+                          mindIds: [83],
+                        },
+                        {
+                          key: 'anagami-magga',
+                          color: '#ef9b54',
+                          labelEn: 'Anagami path consciousness (1 or 5)',
+                          labelTh: 'อนาคามิมรรคจิต ๑ หรือ ๕',
+                          mindIds: [84],
+                        },
+                        {
+                          key: 'arahatta-magga',
+                          color: '#ef9b54',
+                          labelEn: 'Arahatta path consciousness (1 or 5)',
+                          labelTh: 'อรหัตตมรรคจิต ๑ หรือ ๕',
+                          mindIds: [85],
+                        },
+                        {
+                          key: 'sotapatti-phala',
+                          color: '#9fbe4c',
+                          labelEn: 'Sotapatti fruition consciousness (1 or 5)',
+                          labelTh: 'โสดาปัตติผลจิต ๑ หรือ ๕',
+                          mindIds: [86],
+                        },
+                        {
+                          key: 'sakadagami-phala',
+                          color: '#9fbe4c',
+                          labelEn: 'Sakadagami fruition consciousness (1 or 5)',
+                          labelTh: 'สกทาคามิผลจิต ๑ หรือ ๕',
+                          mindIds: [87],
+                        },
+                        {
+                          key: 'anagami-phala',
+                          color: '#9fbe4c',
+                          labelEn: 'Anagami fruition consciousness (1 or 5)',
+                          labelTh: 'อนาคามิผลจิต ๑ หรือ ๕',
+                          mindIds: [88],
+                        },
+                        {
+                          key: 'arahatta-phala',
+                          color: '#9fbe4c',
+                          labelEn: 'Arahatta fruition consciousness (1 or 5)',
+                          labelTh: 'อรหัตตผลจิต ๑ หรือ ๕',
+                          mindIds: [89],
+                        },
+                      ]
+                      return (
+                        <div className="mindstudy-diagram-subgroups">
+                          {lokuttaraRows.map((row, rowIndex) => {
+                            const rowMinds = group.minds.filter((mind) => {
+                              const idMatch = String(mind.id).match(/mind-(\d+)/)
+                              const numericId = idMatch ? Number(idMatch[1]) : Number.NaN
+                              return row.mindIds.includes(numericId)
+                            })
+                            if (!rowMinds.length) return null
+                            const rowMindLevels = rowMinds.flatMap((topic) =>
+                              Array.from({ length: 5 }, (_, idx) => ({
+                                topic,
+                                level: idx + 1,
+                              })),
+                            )
+                            return (
+                              <div key={row.key} className="mindstudy-diagram-subgroup-row">
+                                <div className="mindstudy-diagram-circles compact">
+                                  {rowMindLevels.map(({ topic, level }) => {
+                                    const syntheticId = lokuttaraDisplayStart + rowIndex * 5 + (level - 1)
+                                    return (
+                                      <button
+                                        key={`${topic.id}-level-${level}`}
+                                        id={`lokuttara-${row.key}-${level}`}
+                                        type="button"
+                                        className="mindstudy-diagram-node compact"
+                                        style={{
+                                          background: `${row.color}33`,
+                                          borderColor: row.color,
+                                          color: '#1f2937',
+                                        }}
+                                        onClick={() => {
+                                          setSelectedMind(topic)
+                                          setModalOpen(true)
+                                        }}
+                                        aria-label={`${topic.title} level ${level} (${syntheticId})`}
+                                      >
+                                        <span className="mindstudy-diagram-node-index">{syntheticId}</span>
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                                <div className="mindstudy-diagram-subgroup-label-wrap">
+                                  <span className="mindstudy-diagram-subgroup-brace" style={{ color: row.color }} aria-hidden>
+                                    {'}'}
+                                  </span>
+                                  <span className="mindstudy-diagram-subgroup-label" style={{ color: row.color }} lang="en">
+                                    {row.labelEn} ({row.labelTh})
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    }
+
                     return (
                       <div className="mindstudy-diagram-subgroups">
                         {subgroupDefs.map((subgroup) => {
@@ -1457,12 +1580,12 @@ export function MindStudy(): React.ReactElement {
               Materiality (รูป)
             </h2>
             <p className="mindstudy-topic-section-desc">
-              28 material phenomena from `/api/static/rupas`, grouped by category and subcategory.
+              28 material phenomena grouped by category and subcategory.
             </p>
           </header>
           <div className="mindstudy-diagram-surface" id="rupa-diagram">
             <p className="mindstudy-grid-hint">
-              Circular rupa diagram from `/api/static/rupas`.
+              Circular rupa diagram.
               {loading ? ' Loading…' : ''}
               {!loading && loadError ? ` ${loadError}` : ''}
             </p>
