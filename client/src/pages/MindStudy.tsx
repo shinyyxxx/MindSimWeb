@@ -235,11 +235,12 @@ export function MindStudy(): React.ReactElement {
             (mind) =>
               new DhammaObject({
                 id: `mind-${mind.id}`,
-                title: mind.thai || mind.name,
+                title: mind.name_en || mind.name || mind.thai,
                 description:
                   mind.description?.trim() ||
                   `${mind.name}${mind.pali ? ` (${mind.pali})` : ''} อยู่ในหมวด ${mind.category}`,
                 highlights: [
+                  `Thai: ${mind.thai || '-'}`,
                   `Pali: ${mind.pali || '-'}`,
                   `Category: ${mind.category || '-'}`,
                   `Associated mentals: ${mind.mental_ids?.length ?? 0}`,
@@ -770,12 +771,12 @@ export function MindStudy(): React.ReactElement {
               >
                 {mindDiagramGroups.map((g) => (
                   <a key={g.id} className="mindstudy-nav-item sub" href={`#${g.id}`}>
-                    {g.subtitle || g.title}
+                    {g.title || g.subtitle}
                     {g.title &&
                     g.subtitle &&
                     g.title !== g.subtitle &&
-                    containsThaiScript(g.title)
-                      ? ` (${g.title})`
+                    !containsThaiScript(g.subtitle || '')
+                      ? ` (${g.subtitle})`
                       : ''}
                   </a>
                 ))}
@@ -986,12 +987,12 @@ export function MindStudy(): React.ReactElement {
                       style={{ background: group.color }}
                       aria-hidden
                     />
-                    <h3 lang="en">{group.subtitle || group.title}</h3>
+                    <h3 lang="th">{group.title || group.subtitle}</h3>
                     {group.title &&
                     group.subtitle &&
                     group.title !== group.subtitle &&
                     containsThaiScript(group.title) ? (
-                      <p lang="th">({group.title})</p>
+                      <p lang="en">({group.subtitle})</p>
                     ) : null}
                     <span className={`mindstudy-caret ${mindGroupOpen ? 'open' : ''}`} aria-hidden>
                       ▼
@@ -1034,21 +1035,30 @@ export function MindStudy(): React.ReactElement {
                             labelEn: 'Greed-rooted minds — 8',
                             labelTh: 'โลภมูลจิต ๘',
                             color: '#b76c84',
-                            match: (mindTitle) => mindTitle.includes('โลภมูลจิต'),
+                            match: (mindTitle, mindId, subgroup) =>
+                              subgroup === 'lobha_mula' ||
+                              (Number(mindId.replace('mind-', '')) >= 1 && Number(mindId.replace('mind-', '')) <= 8) ||
+                              mindTitle.includes('โลภมูลจิต'),
                           },
                           {
                             key: 'dosa',
                             labelEn: 'Hatred-rooted minds — 2',
                             labelTh: 'โทสมูลจิต ๒',
                             color: '#ef9b54',
-                            match: (mindTitle) => mindTitle.includes('โทสมูลจิต'),
+                            match: (mindTitle, mindId, subgroup) =>
+                              subgroup === 'dosa_mula' ||
+                              (Number(mindId.replace('mind-', '')) >= 9 && Number(mindId.replace('mind-', '')) <= 10) ||
+                              mindTitle.includes('โทสมูลจิต'),
                           },
                           {
                             key: 'moha',
                             labelEn: 'Delusion-rooted minds — 2',
                             labelTh: 'โมหมูลจิต ๒',
                             color: '#d9b49c',
-                            match: (mindTitle) => mindTitle.includes('โมหมูลจิต'),
+                            match: (mindTitle, mindId, subgroup) =>
+                              subgroup === 'moha_mula' ||
+                              (Number(mindId.replace('mind-', '')) >= 11 && Number(mindId.replace('mind-', '')) <= 12) ||
+                              mindTitle.includes('โมหมูลจิต'),
                           },
                         ]
                       : isAhetuka
