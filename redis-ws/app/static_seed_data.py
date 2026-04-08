@@ -570,3 +570,61 @@ MIND_GROUPS_DATA = [
     {'id': 5, 'name': 'Arupavacara',         'name_thai': 'อรูปาวจรจิต',  'name_en': 'Immaterial (12)',           'mind_ids': list(range(70, 82)), 'description': 'Extremely refined meditative consciousness that transcends all physical forms, focusing on purely abstract or formless objects'},
     {'id': 6, 'name': 'Lokuttara',           'name_thai': 'โลกุตตรจิต',  'name_en': 'Supramundane (8)',          'mind_ids': list(range(82, 90)), 'description': 'The highest form of consciousness that transcends the mundane world and is directed toward the realization of Nibbana'}
 ]
+
+# ---------------------------------------------------------------------------
+# RUPAS  (28 material phenomena / รูป ๒๘)
+# id | name (thai) | name_en | pali | description | group | subgroup
+# group: nipphanna (concretely produced 1-18) / anipphanna (non-concretely produced 19-28)
+# ---------------------------------------------------------------------------
+
+RUPAS_DATA = [
+    # === Mahabhuta Rupa — Great Elements (4) ===
+    {'id': 1,  'name': 'ดิน',       'name_en': 'Earth Element',          'pali': 'Pathavi',        'description': 'Element of hardness and softness; the principle of extension',                         'group': 'nipphanna', 'subgroup': 'mahabhuta'},
+    {'id': 2,  'name': 'น้ำ',       'name_en': 'Water Element',          'pali': 'Apo',            'description': 'Element of fluidity and cohesion; the principle that binds material phenomena',        'group': 'nipphanna', 'subgroup': 'mahabhuta'},
+    {'id': 3,  'name': 'ไฟ',       'name_en': 'Fire Element',           'pali': 'Tejo',           'description': 'Element of heat and cold; the principle of maturation and temperature',                'group': 'nipphanna', 'subgroup': 'mahabhuta'},
+    {'id': 4,  'name': 'ลม',       'name_en': 'Wind Element',           'pali': 'Vayo',           'description': 'Element of motion and pressure; the principle of distension and support',              'group': 'nipphanna', 'subgroup': 'mahabhuta'},
+
+    # === Pasada Rupa — Sensitivity (5) ===
+    {'id': 5,  'name': 'ตา',       'name_en': 'Eye Sensitivity',        'pali': 'Cakkhu-pasada',  'description': 'Sensitive matter in the eye capable of receiving visible objects',                     'group': 'nipphanna', 'subgroup': 'pasada'},
+    {'id': 6,  'name': 'หู',       'name_en': 'Ear Sensitivity',        'pali': 'Sota-pasada',    'description': 'Sensitive matter in the ear capable of receiving sound',                               'group': 'nipphanna', 'subgroup': 'pasada'},
+    {'id': 7,  'name': 'จมูก',     'name_en': 'Nose Sensitivity',       'pali': 'Ghana-pasada',   'description': 'Sensitive matter in the nose capable of receiving odour',                              'group': 'nipphanna', 'subgroup': 'pasada'},
+    {'id': 8,  'name': 'ลิ้น',     'name_en': 'Tongue Sensitivity',     'pali': 'Jivha-pasada',   'description': 'Sensitive matter in the tongue capable of receiving taste',                            'group': 'nipphanna', 'subgroup': 'pasada'},
+    {'id': 9,  'name': 'กาย',      'name_en': 'Body Sensitivity',       'pali': 'Kaya-pasada',    'description': 'Sensitive matter throughout the body capable of receiving tangible objects',            'group': 'nipphanna', 'subgroup': 'pasada'},
+
+    # === Visaya / Gocara Rupa — Sense-field (4) ===
+    {'id': 10, 'name': 'สี',       'name_en': 'Colour',                 'pali': 'Vanna',          'description': 'Visible form; colour and shape that is the object of eye-consciousness',               'group': 'nipphanna', 'subgroup': 'visaya'},
+    {'id': 11, 'name': 'เสียง',    'name_en': 'Sound',                  'pali': 'Sadda',          'description': 'Audible object arising from the collision of material phenomena',                      'group': 'nipphanna', 'subgroup': 'visaya'},
+    {'id': 12, 'name': 'กลิ่น',    'name_en': 'Odour',                  'pali': 'Gandha',         'description': 'Olfactory object; smell arising from material phenomena',                              'group': 'nipphanna', 'subgroup': 'visaya'},
+    {'id': 13, 'name': 'รส',       'name_en': 'Taste',                  'pali': 'Rasa',           'description': 'Gustatory object present in earth, water, and fire elements',                          'group': 'nipphanna', 'subgroup': 'visaya'},
+
+    # === Bhava Rupa — Sex / Gender (2) ===
+    {'id': 14, 'name': 'อิตถี',    'name_en': 'Femininity',             'pali': 'Itthibhava',     'description': 'Female sex; the material quality that manifests feminine characteristics',              'group': 'nipphanna', 'subgroup': 'bhava'},
+    {'id': 15, 'name': 'ปุริส',    'name_en': 'Masculinity',            'pali': 'Purisabhava',    'description': 'Male sex; the material quality that manifests masculine characteristics',               'group': 'nipphanna', 'subgroup': 'bhava'},
+
+    # === Hadaya Rupa — Heart-base (1) ===
+    {'id': 16, 'name': 'หทัย',     'name_en': 'Heart-base',             'pali': 'Hadaya-vatthu',  'description': 'The material support for mind-element and mind-consciousness element',                  'group': 'nipphanna', 'subgroup': 'hadaya'},
+
+    # === Jivita Rupa — Life Faculty (1) ===
+    {'id': 17, 'name': 'ชีวิต',    'name_en': 'Life Faculty',           'pali': 'Jivitindriya',   'description': 'The material quality that maintains and protects co-nascent material phenomena',        'group': 'nipphanna', 'subgroup': 'jivita'},
+
+    # === Ahara Rupa — Nutriment (1) ===
+    {'id': 18, 'name': 'อาหาร',    'name_en': 'Nutritive Essence',      'pali': 'Oja',            'description': 'Nutritive essence present in all material groups; sustains material phenomena',         'group': 'nipphanna', 'subgroup': 'ahara'},
+
+    # === Pariccheda Rupa — Delimiting (1) ===
+    {'id': 19, 'name': 'อากาส',    'name_en': 'Space Element',          'pali': 'Akasa-dhatu',    'description': 'The element of space that delimits and separates material groups from one another',     'group': 'anipphanna', 'subgroup': 'pariccheda'},
+
+    # === Vinatti Rupa — Intimation (2) ===
+    {'id': 20, 'name': 'กายวิญญัติ', 'name_en': 'Bodily Intimation',   'pali': 'Kaya-vinnati',   'description': 'Bodily movement that communicates intention to others',                                'group': 'anipphanna', 'subgroup': 'vinatti'},
+    {'id': 21, 'name': 'วจีวิญญัติ', 'name_en': 'Verbal Intimation',   'pali': 'Vaci-vinnati',   'description': 'Speech that communicates intention to others through vocal expression',                 'group': 'anipphanna', 'subgroup': 'vinatti'},
+
+    # === Vikara Rupa — Mutability (3) ===
+    {'id': 22, 'name': 'ลหุตา',    'name_en': 'Lightness',              'pali': 'Lahuta',         'description': 'Lightness of matter; the absence of heaviness or sluggishness in material phenomena',   'group': 'anipphanna', 'subgroup': 'vikara'},
+    {'id': 23, 'name': 'มุทุตา',   'name_en': 'Softness',               'pali': 'Muduta',         'description': 'Malleability of matter; the absence of rigidity or stiffness in material phenomena',    'group': 'anipphanna', 'subgroup': 'vikara'},
+    {'id': 24, 'name': 'กัมมัญญตา', 'name_en': 'Wieldiness',            'pali': 'Kammannata',     'description': 'Adaptability of matter; fitness of material phenomena for work or action',              'group': 'anipphanna', 'subgroup': 'vikara'},
+
+    # === Lakkhana Rupa — Characteristics (4) ===
+    {'id': 25, 'name': 'อุปจย',    'name_en': 'Growth',                 'pali': 'Upacaya',        'description': 'Initial arising and gradual growth of material phenomena',                              'group': 'anipphanna', 'subgroup': 'lakkhana'},
+    {'id': 26, 'name': 'สันตติ',   'name_en': 'Continuity',             'pali': 'Santati',        'description': 'Continuous succession of material phenomena maintaining the flow of matter',             'group': 'anipphanna', 'subgroup': 'lakkhana'},
+    {'id': 27, 'name': 'ชรตา',     'name_en': 'Decay',                  'pali': 'Jarata',         'description': 'Aging and maturing of material phenomena; the stage of decline',                        'group': 'anipphanna', 'subgroup': 'lakkhana'},
+    {'id': 28, 'name': 'อนิจจตา',  'name_en': 'Impermanence',           'pali': 'Aniccata',       'description': 'Breaking up and dissolution of material phenomena; the final moment of matter',          'group': 'anipphanna', 'subgroup': 'lakkhana'},
+]

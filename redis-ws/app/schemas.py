@@ -277,6 +277,21 @@ class StaticMindGroupListResponse(BaseModel):
     count: int
 
 
+class StaticRupaResponse(BaseModel):
+    id: int
+    name: str
+    name_en: str
+    pali: str
+    description: str
+    group: str
+    subgroup: str
+
+
+class StaticRupaListResponse(BaseModel):
+    rupas: List[StaticRupaResponse]
+    count: int
+
+
 # ---------------------------------------------------------------------------
 # Pancadvara Vithi (Five-door cognitive process)
 # ---------------------------------------------------------------------------
