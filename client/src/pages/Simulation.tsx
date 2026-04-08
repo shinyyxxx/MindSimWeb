@@ -706,6 +706,61 @@ type MentalSeed = {
 
 type MentalVariant = NonNullable<MentalSeed['variant']>
 
+const CETASIKA_NAME_TO_VARIANT: Record<string, MentalVariant> = {
+  'Contact': 'contact',
+  'Feeling': 'feeling',
+  'Perception': 'perception',
+  'Intention': 'intention',
+  'Concentration': 'concentration',
+  'Life Faculty': 'life_faculty',
+  'Attention': 'attention',
+  'Initial Application': 'initial_application',
+  'Sustained Application': 'sustained_application',
+  'Determination': 'decision',
+  'Energy': 'energy',
+  'Rapture': 'rapture',
+  'Desire': 'desire',
+  'Delusion': 'delusion',
+  'Shamelessness': 'shamelessness',
+  'Recklessness': 'recklessness',
+  'Restlessness': 'restlessness',
+  'Greed': 'greed',
+  'Wrong View': 'wrong_view',
+  'Conceit': 'conceit',
+  'Hatred': 'hatred',
+  'Envy': 'envy',
+  'Stinginess': 'stinginess',
+  'Worry': 'worry',
+  'Sloth': 'sloth',
+  'Torpor': 'torpor',
+  'Doubt': 'doubt',
+  'Faith': 'faith',
+  'Mindfulness': 'mindfulness',
+  'Moral Shame': 'moral_shame',
+  'Moral Dread': 'moral_dread',
+  'Non-greed': 'non_greed',
+  'Non-hatred': 'non_hatred',
+  'Equanimity': 'equanimity',
+  'Tranquility (Body)': 'tranquility_body',
+  'Tranquility (Mind)': 'tranquility_mind',
+  'Lightness (Body)': 'lightness_body',
+  'Lightness (Mind)': 'lightness_mind',
+  'Wieldiness (Body)': 'wieldiness_body',
+  'Wieldiness (Mind)': 'wieldiness_mind',
+  'Proficiency (Body)': 'proficiency_body',
+  'Proficiency (Mind)': 'proficiency_mind',
+  'Pliancy (Body)': 'pliancy_body',
+  'Pliancy (Mind)': 'pliancy_mind',
+  'Rectitude (Body)': 'rectitude_body',
+  'Rectitude (Mind)': 'rectitude_mind',
+  'Right Speech': 'right_speech',
+  'Right Action': 'right_action',
+  'Right Livelihood': 'right_livelihood',
+  'Compassion': 'compassion',
+  'Appreciative Joy': 'appreciative_joy',
+  'Wisdom': 'wisdom',
+}
+
 const UNWHOLESOME_4_VARIANTS = ['delusion', 'shamelessness', 'recklessness', 'restlessness'] as const
 
 const BEAUTIFUL_UNIVERSALS_19: MentalVariant[] = [
@@ -4928,9 +4983,9 @@ export function Simulation(): React.ReactElement {
       for (let t = 0; t <= timelineIndex; t++) {
         const stage = vithiStageData.get(t)
         if (!stage || stage.blocked) continue
-        const stageVars = stage.mental_details.map((d) =>
-          d.name.toLowerCase().replace(/\s+/g, '_') as MentalVariant
-        )
+        const stageVars = stage.mental_details
+          .map((d) => CETASIKA_NAME_TO_VARIANT[d.name])
+          .filter((v): v is MentalVariant => v != null)
         stageVars.forEach((v) => allVariants.add(v))
         if (t === timelineIndex) stageVars.forEach((v) => currentVariants.add(v))
       }
@@ -4954,7 +5009,7 @@ export function Simulation(): React.ReactElement {
   useEffect(() => {
     if (activeVariants.size === 0) return
     allMentals.forEach((m) => {
-      const variant = m.getName().toLowerCase().replace(/\s+/g, '_')
+      const variant = CETASIKA_NAME_TO_VARIANT[m.getName()] ?? m.getName().toLowerCase().replace(/\s+/g, '_')
       m.setGlow(activeVariants.has(variant))
     })
   }, [allMentals, activeVariants])

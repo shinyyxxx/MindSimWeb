@@ -758,6 +758,8 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
                 "result_type": result["result_type"],
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
