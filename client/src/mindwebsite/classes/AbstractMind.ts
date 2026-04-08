@@ -24,6 +24,7 @@ export interface MindBaseOptions {
   widthSegments?: number
   heightSegments?: number
   position?: { x?: number; y?: number; z?: number } | [number, number, number]
+  state?: string
 }
 
 /**
