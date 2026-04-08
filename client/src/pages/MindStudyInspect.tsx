@@ -74,7 +74,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { useXRSession } from './simulation/useXRSession'
-import { XRClearMode, XRControllers, XRMovement, XRStatusBridge } from './simulation/XRSceneHelpers'
+import { XRClearMode, XRControllers, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
@@ -963,6 +963,7 @@ function NeutralMentalsLayer({
     if (!isXrActive) return
 
     const xrRaycaster = new THREE.Raycaster()
+    xrRaycaster.camera = camera
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
     const listMentals = () => mind.getMentals()
     const findMentalHit = (controller: THREE.Object3D): { mental: Mental; distance: number } | null => {
@@ -977,7 +978,7 @@ function NeutralMentalsLayer({
       xrRayOriginRef.current.setFromMatrixPosition(controller.matrixWorld)
       xrRayDirectionRef.current.set(0, 0, -1).transformDirection(controller.matrixWorld)
       xrRaycaster.set(xrRayOriginRef.current, xrRayDirectionRef.current)
-      const hits = xrRaycaster.intersectObjects(targets, true)
+      const hits = xrRaycaster.intersectObjects(targets, false)
       if (!hits.length) return null
 
       const hit = hits[0]
@@ -995,9 +996,8 @@ function NeutralMentalsLayer({
       return { mental: found, distance: hit.distance }
     }
 
-    const handleXrSelectStart = (event: Event) => {
+    const handleXrSelectStart = (controller: THREE.Object3D, event: Event) => {
       if (!gl.xr.isPresenting) return
-      const controller = event.target as unknown as THREE.Object3D
       if (!controller) return
 
       const hit = findMentalHit(controller)
@@ -1043,32 +1043,39 @@ function NeutralMentalsLayer({
       })
     }
 
-    const handleXrSelectEnd = (event: Event) => {
+    const handleXrSelectEnd = (controller: THREE.Object3D) => {
       const state = xrDragStateRef.current
       if (!state) return
-      const controller = event.target as unknown as THREE.Object3D
       if (!controller || controller !== state.controller) return
       finalizeDraggedMental(state.mental, state.moved)
       xrDragStateRef.current = null
     }
 
+    const teardown: Array<() => void> = []
     controllers.forEach((controller) => {
-      controller.addEventListener('selectstart', handleXrSelectStart as unknown as (event: { data: XRInputSource }) => void)
-      controller.addEventListener('selectend', handleXrSelectEnd as unknown as (event: { data: XRInputSource }) => void)
+      const onSelectStart = (event: { data: XRInputSource }) => {
+        handleXrSelectStart(controller, event as unknown as Event)
+      }
+      const onSelectEnd = () => {
+        handleXrSelectEnd(controller)
+      }
+      controller.addEventListener('selectstart', onSelectStart)
+      controller.addEventListener('selectend', onSelectEnd)
+      teardown.push(() => {
+        controller.removeEventListener('selectstart', onSelectStart)
+        controller.removeEventListener('selectend', onSelectEnd)
+      })
     })
 
     return () => {
-      controllers.forEach((controller) => {
-        controller.removeEventListener('selectstart', handleXrSelectStart as unknown as (event: { data: XRInputSource }) => void)
-        controller.removeEventListener('selectend', handleXrSelectEnd as unknown as (event: { data: XRInputSource }) => void)
-      })
+      teardown.forEach((fn) => fn())
       if (xrDragStateRef.current) {
         xrDragStateRef.current.mental.setDragging(false)
         xrDragStateRef.current.mental.setFrozen(false)
         xrDragStateRef.current = null
       }
     }
-  }, [finalizeDraggedMental, focusTargetRef, gl, isXrActive, mind, onSelectMental, selectedMentalName])
+  }, [camera, finalizeDraggedMental, focusTargetRef, gl, isXrActive, mind, onSelectMental, selectedMentalName])
 
   useEffect(() => {
     if (!onHoverSelection) return
@@ -1470,7 +1477,6 @@ function NeutralMindScene({
       ) : null}
       <XRClearMode isArMode={Boolean(isArActive)} />
       <XRControllers />
-      <XRMovement enabled={Boolean(isArActive)} initialOffset={[0, 0, 0]} />
       <OrbitControls
         ref={controlsRef}
         enabled={!isArActive}
