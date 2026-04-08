@@ -1574,17 +1574,20 @@ function NeutralMindScene({
         overlayRootRef={overlayRootRef}
         onUpdate={onUpdatePanelPosition}
       />
-      <EffectComposer multisampling={2} autoClear={false}>
-        <Outline
-          selection={combinedSelection}
-          blendFunction={BlendFunction.ALPHA}
-          visibleEdgeColor={0xffffff}
-          hiddenEdgeColor={0x190a05}
-          edgeStrength={30}
-          resolutionScale={1}
-          xRay
-        />
-      </EffectComposer>
+      {/* Post-processing breaks many WebXR runtimes (e.g. Quest); match Simulation: no composer while presenting. */}
+      {!isArActive && (
+        <EffectComposer multisampling={2} autoClear={false}>
+          <Outline
+            selection={combinedSelection}
+            blendFunction={BlendFunction.ALPHA}
+            visibleEdgeColor={0xffffff}
+            hiddenEdgeColor={0x190a05}
+            edgeStrength={30}
+            resolutionScale={1}
+            xRay
+          />
+        </EffectComposer>
+      )}
       <XRStatusBridge onRendererReady={onRendererReady} />
     </Canvas>
   )
