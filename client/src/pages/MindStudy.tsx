@@ -82,14 +82,14 @@ type Topic = {
 }
 
 const mainTopic: Topic = {
-  id: 'mind-types',
-  title: 'Four Types of Mind to Practice',
+  id: 'abhidhamma-overview',
+  title: 'Abhidhamma Piṭaka — overview',
   description:
-    'Switching between mind states is like swapping game modes. Studying four core modes—Calm, Focused, Curious, and Compassionate—helps you pick the right stance for the moment.',
+    'The Abhidhamma Piṭaka (อภิธรรมปิฎก) is the third “basket” of the Pali Tipiṭaka. Where the Suttas often teach in narrative and practical terms, the Abhidhamma presents the same Dhamma in a systematic way: precise classifications of dhammas (phenomena), how consciousness (citta) arises together with mental factors (cetasikas), and how materiality (rūpa) is described. It is a map of experience in terms of conditionality, not a replacement for ethical practice or calm.',
   highlights: [
-    'Each mode is trainable: you can skill up any of them with reps.',
-    'Knowing your current mode makes reactions predictable (and shiftable).',
-    'Balancing the four keeps you resilient instead of rigid.',
+    'Tipiṭaka in brief: Sutta Piṭaka (discourses), Vinaya Piṭaka (discipline), and Abhidhamma Piṭaka (analytical exposition).',
+    'Classically, seven Abhidhamma books are named (e.g. Dhammasaṅgaṇī, Vibhaṅga, Kathāvatthu, Puggalapaññatti, Dhātukathā, Yamaka, Paṭṭhāna), with Paṭṭhāna in particular treating relations of condition in depth.',
+    'The mental, mind, and rūpa sections below mirror this tradition: use them to connect lists and diagrams to how the texts unpack each moment of experience.',
   ],
 }
 
@@ -787,10 +787,11 @@ export function MindStudy(): React.ReactElement {
       <div className="mindstudy-hero">
         <div>
           <p className="mindstudy-kicker">Study Guide</p>
-          <h1 className="mindstudy-title">Mind Study: The Five Aggregates</h1>
+          <h1 className="mindstudy-title">Mind Study: Abhidhamma Piṭaka</h1>
           <p className="mindstudy-lead">
-            Use the left outline to move between overview topics, mental factors (cetasikas, เจตสิก), and minds (citta,
-            จิต). Each block stays scannable so the Abhidhamma layout stays clear.
+            Start with the overview of the Abhidhamma Piṭaka, then use the outline to jump to mental factors (cetasikas,
+            เจตสิก), types of consciousness (citta, จิต), and materiality (rūpa, รูป). The layout stays scannable so
+            classical lists and this guide stay easy to cross-read.
           </p>
         </div>
       </div>
@@ -821,10 +822,10 @@ export function MindStudy(): React.ReactElement {
                 {mainTopic.title}
               </a>
               <a className="mindstudy-nav-item sub" href="#cognitive-start">
-                How Cognitive process starts
+                Where a mind-moment begins
               </a>
               <a className="mindstudy-nav-item sub" href="#cognitive">
-                How Cognitive process work?
+                How mind-moments unfold
               </a>
               <a className="mindstudy-nav-item sub" href="#learn-more">
                 Learn more about the mind
@@ -945,10 +946,10 @@ export function MindStudy(): React.ReactElement {
               type="button"
               className="mindstudy-cognitive-box-trigger"
               onClick={() => navigate('/mind-study/cognitive-start')}
-              aria-label="Go to How Cognitive process starts"
+              aria-label="Open lesson: where a mind-moment begins"
             >
-              <span className="mindstudy-badge light">Foundation</span>
-              <h3 className="mindstudy-cognitive-box-title">How Cognitive process starts</h3>
+              <span className="mindstudy-badge light">Abhidhamma</span>
+              <h3 className="mindstudy-cognitive-box-title">Where a mind-moment begins</h3>
               <span className="mindstudy-caret" aria-hidden>→</span>
             </button>
           </article>
@@ -957,10 +958,10 @@ export function MindStudy(): React.ReactElement {
               type="button"
               className="mindstudy-cognitive-box-trigger"
               onClick={() => navigate('/mind-study/cognitive')}
-              aria-label="Go to How Cognitive process work?"
+              aria-label="Open lesson: how mind-moments unfold"
             >
-              <span className="mindstudy-badge light">Cognitive</span>
-              <h3 className="mindstudy-cognitive-box-title">How Cognitive process work?</h3>
+              <span className="mindstudy-badge light">Analysis</span>
+              <h3 className="mindstudy-cognitive-box-title">How mind-moments unfold</h3>
               <span className="mindstudy-caret" aria-hidden>→</span>
             </button>
           </article>
@@ -1733,7 +1734,7 @@ export function MindStudy(): React.ReactElement {
                 navigate('/mind-study/cognitive')
               }}
             >
-              Go to Cognitive →
+              Go to mind-moments lesson →
             </button>
           </div>
         </div>
