@@ -163,24 +163,25 @@ class PhassaObject(MentalSphereObject):
         is_bad_initial = (desire == "bad")
 
         order += 1
+        events.append(VithiEvent(order=order, stage="atita_bhavanga", mind_id=28,
+                                 description="Past bhavanga — last moment of life-continuum"))
+        order += 1
         events.append(VithiEvent(order=order, stage="bhavanga_calana", mind_id=28,
                                  description="Bhavanga vibration — life-continuum disturbed"))
         order += 1
         events.append(VithiEvent(order=order, stage="bhavanga_upaccheda", mind_id=28,
                                  description="Bhavanga arrest — life-continuum cut off"))
-        order += 1
-        events.append(VithiEvent(order=order, stage="pancadvaravajjana", mind_id=28,
-                                 description="Five-door adverting — attention turns to object"))
 
-        if vividity == "atiparittarammana":
-            order += 1
-            events.append(VithiEvent(order=order, stage="vithi_blocked", mind_id=None,
-                                     description="Object too faint — vithi does not proceed"))
+        if vividity in ("atiparittarammana", "parittarammana"):
             return {
                 "events": events,
                 "updated_experience_weight": experience_weight,
                 "result_type": "blocked",
             }
+
+        order += 1
+        events.append(VithiEvent(order=order, stage="pancadvaravajjana", mind_id=28,
+                                 description="Five-door adverting — attention turns to object"))
 
         pv_id, pv_desc = _pancavinnana(sense, is_bad_initial)
         order += 1

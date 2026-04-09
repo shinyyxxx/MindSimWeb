@@ -112,6 +112,9 @@ interface VithiStageInfo {
 }
 
 const VITHI_STAGE_ORDER = [
+  'atita_bhavanga',
+  'bhavanga_calana',
+  'bhavanga_upaccheda',
   'pancadvaravajjana',
   'pancavinnana',
   'sampaticchana',
@@ -122,6 +125,12 @@ const VITHI_STAGE_ORDER = [
 ] as const
 
 const VITHI_STAGE_EXPLANATIONS: Record<string, string> = {
+  atita_bhavanga:
+    'Past bhavanga (atita bhavanga) is the last moment of the life-continuum stream before it is disturbed by an incoming sense object. The bhavanga is the default resting state of consciousness that flows continuously between active cognitive processes. When a sense object strikes a sense door with sufficient force, the bhavanga stream begins to be disrupted starting from this point.',
+  bhavanga_calana:
+    'Bhavanga vibration (bhavanga calana) is the moment when the life-continuum consciousness vibrates or trembles in response to the impact of a sense object on one of the five sense doors. The object must be strong enough to cause this disturbance. For very faint objects (parittarammana), the bhavanga may vibrate but fail to be fully arrested, causing the cognitive process to not proceed further.',
+  bhavanga_upaccheda:
+    'Bhavanga arrest (bhavanga upaccheda) is the cutting off of the life-continuum stream. If the sense object is sufficiently vivid (mahantarammana or atimahantarammana), the bhavanga is fully arrested and the five-door cognitive process begins. If the object is too faint (parittarammana or atiparittarammana), the bhavanga is not arrested and the mind sinks back into the bhavanga stream without any active cognition of the object.',
   pancadvaravajjana:
     'Five-door adverting (pancadvaravajjana) is the first active citta in a sense-door cognitive process. After the bhavanga stream is arrested, this functional mind-moment "turns towards" the object that has impinged on one of the five sense doors. It is accompanied by the 7 universal cetasikas plus initial application, sustained application, determination, and energy — 11 cetasikas in total. It is kammically indeterminate (kiriya) and lasts for one thought-moment.',
   pancavinnana:
@@ -201,7 +210,56 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 const CODE_RUNNER_TEMPLATE = `m = Mind()
 m.name = "Mind"
 m.color = "#3b82f6"
-m.scale = 1.6`
+m.scale = 1.6
+
+mt1 = ContactMental()
+mt1.name = "Contact"
+mt1.color = "#a1a1aa"
+mt1.scale = 0.140
+mt1.position = (0.000, -0.450, 0.100)
+m.add(mt1)
+
+mt2 = FeelingMental()
+mt2.name = "Feeling"
+mt2.color = "#a1a1aa"
+mt2.scale = 0.140
+mt2.position = (0.150, -0.400, 0.000)
+m.add(mt2)
+
+mt3 = PerceptionMental()
+mt3.name = "Perception"
+mt3.color = "#60a5fa"
+mt3.scale = 0.180
+mt3.position = (-0.140, 0.080, 0.180)
+m.add(mt3)
+
+mt4 = IntentionMental()
+mt4.name = "Intention"
+mt4.color = "#a1a1aa"
+mt4.scale = 0.140
+mt4.position = (0.050, -0.520, 0.050)
+m.add(mt4)
+
+mt5 = AttentionMental()
+mt5.name = "Attention"
+mt5.color = "#a1a1aa"
+mt5.scale = 0.140
+mt5.position = (-0.100, -0.500, -0.150)
+m.add(mt5)
+
+mt6 = ConcentrationMental()
+mt6.name = "Concentration"
+mt6.color = "#a1a1aa"
+mt6.scale = 0.140
+mt6.position = (-0.180, -0.420, 0.020)
+m.add(mt6)
+
+mt7 = LifeFacultyMental()
+mt7.name = "Life Faculty"
+mt7.color = "#a1a1aa"
+mt7.scale = 0.140
+mt7.position = (0.180, -0.480, -0.080)
+m.add(mt7)`
 
 function convertDslToPython(dsl: string): string {
   return dsl
@@ -229,13 +287,16 @@ function seededRandom(seed: number): () => number {
 }
 
 const TIMELINE_STOPS: { label: string; description: string }[] = [
-  { label: 'T0', description: 'Awakening — mind at rest, minimal mental activity' },
-  { label: 'T1', description: 'First contact — perception and attention arise' },
-  { label: 'T2', description: 'Feeling emerges — pleasant, unpleasant, or neutral' },
-  { label: 'T3', description: 'Craving or aversion may arise' },
-  { label: 'T4', description: 'Clinging — mental formations intensify' },
-  { label: 'T5', description: 'Becoming — kamma taking shape in the mind' },
-  { label: 'T6', description: 'Full cycle — mind in flux, various factors active' },
+  { label: 'T0', description: 'Past bhavanga — last moment of life-continuum' },
+  { label: 'T1', description: 'Bhavanga vibration — life-continuum disturbed' },
+  { label: 'T2', description: 'Bhavanga arrest — life-continuum cut off' },
+  { label: 'T3', description: 'Awakening — mind at rest, minimal mental activity' },
+  { label: 'T4', description: 'First contact — perception and attention arise' },
+  { label: 'T5', description: 'Feeling emerges — pleasant, unpleasant, or neutral' },
+  { label: 'T6', description: 'Craving or aversion may arise' },
+  { label: 'T7', description: 'Clinging — mental formations intensify' },
+  { label: 'T8', description: 'Becoming — kamma taking shape in the mind' },
+  { label: 'T9', description: 'Full cycle — mind in flux, various factors active' },
 ]
 
 /** Universal 7 — common to all timeline steps: Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty */
@@ -858,27 +919,26 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
     })
   }
 
-  // Universal 7 — exist in all timeline steps
+  if (index <= 2) {
+    return variants
+  }
+
+  // Universal 7 — exist in all active timeline steps (T3+)
   pushUnique(...UNIVERSAL_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
 
-  if (index === 0) {
-    // T0: add Initial Application, Sustained Application, Decision
+  if (index === 3) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
-  } else if (index === 2) {
-    // T2: add Initial Application, Sustained Application, Decision
+  } else if (index === 5) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
-  } else if (index === 1) {
-    // T1: Universal 7 only
-  } else if (index === 3) {
-    // T3: default like T0; if Happy selected, add Joy (Rapture) mental
+  } else if (index === 4) {
+    // T4: Universal 7 only
+  } else if (index === 6) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
     if (t3Happy) pushUnique('rapture')
-  } else if (index === 4) {
-    // T4: same mentals as T3 with Happy
+  } else if (index === 7) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
     pushUnique('rapture')
-  } else if (index === 5) {
-    // T5: add T0 specific + mentals from selected rooted factor (single-select)
+  } else if (index === 8) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
 
     if (t5SelectedId) {
@@ -954,36 +1014,36 @@ function buildTimelineScriptCatalog(): TimelineScriptPick[] {
   for (let i = 0; i < TIMELINE_STOPS.length; i += 1) {
     const stop = TIMELINE_STOPS[i]
     const tl = stop?.label ?? `T${i}`
-    if (i === 3) {
+    if (i === 6) {
       picks.push({
-        id: 't3-unhappy',
+        id: 't6-unhappy',
         label: `${tl} — no Joy (Pīti)`,
-        timelineIndex: 3,
+        timelineIndex: 6,
         t3Happy: false,
         t5SelectedId: null,
       })
       picks.push({
-        id: 't3-happy',
+        id: 't6-happy',
         label: `${tl} — with Joy (Pīti)`,
-        timelineIndex: 3,
+        timelineIndex: 6,
         t3Happy: true,
         t5SelectedId: null,
       })
       continue
     }
-    if (i === 5) {
+    if (i === 8) {
       picks.push({
-        id: 't5-no-root',
+        id: 't8-no-root',
         label: `${tl} — no rooted factor (fixed RNG pool)`,
-        timelineIndex: 5,
+        timelineIndex: 8,
         t3Happy: false,
         t5SelectedId: null,
       })
       for (const opt of T5_MENTAL_OPTIONS) {
         picks.push({
-          id: `t5-${opt.id}`,
+          id: `t8-${opt.id}`,
           label: `${tl} — ${opt.label}`,
-          timelineIndex: 5,
+          timelineIndex: 8,
           t3Happy: false,
           t5SelectedId: opt.id,
         })
@@ -2980,6 +3040,7 @@ function TimelineCanvas({
   slideshowPaused,
   onSlideshowPausedChange,
   vithiStageData,
+  vithiResultType,
   subStepIndex,
   onSubStepChange,
 }: {
@@ -3001,6 +3062,7 @@ function TimelineCanvas({
   slideshowPaused?: boolean
   onSlideshowPausedChange?: (paused: boolean) => void
   vithiStageData?: Map<number, VithiStageInfo> | null
+  vithiResultType?: string | null
   subStepIndex?: number
   onSubStepChange?: (idx: number) => void
 }) {
@@ -3140,16 +3202,27 @@ function TimelineCanvas({
                       <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
                         {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
                       </div>
-                      <div style={{ fontSize: 10, color: '#7dd3fc', marginTop: 2 }}>
-                        {currentEvt.mind_id != null
-                          ? `Mind ID: ${currentEvt.mind_id}`
-                          : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
-                            ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
-                            : ''}
-                      </div>
+                      {selectedIndex > 2 && (
+                        <div style={{ fontSize: 10, color: '#7dd3fc', marginTop: 2 }}>
+                          {currentEvt.mind_id != null
+                            ? `Mind ID: ${currentEvt.mind_id}`
+                            : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
+                              ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
+                              : ''}
+                        </div>
+                      )}
                       <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                         {currentEvt.description}
                       </div>
+                      {selectedIndex === 2 && vithiResultType === 'blocked' && (
+                        <div style={{
+                          marginTop: 6, padding: '6px 8px', borderRadius: 6,
+                          background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                          fontSize: 11, color: '#fca5a5',
+                        }}>
+                          Object too faint — no further cetasikas or cognitive stages arise from this point onward.
+                        </div>
+                      )}
                       {evts.length > 1 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
                           <button
@@ -3183,9 +3256,11 @@ function TimelineCanvas({
                       )}
                     </div>
                   )}
-                  <div style={{ fontSize: 12, color: '#a5b4fc' }}>
-                    {currentDetails.length} cetasika(s): {currentDetails.map(d => d.name).join(', ')}
-                  </div>
+                  {selectedIndex > 2 && currentDetails.length > 0 && (
+                    <div style={{ fontSize: 12, color: '#a5b4fc' }}>
+                      {currentDetails.length} cetasika(s): {currentDetails.map(d => d.name).join(', ')}
+                    </div>
+                  )}
                 </div>
               )
             })()
@@ -3348,73 +3423,6 @@ function TimelineCanvas({
           )}
 
 
-          {selectedIndex === 3 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                Add option
-              </div>
-              <button
-                type="button"
-                onClick={() => onT3HappyChange?.(!t3HappySelected)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 12px',
-                  borderRadius: 10,
-                  border: t3HappySelected ? '2px solid #38bdf8' : '1px solid rgba(148, 163, 184, 0.4)',
-                  background: t3HappySelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(30, 41, 59, 0.65)',
-                  color: t3HappySelected ? '#7dd3fc' : '#e5e7eb',
-                  fontSize: 12,
-                  fontWeight: t3HappySelected ? 600 : 500,
-                  cursor: 'pointer',
-                }}
-              >
-                <span>😊</span>
-                <span>Happy</span>
-              </button>
-            </div>
-          )}
-
-          {selectedIndex === 5 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8, fontWeight: 600 }}>
-                Choose mental factors (cetasikas)
-              </div>
-              <select
-                value={t5SelectedId ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  onT5Change?.(v ? v : null)
-                }}
-                style={{
-                  width: '100%',
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  border: '1px solid rgba(148, 163, 184, 0.4)',
-                  background: 'rgba(30, 41, 59, 0.85)',
-                  color: '#e5e7eb',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">No selection (random)</option>
-                {T5_CATEGORIES.map((cat) => (
-                  <optgroup key={cat.label} label={cat.label}>
-                    {cat.optionIds.map((id) => {
-                      const opt = T5_MENTAL_OPTIONS.find((o) => o.id === id)
-                      return opt ? (
-                        <option key={opt.id} value={opt.id}>
-                          {opt.label}
-                        </option>
-                      ) : null
-                    })}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={() => setShowDetail((d) => !d)}
@@ -3446,7 +3454,7 @@ function TimelineCanvas({
                     {stops[selectedIndex].description}
                   </p>
                 )}
-                {stageInfo && !stageInfo.blocked && stageInfo.mental_details.length > 0 && (
+                {selectedIndex > 2 && stageInfo && !stageInfo.blocked && stageInfo.mental_details.length > 0 && (
                   <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8' }}>
                     <span style={{ fontWeight: 600 }}>Active cetasikas:</span>{' '}
                     {stageInfo.mental_details.map((d) => d.name).join(', ')}
@@ -3627,6 +3635,7 @@ function XRTimelinePanel({
   onSlideshowPausedChange,
   vithiCurrentEvent,
   vithiStageData,
+  vithiResultType,
   subStepIndex,
   onSubStepChange,
 }: {
@@ -3650,6 +3659,7 @@ function XRTimelinePanel({
   onSlideshowPausedChange?: (paused: boolean) => void
   vithiCurrentEvent?: VithiEvent | null
   vithiStageData?: Map<number, VithiStageInfo> | null
+  vithiResultType?: string | null
   subStepIndex?: number
   onSubStepChange?: (idx: number) => void
 }) {
@@ -3762,11 +3772,11 @@ function XRTimelinePanel({
         setShowDetail((prev) => !prev)
         return
       }
-      if (selectedIndex === 3 && isHitInside(happyButtonRef.current, hits[0].object)) {
+      if (selectedIndex === 6 && isHitInside(happyButtonRef.current, hits[0].object)) {
         onT3HappyChange?.(!t3HappySelected)
         return
       }
-      if (selectedIndex === 5) {
+      if (selectedIndex === 8) {
         const flatOptions = T5_CATEGORIES.flatMap((cat) =>
           cat.optionIds
             .map((id) => T5_MENTAL_OPTIONS.find((opt) => opt.id === id))
@@ -4008,7 +4018,6 @@ function XRTimelinePanel({
   if (selectedIndex === 0 && hasContactMental) {
     const senseRowCount = Math.max(1, Math.ceil(T0_SENSE_OPTIONS.length / 3))
     const lastSenseRowY = senseRowStartY - (senseRowCount - 1) * senseRowGap
-    // Keep "What kind?" clearly below the sense-door rows.
     variantHeaderY = lastSenseRowY - 0.06
     variantStartY = variantHeaderY - 0.07
     contentBottomY = lastSenseRowY - 0.06
@@ -4018,8 +4027,6 @@ function XRTimelinePanel({
       contentBottomY = Math.min(contentBottomY, lastVariantY - 0.06)
     }
   }
-  if (selectedIndex === 3) contentBottomY = -0.2
-  if (selectedIndex === 5) contentBottomY = -0.265
   if (vithiStageData?.has(selectedIndex) && !vithiStageData.get(selectedIndex)!.blocked && vithiStageData.get(selectedIndex)!.events.length > 0) {
     const evtCount = vithiStageData.get(selectedIndex)!.events.length
     contentBottomY = Math.min(contentBottomY, stageInfoY - (evtCount > 1 ? 0.19 : 0.14))
@@ -4149,16 +4156,23 @@ function XRTimelinePanel({
                       <Text position={[-0.88, stageInfoY - 0.035, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
                         {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
                       </Text>
-                      <Text position={[-0.88, stageInfoY - 0.055, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#7dd3fc" maxWidth={0.74}>
-                        {currentEvt.mind_id != null
-                          ? `Mind ID: ${currentEvt.mind_id}`
-                          : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
-                            ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
-                            : ''}
-                      </Text>
-                      <Text position={[-0.88, stageInfoY - 0.075, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
+                      {selectedIndex > 2 && (
+                        <Text position={[-0.88, stageInfoY - 0.055, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#7dd3fc" maxWidth={0.74}>
+                          {currentEvt.mind_id != null
+                            ? `Mind ID: ${currentEvt.mind_id}`
+                            : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
+                              ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
+                              : ''}
+                        </Text>
+                      )}
+                      <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.075 : 0.055), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
                         {currentEvt.description}
                       </Text>
+                      {selectedIndex === 2 && vithiResultType === 'blocked' && (
+                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.095 : 0.08), 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#fca5a5" maxWidth={0.74}>
+                          Object too faint — no further cetasikas or cognitive stages arise from this point onward.
+                        </Text>
+                      )}
                       {evts.length > 1 && (
                         <>
                           <mesh ref={subStepPrevButtonRef} position={[-0.82, stageInfoY - 0.105, 0.005]}>
@@ -4182,9 +4196,11 @@ function XRTimelinePanel({
                       )}
                     </>
                   )}
-                  <Text position={[-0.88, stageInfoY - (evts.length > 1 ? 0.14 : 0.105), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#a5b4fc" maxWidth={0.78}>
-                    {`${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`}
-                  </Text>
+                  {selectedIndex > 2 && currentDetails.length > 0 && (
+                    <Text position={[-0.88, stageInfoY - (evts.length > 1 ? 0.14 : 0.105), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#a5b4fc" maxWidth={0.78}>
+                      {`${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`}
+                    </Text>
+                  )}
                 </>
               )
             })()
@@ -4320,81 +4336,6 @@ function XRTimelinePanel({
             </>
           )}
 
-
-          {selectedIndex === 3 && (
-            <>
-              <Text position={[-0.88, -0.1, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
-                Add option
-              </Text>
-              <mesh ref={happyButtonRef} position={[-0.72, -0.16, 0.005]}>
-                <planeGeometry args={[0.3, 0.075]} />
-                <meshBasicMaterial color={t3HappySelected ? 0x0891b2 : isActionHovered('happy-toggle') ? 0x334155 : 0x1f2937} />
-              </mesh>
-              <Text
-                position={[-0.84, -0.16, 0.007]}
-                anchorX="left"
-                anchorY="middle"
-                fontSize={0.024}
-                color={isActionHovered('happy-toggle') ? '#f8fafc' : '#e2e8f0'}
-              >
-                😊 Happy
-              </Text>
-            </>
-          )}
-
-          {selectedIndex === 5 && (
-            <>
-              <Text position={[-0.88, -0.08, 0.006]} anchorX="left" anchorY="middle" fontSize={0.024} color="#94a3b8">
-                Choose mental factors (cetasikas)
-              </Text>
-              <mesh position={[-0.48, -0.145, 0.005]}>
-                <planeGeometry args={[0.8, 0.08]} />
-                <meshBasicMaterial color={0x1f2937} />
-              </mesh>
-              <Text position={[-0.86, -0.145, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#e2e8f0" maxWidth={0.74}>
-                {t5CurrentLabel}
-              </Text>
-              <mesh ref={t5PrevButtonRef} position={[-0.72, -0.225, 0.005]}>
-                <planeGeometry args={[0.18, 0.065]} />
-                <meshBasicMaterial color={isActionHovered('t5-prev') ? 0x475569 : 0x334155} />
-              </mesh>
-              <Text
-                position={[-0.72, -0.225, 0.007]}
-                anchorX="center"
-                anchorY="middle"
-                fontSize={0.022}
-                color={isActionHovered('t5-prev') ? '#ffffff' : '#f8fafc'}
-              >
-                Prev
-              </Text>
-              <mesh ref={t5NextButtonRef} position={[-0.48, -0.225, 0.005]}>
-                <planeGeometry args={[0.18, 0.065]} />
-                <meshBasicMaterial color={isActionHovered('t5-next') ? 0x475569 : 0x334155} />
-              </mesh>
-              <Text
-                position={[-0.48, -0.225, 0.007]}
-                anchorX="center"
-                anchorY="middle"
-                fontSize={0.022}
-                color={isActionHovered('t5-next') ? '#ffffff' : '#f8fafc'}
-              >
-                Next
-              </Text>
-              <mesh ref={t5ClearButtonRef} position={[-0.24, -0.225, 0.005]}>
-                <planeGeometry args={[0.18, 0.065]} />
-                <meshBasicMaterial color={isActionHovered('t5-clear') ? 0x991b1b : 0x7f1d1d} />
-              </mesh>
-              <Text
-                position={[-0.24, -0.225, 0.007]}
-                anchorX="center"
-                anchorY="middle"
-                fontSize={0.022}
-                color={isActionHovered('t5-clear') ? '#ffffff' : '#fee2e2'}
-              >
-                Clear
-              </Text>
-            </>
-          )}
 
           <mesh ref={explainButtonRef} position={[-0.72, explainButtonY, 0.005]}>
             <planeGeometry args={[0.34, 0.075]} />
@@ -4634,6 +4575,7 @@ function ThreeScene({
   slideshowPaused,
   onSlideshowPausedChange,
   vithiStageData,
+  vithiResultType,
   subStepIndex,
   onSubStepChange,
   xrTimelineOpen,
@@ -4691,6 +4633,7 @@ function ThreeScene({
   slideshowPaused: boolean
   onSlideshowPausedChange: (paused: boolean) => void
   vithiStageData: Map<number, VithiStageInfo> | null
+  vithiResultType: string | null
   subStepIndex: number
   onSubStepChange: (idx: number) => void
   xrTimelineOpen: boolean
@@ -4896,6 +4839,7 @@ function ThreeScene({
           onSlideshowPausedChange={onSlideshowPausedChange}
           vithiCurrentEvent={vithiCurrentEvent}
           vithiStageData={vithiStageData}
+          vithiResultType={vithiResultType}
           subStepIndex={subStepIndex}
           onSubStepChange={onSubStepChange}
         />
@@ -4958,6 +4902,7 @@ export function Simulation(): React.ReactElement {
   const vithiProcessingRef = useRef(false)
   const [vithiCurrentEvent, setVithiCurrentEvent] = useState<VithiEvent | null>(null)
   const [vithiStageData, setVithiStageData] = useState<Map<number, VithiStageInfo> | null>(null)
+  const [vithiResultType, setVithiResultType] = useState<string | null>(null)
   const [backendMindId, setBackendMindId] = useState<number | null>(null)
   const [activeVariants, setActiveVariants] = useState<Set<string>>(new Set())
   const vithiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -4982,11 +4927,11 @@ export function Simulation(): React.ReactElement {
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
-    if (timelineIndex === 3) {
-      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 3)
+    if (timelineIndex === 6) {
+      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 6)
     }
-    if (timelineIndex === 5) {
-      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 5)
+    if (timelineIndex === 8) {
+      return TIMELINE_SCRIPT_CATALOG.filter((p) => p.timelineIndex === 8)
     }
     return []
   }, [timelineIndex])
@@ -5118,9 +5063,7 @@ export function Simulation(): React.ReactElement {
     return nextMental
   }, [])
 
-  const [mentals, setMentals] = useState<Mental[]>(() =>
-    getMentalVariantsForTimelineStop(0, false, null).map((variant) => getOrCreateMental(variant))
-  )
+  const [mentals, setMentals] = useState<Mental[]>([])
 
   useEffect(() => {
     if (vithiStageData && vithiStageData.size > 0) {
@@ -5145,8 +5088,7 @@ export function Simulation(): React.ReactElement {
       return
     }
     setActiveVariants(new Set())
-    const variants = getMentalVariantsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId)
-    setMentals(variants.map((variant) => getOrCreateMental(variant)))
+    setMentals([])
   }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, subStepIndex, vithiStageData])
 
   const allMentals = useMemo(() => {
@@ -5160,7 +5102,10 @@ export function Simulation(): React.ReactElement {
   
 
   const hasContactMental = useMemo(
-    () => allMentals.some((m) => m instanceof ContactMental),
+    () =>
+      allMentals.some(
+        (m) => m instanceof ContactMental || m.getName().toLowerCase() === 'contact',
+      ),
     [allMentals],
   )
 
@@ -5414,6 +5359,10 @@ export function Simulation(): React.ReactElement {
     lines.push(`m.scale = ${Number.isFinite(mindScale) ? mindScale.toFixed(3) : DEFAULT_MIND_SCALE.toFixed(3)}`)
     lines.push('')
 
+    if (mentals.length === 0) {
+      return CODE_RUNNER_TEMPLATE
+    }
+
     mentals.forEach((mental, index) => {
       const varName = `mt${index + 1}`
       const pos = mental.getPosition()
@@ -5429,7 +5378,7 @@ export function Simulation(): React.ReactElement {
       lines.push('')
     })
 
-    return lines.join('\n').trim() || CODE_RUNNER_TEMPLATE
+    return lines.join('\n').trim()
   }, [formatVec, mentals, mind, stringifyCodeText, toHexColor])
 
   const handleCodeRunnerTimelinePreset = useCallback(
@@ -5468,8 +5417,8 @@ export function Simulation(): React.ReactElement {
     const presetOkForStep =
       preset === '__current__' ||
       preset === '__custom__' ||
-      (timelineIndex === 3 && (preset === 't3-unhappy' || preset === 't3-happy')) ||
-      (timelineIndex === 5 && preset.startsWith('t5-'))
+      (timelineIndex === 6 && (preset === 't6-unhappy' || preset === 't6-happy')) ||
+      (timelineIndex === 8 && preset.startsWith('t8-'))
     if (!presetOkForStep) {
       setCodeRunnerTimelinePreset('__current__')
       preset = '__current__'
@@ -5714,8 +5663,9 @@ export function Simulation(): React.ReactElement {
       }),
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
-      .then((data: { events?: VithiEvent[]; updated_experience_weight?: Record<string, number> }) => {
+      .then((data: { events?: VithiEvent[]; updated_experience_weight?: Record<string, number>; result_type?: string }) => {
         if (data.events) setVithiQueue(data.events)
+        setVithiResultType(data.result_type ?? null)
         if (data.updated_experience_weight && sannaMental) {
           sannaMental.updateExperienceWeightFromResponse(data.updated_experience_weight)
         }
@@ -5916,6 +5866,9 @@ export function Simulation(): React.ReactElement {
   }, [])
 
   const VITHI_STAGE_LABELS: Record<string, string> = {
+    atita_bhavanga: 'Atita Bhavanga — past life-continuum',
+    bhavanga_calana: 'Bhavanga Calana — bhavanga vibration',
+    bhavanga_upaccheda: 'Bhavanga Upaccheda — bhavanga arrest',
     pancadvaravajjana: 'Pancadvaravajjana — five-door adverting',
     pancavinnana: 'Pancavinnana — sense consciousness',
     sampaticchana: 'Sampaticchana — receiving',
@@ -6402,9 +6355,9 @@ export function Simulation(): React.ReactElement {
               {showTimelineScriptPresetDropdown && (
                 <label style={{ display: 'grid', gap: 4, fontSize: 12, opacity: 0.9 }}>
                   <span>
-                    {timelineIndex === 3
-                      ? 'T3 — pick a variant (fills the editor; same idea as the timeline)'
-                      : 'T5 — pick a rooted factor (fills the editor; same groups as Open timeline)'}
+                    {timelineIndex === 6
+                      ? 'T6 — pick a variant (fills the editor; same idea as the timeline)'
+                      : 'T8 — pick a rooted factor (fills the editor; same groups as Open timeline)'}
                   </span>
                   <select
                     value={
@@ -6429,20 +6382,20 @@ export function Simulation(): React.ReactElement {
                     {codeRunnerTimelinePreset === '__custom__' ? (
                       <option value="__custom__">Custom (edited in editor)</option>
                     ) : null}
-                    {timelineIndex === 3
+                    {timelineIndex === 6
                       ? timelineScriptPresetsForStep.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.label}
                           </option>
                         ))
-                      : timelineIndex === 5
+                      : timelineIndex === 8
                         ? (
                             <>
-                              <option value="t5-no-root">No rooted factor (fixed RNG pool)</option>
+                              <option value="t8-no-root">No rooted factor (fixed RNG pool)</option>
                               {T5_CATEGORIES.map((cat) => (
                                 <optgroup key={cat.label} label={cat.label}>
                                   {cat.optionIds.map((oid) => {
-                                    const pick = TIMELINE_SCRIPT_CATALOG.find((p) => p.id === `t5-${oid}`)
+                                    const pick = TIMELINE_SCRIPT_CATALOG.find((p) => p.id === `t8-${oid}`)
                                     if (!pick) return null
                                     const optLabel =
                                       T5_MENTAL_OPTIONS.find((o) => o.id === oid)?.label ?? pick.label
@@ -6613,6 +6566,7 @@ export function Simulation(): React.ReactElement {
               slideshowPaused={slideshowPaused}
               onSlideshowPausedChange={setSlideshowPaused}
               vithiStageData={vithiStageData}
+              vithiResultType={vithiResultType}
               subStepIndex={subStepIndex}
               onSubStepChange={setSubStepIndex}
             />
@@ -6710,6 +6664,7 @@ export function Simulation(): React.ReactElement {
           onSlideshowPausedChange={setSlideshowPaused}
           vithiCurrentEvent={vithiCurrentEvent}
           vithiStageData={vithiStageData}
+          vithiResultType={vithiResultType}
           subStepIndex={subStepIndex}
           onSubStepChange={setSubStepIndex}
           xrTimelineOpen={xrTimelineOpen}
