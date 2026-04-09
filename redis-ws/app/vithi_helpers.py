@@ -97,7 +97,7 @@ def _javana(is_bad: bool, vividity: str, person_type: str,
             mid, label = 47, "arahant kiriya citta"
     elif is_bad:
         if desire == "good":
-            mid, label = 1, "lobha-rooted (greed, attachment to pleasant object, unprompted)"
+            mid, label = 3, "lobha-rooted (greed, joy, unprompted, no wrong view)"
         else:
             mid, label = 9, "dosa-rooted (hatred, aversion, unprompted)"
     else:
@@ -119,17 +119,25 @@ def _javana(is_bad: bool, vividity: str, person_type: str,
     return events
 
 
-def _tadalammana(vividity: str, desire: str, desirability: str):
+def _tadalammana(vividity: str, desire: str, desirability: str, final_is_bad: bool = True):
     events = []
     if vividity != "atimahantarammana":
         return events
 
     if desire == "bad":
         mid, label = 19, "akusala vipaka santirana (unpleasant object)"
-    elif desirability == "excellent":
-        mid, label = 39, "somanassa vipaka (excellent object, with wisdom, unprompted)"
+    elif not final_is_bad:
+        # Kusala javana (30-38) -> mahavipaka tadalammana (39-46) allowed
+        if desirability == "excellent":
+            mid, label = 39, "mahavipaka somanassa (excellent object, with wisdom, unprompted)"
+        else:
+            mid, label = 43, "mahavipaka upekkha (moderate object, with wisdom, unprompted)"
     else:
-        mid, label = 43, "upekkha vipaka (moderate object, with wisdom, unprompted)"
+        # Akusala javana (lobha) -> downgrade to santirana-level vipaka
+        if desirability == "excellent":
+            mid, label = 27, "santirana kusala vipaka somanassa (pleasant object, akusala javana)"
+        else:
+            mid, label = 26, "santirana kusala vipaka upekkha (pleasant object, akusala javana)"
 
     for i in range(2):
         events.append(VithiEvent(

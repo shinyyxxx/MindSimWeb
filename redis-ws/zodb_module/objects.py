@@ -210,7 +210,7 @@ class PhassaObject(MentalSphereObject):
             jev.order = order
             events.append(jev)
 
-        for tev in _tadalammana(vividity, desire, desirability):
+        for tev in _tadalammana(vividity, desire, desirability, final_is_bad):
             order += 1
             tev.order = order
             events.append(tev)

@@ -168,11 +168,11 @@ interface VithiParams {
 const SENSE_VARIANTS: Record<string, { id: string; label: string; icon: string; params: VithiParams }[]> = {
   sound: [
     { id: 'dog-barking', label: 'Dog barking', icon: '🐕', params: { desire: 'bad', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.4, anusaya_lobha: 0.1, desirability: 'moderate' } },
-    { id: 'beautiful-music', label: 'Beautiful music', icon: '🎵', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4, desirability: 'excellent' } },
+    { id: 'beautiful-music', label: 'Dhamma Radio', icon: '🎵', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.4, desirability: 'excellent' } },
     { id: 'faint-whisper', label: 'Faint whisper', icon: '🤫', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.2, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
   picture: [
-    { id: 'beautiful-sunset', label: 'Beautiful sunset', icon: '🌅', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3, desirability: 'excellent' } },
+    { id: 'beautiful-sunset', label: 'Beautiful sunset', icon: '🌅', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.2, desirability: 'excellent' } },
     { id: 'scary-scene', label: 'Scary scene', icon: '😱', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1, desirability: 'moderate' } },
     { id: 'dim-shadow', label: 'Dim shadow', icon: '👤', params: { desire: 'bad', vividity: 'atiparittarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.3, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
@@ -187,7 +187,7 @@ const SENSE_VARIANTS: Record<string, { id: string; label: string; icon: string; 
     { id: 'light-breeze', label: 'Light breeze', icon: '🍃', params: { desire: 'good', vividity: 'mahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.2, desirability: 'moderate' } },
   ],
   smell: [
-    { id: 'fresh-flowers', label: 'Fresh flowers', icon: '🌸', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.3, desirability: 'excellent' } },
+    { id: 'fresh-flowers', label: 'Fresh flowers', icon: '🌸', params: { desire: 'good', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.1, anusaya_lobha: 0.1, desirability: 'excellent' } },
     { id: 'rotten-garbage', label: 'Rotten garbage', icon: '🗑️', params: { desire: 'bad', vividity: 'atimahantarammana', person_type: 'puthujjana', yoniso_manasikara: false, anusaya_dosa: 0.5, anusaya_lobha: 0.1, desirability: 'moderate' } },
     { id: 'subtle-incense', label: 'Subtle incense', icon: '🧘', params: { desire: 'good', vividity: 'parittarammana', person_type: 'puthujjana', yoniso_manasikara: true, anusaya_dosa: 0.1, anusaya_lobha: 0.1, desirability: 'moderate' } },
   ],
@@ -3031,6 +3031,7 @@ function TimelineCanvas({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  onSenseClear,
   hasContactMental,
   personType,
   onPersonTypeChange,
@@ -3053,6 +3054,7 @@ function TimelineCanvas({
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
   onSenseSelect?: (senseId: string, params: VithiParams) => void
+  onSenseClear?: () => void
   hasContactMental?: boolean
   personType?: PersonType
   onPersonTypeChange?: (pt: PersonType) => void
@@ -3359,6 +3361,7 @@ function TimelineCanvas({
                       onClick={() => {
                         setSelectedSense(isSelected ? '' : opt.id)
                         setSelectedVariantId(null)
+                        onSenseClear?.()
                       }}
                       style={{
                         display: 'flex',
@@ -3626,6 +3629,7 @@ function XRTimelinePanel({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  onSenseClear,
   hasContactMental,
   personType,
   onPersonTypeChange,
@@ -3650,6 +3654,7 @@ function XRTimelinePanel({
   t5SelectedId?: string | null
   onT5Change?: (id: string | null) => void
   onSenseSelect?: (senseId: string, params: VithiParams) => void
+  onSenseClear?: () => void
   hasContactMental?: boolean
   personType?: PersonType
   onPersonTypeChange?: (pt: PersonType) => void
@@ -3842,6 +3847,7 @@ function XRTimelinePanel({
           if (!mesh) continue
           if (isHitInside(mesh, hits[0].object)) {
             setSelectedSense((prev) => (prev === opt.id ? '' : opt.id))
+            onSenseClear?.()
             return
           }
         }
@@ -4565,6 +4571,7 @@ function ThreeScene({
   t5SelectedId,
   onT5Change,
   onSenseSelect,
+  onSenseClear,
   hasContactMental,
   vithiCurrentEvent,
   stops,
@@ -4623,6 +4630,7 @@ function ThreeScene({
   t5SelectedId: string | null
   onT5Change: (id: string | null) => void
   onSenseSelect: (senseId: string, params: VithiParams) => void
+  onSenseClear: () => void
   hasContactMental: boolean
   vithiCurrentEvent: VithiEvent | null
   stops: Array<{ label: string; description: string }>
@@ -4830,6 +4838,7 @@ function ThreeScene({
           t5SelectedId={t5SelectedId}
           onT5Change={onT5Change}
           onSenseSelect={onSenseSelect}
+          onSenseClear={onSenseClear}
           hasContactMental={hasContactMental}
           personType={personType}
           onPersonTypeChange={onPersonTypeChange}
@@ -4888,6 +4897,7 @@ export function Simulation(): React.ReactElement {
   const [scriptMentals, setScriptMentals] = useState<Mental[]>([])
   const [scriptMatchedDefaultMentals, setScriptMatchedDefaultMentals] = useState<Mental[]>([])
   const [scriptResultActive, setScriptResultActive] = useState(false)
+  const [scriptHasContact, setScriptHasContact] = useState(false)
   const scriptMentalMapRef = useRef<Map<string, Mental>>(new Map())
   const [codeRunnerOpen, setCodeRunnerOpen] = useState(false)
   const [codeRunnerCode, setCodeRunnerCode] = useState(CODE_RUNNER_TEMPLATE)
@@ -5068,6 +5078,11 @@ export function Simulation(): React.ReactElement {
   useEffect(() => {
     if (vithiStageData && vithiStageData.size > 0) {
       const stage = vithiStageData.get(timelineIndex)
+      if (timelineIndex <= 2) {
+        setActiveVariants(new Set())
+        setMentals([])
+        return
+      }
       if (stage && !stage.blocked) {
         let details: VithiMentalDetail[]
         if (stage.events.length > 0) {
@@ -5103,10 +5118,11 @@ export function Simulation(): React.ReactElement {
 
   const hasContactMental = useMemo(
     () =>
+      scriptHasContact ||
       allMentals.some(
         (m) => m instanceof ContactMental || m.getName().toLowerCase() === 'contact',
       ),
-    [allMentals],
+    [allMentals, scriptHasContact],
   )
 
   useEffect(() => {
@@ -5124,6 +5140,7 @@ export function Simulation(): React.ReactElement {
     }
     if (signature === timelineSignatureRef.current) return
     timelineSignatureRef.current = signature
+    if (timelineIndex <= 2) return
     if (!scriptResultActive && scriptMentals.length === 0 && scriptMatchedDefaultMentals.length === 0) return
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
     scriptMentalMapRef.current.clear()
@@ -5622,9 +5639,17 @@ export function Simulation(): React.ReactElement {
       newMentalsByVar.forEach((mental, variable) => {
         scriptMentalMapRef.current.set(variable, mental)
       })
-      setScriptMentals(Array.from(newMentalsByVar.values()))
+      const allScriptMentals = Array.from(newMentalsByVar.values())
+      setScriptMentals(allScriptMentals)
       setScriptMatchedDefaultMentals(Array.from(usedDefaultMentals))
       setScriptResultActive(true)
+      setScriptHasContact(
+        [...allScriptMentals, ...usedDefaultMentals].some(
+          (m) => m instanceof ContactMental || m.getName().toLowerCase() === 'contact',
+        ),
+      )
+      setVithiStageData(null)
+      setVithiResultType(null)
 
       setCodeRunnerStatus(`${localMsg} Persisted ${mc} mind(s) and ${mtc} mental(s).${lastMindId !== null ? ` Mind ID: ${lastMindId}` : ''}`)
     } catch (err: unknown) {
@@ -5649,6 +5674,12 @@ export function Simulation(): React.ReactElement {
     }, 400)
     return () => clearTimeout(id)
   }, [vithiQueue])
+
+  const handleSenseClear = useCallback(() => {
+    setVithiStageData(null)
+    setVithiResultType(null)
+    setVithiQueue([])
+  }, [])
 
   const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
@@ -5749,6 +5780,7 @@ export function Simulation(): React.ReactElement {
     setScriptMentals([])
     setScriptMatchedDefaultMentals([])
     setScriptResultActive(false)
+    setScriptHasContact(false)
     setCodeRunnerErrorLine(null)
     setCodeRunnerStatus('Cleared scripted mentals.')
   }, [])
@@ -6557,6 +6589,7 @@ export function Simulation(): React.ReactElement {
               t5SelectedId={t5SelectedId}
               onT5Change={setT5SelectedId}
               onSenseSelect={handleSenseSelect}
+              onSenseClear={handleSenseClear}
               hasContactMental={hasContactMental}
               personType={personType}
               onPersonTypeChange={setPersonType}
@@ -6655,6 +6688,7 @@ export function Simulation(): React.ReactElement {
           t5SelectedId={t5SelectedId}
           onT5Change={setT5SelectedId}
           onSenseSelect={handleSenseSelect}
+          onSenseClear={handleSenseClear}
           hasContactMental={hasContactMental}
           personType={personType}
           onPersonTypeChange={setPersonType}
