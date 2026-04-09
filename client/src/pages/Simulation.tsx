@@ -337,6 +337,12 @@ const T0_SPECIFIC_SEEDS: MentalSeed[] = [
   { name: 'Decision', color: '#a1a1aa', scale: 0.14, position: [-0.08, -0.5, 0.12], variant: 'decision' },
 ]
 
+/** Bhavanga cetasikas — shown at T0-T2 and T10 (universal 7 + T0-specific 3) */
+const BHAVANGA_VARIANTS: MentalVariant[] = [
+  ...UNIVERSAL_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
+  ...T0_SPECIFIC_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
+]
+
 const DEFAULT_SEEDS: MentalSeed[] = [
   { name: 'Faith (Saddhā)', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'faith' },
   { name: 'Mindfulness (Sati)', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'mindfulness' },
@@ -5336,9 +5342,11 @@ export function Simulation(): React.ReactElement {
   useEffect(() => {
     if (vithiStageData && vithiStageData.size > 0) {
       const stage = vithiStageData.get(timelineIndex)
-      if (timelineIndex <= 2) {
-        setActiveVariants(new Set())
-        setMentals([])
+      if (timelineIndex <= 2 || timelineIndex === 10) {
+        const bMentals = BHAVANGA_VARIANTS.map((v) => getOrCreateMental(v))
+        bMentals.forEach((m) => m.setFrozen(true))
+        setActiveVariants(new Set(BHAVANGA_VARIANTS))
+        setMentals(bMentals)
         return
       }
       if (stage && !stage.blocked) {
@@ -5352,8 +5360,10 @@ export function Simulation(): React.ReactElement {
         const vars = details
           .map((d) => CETASIKA_NAME_TO_VARIANT[d.name])
           .filter((v): v is MentalVariant => v != null)
+        const stageMentals = vars.map((v) => getOrCreateMental(v))
+        stageMentals.forEach((m) => m.setFrozen(false))
         setActiveVariants(new Set(vars))
-        setMentals(vars.map((v) => getOrCreateMental(v)))
+        setMentals(stageMentals)
       } else {
         setActiveVariants(new Set())
         setMentals([])
