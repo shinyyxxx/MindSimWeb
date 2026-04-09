@@ -2757,22 +2757,14 @@ function SoundReceiveEffect({
           if (activeFlowMode === 'ear-to-mind') {
             await sendFromWorldToMental(earWorld.clone(), contactMental)
             if (runToken !== runTokenRef.current) return
-            cleanupAndRestore()
-            return
           }
 
-          if (isSceneMode) {
+          if (activeFlowMode === 'full' && isSceneMode) {
             // Scene mode: travel from afar -> eyes -> Contact.
             await sendFromWorldToWorld(planeStartRef.current, earWorld.clone())
-            await Promise.all([
-              speakNarration(chain[0].line),
-              sendFromWorldToMental(earWorld.clone(), contactMental),
-            ])
-          } else {
-            await Promise.all([
-              speakNarration(chain[0].line),
-              sendFromWorldToMental(planeStartRef.current, contactMental),
-            ])
+            await sendFromWorldToMental(earWorld.clone(), contactMental)
+          } else if (activeFlowMode === 'full') {
+            await sendFromWorldToMental(planeStartRef.current, contactMental)
           }
           if (runToken !== runTokenRef.current) return
 
@@ -2782,10 +2774,7 @@ function SoundReceiveEffect({
             if (!prev || !next) continue
             const mesh = next.getMesh()
             onHighlightChange?.(mesh ? [mesh] : [])
-            await Promise.all([
-              speakNarration(chain[i].line),
-              sendMentalToMental(prev, next),
-            ])
+            await sendMentalToMental(prev, next)
             if (runToken !== runTokenRef.current) return
           }
         } catch {
@@ -7038,8 +7027,20 @@ export function Simulation(): React.ReactElement {
           onSoundReceiveHighlightChange={setSoundReceiveHighlight}
           onSceneReceiveHighlightChange={setSoundReceiveHighlight}
           onSoundReceiveComplete={() => {
-            setSoundReceiveActive(false)
             setSoundReceiveHighlight([])
+            const continueFromEarToMind =
+              soundReceiveFlowMode === 'to-ear' &&
+              timelineSoundPending &&
+              timelineIndex >= 3
+            if (continueFromEarToMind) {
+              setSoundReceiveFlowMode('ear-to-mind')
+              setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Receiving...' })
+              setSoundReceiveActive(true)
+              setSoundReceiveRequestId((prev) => prev + 1)
+              setTimelineSoundPending(false)
+              return
+            }
+            setSoundReceiveActive(false)
             if (soundReceiveFlowMode === 'to-ear') {
               if (timelineSoundPending && timelineIndex < 3) {
                 setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Receiving...' })
