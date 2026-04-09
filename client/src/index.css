@@ -1956,8 +1956,55 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
 
 .cr-result-panel { overflow-y: auto; }
 
+.cr-resize-handle {
+  height: 12px;
+  margin: 0 18px;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cr-resize-grip {
+  width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  background: #d1d5db;
+  transition: background 0.15s;
+}
+.cr-resize-handle:hover .cr-resize-grip {
+  background: #9ca3af;
+}
+
+.cr-playground-panel {
+  margin: 0 18px 18px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cr-playground-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cr-playground-hint {
+  font-size: 11px;
+  color: #9ca3af;
+}
+.cr-playground-canvas {
+  flex: 1;
+  min-height: 0;
+}
+
 @media (max-width: 900px) {
   .cr-layout { grid-template-columns: 1fr; }
+  .cr-resize-handle { margin: 0 12px; }
+  .cr-playground-panel { margin: 0 12px 12px; }
 }
 
 @keyframes ttsSpinner {
