@@ -2675,7 +2675,7 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, target, {
           planeModelPath,
-          durationMs: 3150, 
+          durationMs: 1150, 
           arcHeight: 0.12,
           scale: 0.1,
           onArrive: (t) => flashGlowOnMental(t),
@@ -2736,7 +2736,7 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, receiver, {
           planeModelPath,
-          durationMs: 2940,
+          durationMs: 1240,
           arcHeight: 0.12,
           scale: 0.1,
         })
@@ -2754,7 +2754,7 @@ function SoundReceiveEffect({
     async (sender: Mental, receiver: Mental): Promise<void> => {
       await sender.sendDataTo(gl, receiver, {
         planeModelPath,
-        durationMs: 2940,
+        durationMs: 1240,
         arcHeight: 0.12,
         scale: 0.1,
         onArrive: (t) => flashGlowOnMental(t),
