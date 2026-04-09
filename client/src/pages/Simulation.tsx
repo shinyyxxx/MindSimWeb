@@ -3086,7 +3086,7 @@ function TimelineCanvas({
   onSubStepChange?: (idx: number) => void
   ttsMuted?: boolean
   onTtsMutedChange?: (muted: boolean) => void
-  ttsStatus?: 'idle' | 'speaking' | 'waiting'
+  ttsStatus?: 'idle' | 'loading' | 'speaking' | 'waiting'
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -3269,6 +3269,17 @@ function TimelineCanvas({
                           lineHeight: 1.4,
                         }}>
                           {currentEvt.reason}
+                        </div>
+                      )}
+                      {!ttsMuted && ttsStatus === 'loading' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                          <div style={{
+                            width: 12, height: 12, borderRadius: '50%',
+                            border: '2px solid rgba(167, 139, 250, 0.3)',
+                            borderTopColor: '#a78bfa',
+                            animation: 'ttsSpinner 0.7s linear infinite',
+                          }} />
+                          <span style={{ fontSize: 9, color: '#94a3b8' }}>Loading voice...</span>
                         </div>
                       )}
                       {!ttsMuted && ttsStatus === 'speaking' && (
@@ -5024,7 +5035,7 @@ export function Simulation(): React.ReactElement {
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
   const [ttsMuted, setTtsMuted] = useState(false)
-  const [ttsStatus, setTtsStatus] = useState<'idle' | 'speaking' | 'waiting'>('idle')
+  const [ttsStatus, setTtsStatus] = useState<'idle' | 'loading' | 'speaking' | 'waiting'>('idle')
   const ttsLastReasonRef = useRef('')
 
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
@@ -5044,6 +5055,7 @@ export function Simulation(): React.ReactElement {
     ttsLastReasonRef.current = reason
     const hasThai = /[\u0E00-\u0E7F]/.test(reason)
     let stale = false
+    setTtsStatus('loading')
     speakNarration(reason, {
       lang: hasThai ? 'th-TH' : 'en-US',
       rate: 0.95,
@@ -5593,7 +5605,7 @@ export function Simulation(): React.ReactElement {
     if (timelineMode !== 'slideshow' || slideshowPaused) return
     const maxIdx = TIMELINE_STOPS.length - 1
     if (timelineIndex >= maxIdx) return
-    if (ttsStatus === 'speaking') return
+    if (ttsStatus === 'loading' || ttsStatus === 'speaking') return
     const delay = ttsStatus === 'waiting' ? 5000 : 20000
     const timer = setTimeout(() => {
       setTimelineIndex((prev) => {

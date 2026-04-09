@@ -6,6 +6,7 @@ export type NarrationOptions = {
     onStart?: () => void;
 };
 let activeAudio: HTMLAudioElement | null = null;
+let activeAbort: AbortController | null = null;
 let activeReject: ((reason?: unknown) => void) | null = null;
 
 function clearActiveAudio(): void {
@@ -32,6 +33,10 @@ function getGoogleVoiceForLang(lang: string): {
 }
 
 export function cancelNarration(): void {
+    if (activeAbort) {
+        activeAbort.abort();
+        activeAbort = null;
+    }
     clearActiveAudio();
     if (activeReject) {
         const reject = activeReject;
@@ -51,6 +56,9 @@ export async function speakNarration(text: string, options: NarrationOptions = {
         throw new Error('VITE_GOOGLE_TTS_KEY is not configured');
     }
 
+    const abort = new AbortController();
+    activeAbort = abort;
+
     const lang = options.lang ?? 'en-US';
     const voice = getGoogleVoiceForLang(lang);
     const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(apiKey)}`, {
@@ -66,13 +74,18 @@ export async function speakNarration(text: string, options: NarrationOptions = {
                 volumeGainDb: Math.round(((options.volume ?? 1) - 1) * 6),
             },
         }),
+        signal: abort.signal,
     });
+
+    if (abort.signal.aborted) return;
 
     if (!res.ok) {
         throw new Error(`Google TTS request failed: ${res.status}`);
     }
 
     const data = await res.json() as { audioContent?: string };
+    if (abort.signal.aborted) return;
+
     if (!data.audioContent) {
         throw new Error('Google TTS response missing audioContent');
     }
@@ -80,6 +93,12 @@ export async function speakNarration(text: string, options: NarrationOptions = {
     const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
     audio.preload = 'auto';
     audio.setAttribute('playsinline', 'true');
+
+    if (abort.signal.aborted) {
+        audio.src = '';
+        return;
+    }
+
     activeAudio = audio;
 
     await new Promise<void>((resolve, reject) => {
@@ -98,6 +117,7 @@ export async function speakNarration(text: string, options: NarrationOptions = {
             audio.removeEventListener('error', onError);
             if (activeAudio === audio) activeAudio = null;
             if (activeReject === reject) activeReject = null;
+            if (activeAbort === abort) activeAbort = null;
         };
 
         audio.addEventListener('ended', onEnded, { once: true });

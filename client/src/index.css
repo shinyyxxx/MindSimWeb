@@ -1960,6 +1960,10 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   .cr-layout { grid-template-columns: 1fr; }
 }
 
+@keyframes ttsSpinner {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes ttsBar {
   0%   { transform: scaleY(0.4); opacity: 0.5; }
   100% { transform: scaleY(1.4); opacity: 1; }
