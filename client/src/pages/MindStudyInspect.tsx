@@ -74,6 +74,7 @@ import XRInspectPanel from '../components/XRInspectPanel'
 import { loadMindElementRows, type MindElementRow } from '../utils/mindElement'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
 import { useXRSession } from './simulation/useXRSession'
+import type { StationaryXrPanelLayout } from './simulation/useStationaryDraggableXrPanel'
 import { XRClearMode, XRControllers, XRExitByGrip, XRStatusBridge } from './simulation/XRSceneHelpers'
 
 const API_BASE_STATIC = import.meta.env.VITE_API_URL || 'http://localhost:8004'
@@ -83,6 +84,14 @@ const DESKTOP_INSPECT_CAMERA_POS: [number, number, number] = [0, 0, 5]
 const MINDSTUDY_INSPECT_AR_SCALE = 1.1
 const MINDSTUDY_INSPECT_AR_MIND_SCALE_BASE = 0.5
 const MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE = 0.5
+/** Smaller XR card in Inspect; use XRInspectPanel `contentScale` (not a parent scale) so placement matches Simulation. */
+const MINDSTUDY_INSPECT_AR_XR_PANEL_CONTENT_SCALE =
+  MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE * MINDSTUDY_INSPECT_AR_SCALE
+
+/** Slightly closer than default `forward: 1.18` (Inspect card is already scaled down). */
+const MINDSTUDY_INSPECT_XR_PANEL_LAYOUT: Partial<StationaryXrPanelLayout> = {
+  forward: 0.85,
+}
 
 /** Option menu (header + 3 actions); top edge = `(anchorY - 12) - height` with `translateY(-100%)`. */
 const MINDSTUDY_INSPECT_OPTION_MENU_EST_HEIGHT = 330
@@ -1483,6 +1492,7 @@ function NeutralMindScene({
   onBackFromDetail,
   onVoiceSelection,
   onCloseSelection,
+  voiceLoading = false,
 }: {
   mind: Mind
   mentals: Mental[]
@@ -1501,6 +1511,7 @@ function NeutralMindScene({
   onBackFromDetail?: () => void
   onVoiceSelection?: (selection: InspectSelection) => void
   onCloseSelection?: () => void
+  voiceLoading?: boolean
 }) {
   const focusTargetRef = useRef<THREE.Vector3 | null>(null)
   const [hoverSelection, setHoverSelection] = useState<THREE.Object3D[]>([])
@@ -1555,17 +1566,18 @@ function NeutralMindScene({
         onHoverSelection={setHoverSelection}
       />
       {isArActive && selected && (
-        <group scale={MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE * MINDSTUDY_INSPECT_AR_SCALE}>
-          <XRInspectPanel
-            selection={selected}
-            inspectOpen={Boolean(inspectOpen)}
-            onViewDetail={onViewDetail ?? (() => {})}
-            onBack={onBackFromDetail ?? (() => {})}
-            onShowProfile={onViewDetail ?? (() => {})}
-            onVoice={onVoiceSelection}
-            onClose={onCloseSelection ?? (() => {})}
-          />
-        </group>
+        <XRInspectPanel
+          selection={selected}
+          inspectOpen={Boolean(inspectOpen)}
+          onViewDetail={onViewDetail ?? (() => {})}
+          onBack={onBackFromDetail ?? (() => {})}
+          onShowProfile={onViewDetail ?? (() => {})}
+          onVoice={onVoiceSelection}
+          onClose={onCloseSelection ?? (() => {})}
+          voiceLoading={Boolean(voiceLoading)}
+          contentScale={MINDSTUDY_INSPECT_AR_XR_PANEL_CONTENT_SCALE}
+          stationaryLayout={MINDSTUDY_INSPECT_XR_PANEL_LAYOUT}
+        />
       )}
       <FlyToCameraEffect mind={mind} targetName={flyTargetName ?? null} onDone={onFlyComplete} />
       <PanelPositionSync
@@ -2318,6 +2330,7 @@ export function MindStudyInspect(): React.ReactElement {
           onBackFromDetail={handleBackFromDetail}
           onVoiceSelection={handleVoice}
           onCloseSelection={handleClose}
+          voiceLoading={voiceLoading}
         />
         {!isArActive && showMenuConnector && menuConnectorStart && connectorAnimatedEnd && (
           <svg
