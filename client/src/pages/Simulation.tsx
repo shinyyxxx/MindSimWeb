@@ -125,6 +125,19 @@ const VITHI_STAGE_ORDER = [
   'tadalammana',
 ] as const
 
+const VITHI_STAGE_DISPLAY_NAMES: Record<string, string> = {
+  atita_bhavanga: 'Atīta Bhavaṅga',
+  bhavanga_calana: 'Bhavaṅga Calana',
+  bhavanga_upaccheda: 'Bhavaṅga Upaccheda',
+  pancadvaravajjana: 'Pañcadvāravajjana',
+  pancavinnana: 'Pañcaviññāṇa',
+  sampaticchana: 'Sampaṭicchana',
+  santirana: 'Santīraṇa',
+  votthapana: 'Voṭṭhapana',
+  javana: 'Javana',
+  tadalammana: 'Tadālammaṇa',
+}
+
 const VITHI_STAGE_EXPLANATIONS: Record<string, string> = {
   atita_bhavanga:
     'Past bhavanga (atita bhavanga) is the last moment of the life-continuum stream before it is disturbed by an incoming sense object. The bhavanga is the default resting state of consciousness that flows continuously between active cognitive processes. When a sense object strikes a sense door with sufficient force, the bhavanga stream begins to be disrupted starting from this point.',
@@ -5167,6 +5180,12 @@ export function Simulation(): React.ReactElement {
   useEffect(() => {
     mind.setLabelEnabled(!showHumanModel)
   }, [mind, showHumanModel])
+
+  useEffect(() => {
+    const stageName = VITHI_STAGE_ORDER[timelineIndex]
+    const displayName = stageName ? VITHI_STAGE_DISPLAY_NAMES[stageName] : null
+    mind.setName(displayName ?? 'Mind')
+  }, [mind, timelineIndex])
 
   const getOrCreateMental = useCallback((variant: MentalVariant): Mental => {
     const cached = mentalCacheRef.current.get(variant)
