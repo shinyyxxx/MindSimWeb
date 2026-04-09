@@ -4162,7 +4162,7 @@ function XRTimelinePanel({
   }
   if (vithiStageData?.has(selectedIndex) && !vithiStageData.get(selectedIndex)!.blocked && vithiStageData.get(selectedIndex)!.events.length > 0) {
     const evtCount = vithiStageData.get(selectedIndex)!.events.length
-    contentBottomY = Math.min(contentBottomY, stageInfoY - (evtCount > 1 ? 0.19 : 0.14))
+    contentBottomY = Math.min(contentBottomY, stageInfoY - (evtCount > 1 ? 0.28 : 0.24))
   }
   const explainButtonY = Math.max(-0.52, contentBottomY - 0.09)
   // Size panel to content so we don't keep excessive empty space below controls.
@@ -4299,67 +4299,97 @@ function XRTimelinePanel({
               const si = subStepIndex ?? 0
               const currentEvt = evts.length > 0 ? evts[Math.min(si, evts.length - 1)] : null
               const currentDetails = currentEvt?.mental_details ?? stage.mental_details
+              const estimateLineCount = (text: string, charsPerLine: number): number => {
+                if (!text) return 1
+                return Math.max(1, Math.ceil(text.length / Math.max(1, charsPerLine)))
+              }
               return (
                 <>
                   {currentEvt && (
-                    <>
-                      <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#60a5fa" maxWidth={0.74}>
-                        {currentEvt.stage.replace(/_/g, ' ').toUpperCase()}
-                      </Text>
-                      {(currentEvt.mind_name || currentEvt.mind_id != null) && (
-                        <Text position={[-0.88, stageInfoY - 0.035, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
-                          {currentEvt.mind_name || `Citta ${currentEvt.mind_id}`}
-                        </Text>
-                      )}
-                      {selectedIndex > 2 && (
-                        <Text position={[-0.88, stageInfoY - 0.055, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#7dd3fc" maxWidth={0.74}>
-                          {currentEvt.mind_id != null
-                            ? `Mind ID: ${currentEvt.mind_id}`
-                            : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
-                              ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
-                              : ''}
-                        </Text>
-                      )}
-                      <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.075 : 0.055), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
-                        {currentEvt.description}
-                      </Text>
-                      {currentEvt.reason && (
-                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.1 : 0.08), 0.006]} anchorX="left" anchorY="middle" fontSize={0.012} color="#a78bfa" maxWidth={0.74}>
-                          {currentEvt.reason}
-                        </Text>
-                      )}
-                      {selectedIndex === 2 && vithiResultType === 'blocked' && (
-                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.12 : 0.1), 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#fca5a5" maxWidth={0.74}>
-                          Object too faint — no further cetasikas or cognitive stages arise from this point onward.
-                        </Text>
-                      )}
-                      {evts.length > 1 && (
+                    (() => {
+                      let cursorY = stageInfoY
+                      const rowGap = 0.026
+                      const nextRow = (lineCount = 1) => {
+                        const y = cursorY
+                        cursorY -= rowGap * lineCount
+                        return y
+                      }
+                      const stageLabel = currentEvt.stage.replace(/_/g, ' ').toUpperCase()
+                      const stageY = nextRow(1)
+                      const mindTitle = currentEvt.mind_name || (currentEvt.mind_id != null ? `Citta ${currentEvt.mind_id}` : '')
+                      const mindY = mindTitle ? nextRow(1) : null
+                      const mindIdText = selectedIndex > 2
+                        ? (currentEvt.mind_id != null
+                          ? `Mind ID: ${currentEvt.mind_id}`
+                          : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
+                            ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
+                            : '')
+                        : ''
+                      const mindIdY = mindIdText ? nextRow(1) : null
+                      const descriptionY = nextRow(estimateLineCount(currentEvt.description, 56))
+                      const reasonY = currentEvt.reason ? nextRow(estimateLineCount(currentEvt.reason, 72)) : null
+                      const blockedY = selectedIndex === 2 && vithiResultType === 'blocked' ? nextRow(estimateLineCount('Object too faint — no further cetasikas or cognitive stages arise from this point onward.', 64)) : null
+                      const substepY = evts.length > 1 ? cursorY - 0.012 : null
+                      const detailsY = selectedIndex > 2 && currentDetails.length > 0
+                        ? (substepY !== null ? substepY - 0.058 : cursorY - 0.028)
+                        : null
+                      return (
                         <>
-                          <mesh ref={subStepPrevButtonRef} position={[-0.82, stageInfoY - 0.105, 0.005]}>
-                            <planeGeometry args={[0.08, 0.05]} />
-                            <meshBasicMaterial color={si === 0 ? 0x1e293b : 0x334155} />
-                          </mesh>
-                          <Text position={[-0.82, stageInfoY - 0.105, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === 0 ? '#475569' : '#93c5fd'}>
-                            ◀
+                          <Text position={[-0.88, stageY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#60a5fa" maxWidth={0.74}>
+                            {stageLabel}
                           </Text>
-                          <Text position={[-0.68, stageInfoY - 0.105, 0.007]} anchorX="center" anchorY="middle" fontSize={0.018} color="#94a3b8">
-                            {`${si + 1}/${evts.length}`}
+                          {mindTitle && mindY !== null && (
+                            <Text position={[-0.88, mindY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
+                              {mindTitle}
+                            </Text>
+                          )}
+                          {mindIdText && mindIdY !== null && (
+                            <Text position={[-0.88, mindIdY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#7dd3fc" maxWidth={0.74}>
+                              {mindIdText}
+                            </Text>
+                          )}
+                          <Text position={[-0.88, descriptionY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
+                            {currentEvt.description}
                           </Text>
-                          <mesh ref={subStepNextButtonRef} position={[-0.54, stageInfoY - 0.105, 0.005]}>
-                            <planeGeometry args={[0.08, 0.05]} />
-                            <meshBasicMaterial color={si === evts.length - 1 ? 0x1e293b : 0x334155} />
-                          </mesh>
-                          <Text position={[-0.54, stageInfoY - 0.105, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === evts.length - 1 ? '#475569' : '#93c5fd'}>
-                            ▶
-                          </Text>
+                          {currentEvt.reason && reasonY !== null && (
+                            <Text position={[-0.88, reasonY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.012} color="#a78bfa" maxWidth={0.74}>
+                              {currentEvt.reason}
+                            </Text>
+                          )}
+                          {selectedIndex === 2 && vithiResultType === 'blocked' && blockedY !== null && (
+                            <Text position={[-0.88, blockedY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#fca5a5" maxWidth={0.74}>
+                              Object too faint — no further cetasikas or cognitive stages arise from this point onward.
+                            </Text>
+                          )}
+                          {evts.length > 1 && substepY !== null && (
+                            <>
+                              <mesh ref={subStepPrevButtonRef} position={[-0.82, substepY, 0.005]}>
+                                <planeGeometry args={[0.08, 0.05]} />
+                                <meshBasicMaterial color={si === 0 ? 0x1e293b : 0x334155} />
+                              </mesh>
+                              <Text position={[-0.82, substepY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === 0 ? '#475569' : '#93c5fd'}>
+                                ◀
+                              </Text>
+                              <Text position={[-0.68, substepY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.018} color="#94a3b8">
+                                {`${si + 1}/${evts.length}`}
+                              </Text>
+                              <mesh ref={subStepNextButtonRef} position={[-0.54, substepY, 0.005]}>
+                                <planeGeometry args={[0.08, 0.05]} />
+                                <meshBasicMaterial color={si === evts.length - 1 ? 0x1e293b : 0x334155} />
+                              </mesh>
+                              <Text position={[-0.54, substepY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === evts.length - 1 ? '#475569' : '#93c5fd'}>
+                                ▶
+                              </Text>
+                            </>
+                          )}
+                          {detailsY !== null && (
+                            <Text position={[-0.88, detailsY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#a5b4fc" maxWidth={0.78}>
+                              {`${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`}
+                            </Text>
+                          )}
                         </>
-                      )}
-                    </>
-                  )}
-                  {selectedIndex > 2 && currentDetails.length > 0 && (
-                    <Text position={[-0.88, stageInfoY - (evts.length > 1 ? 0.14 : 0.105), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#a5b4fc" maxWidth={0.78}>
-                      {`${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`}
-                    </Text>
+                      )
+                    })()
                   )}
                 </>
               )
