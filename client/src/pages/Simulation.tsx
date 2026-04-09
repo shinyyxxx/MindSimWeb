@@ -2678,6 +2678,7 @@ function SoundReceiveEffect({
           durationMs: 1150, 
           arcHeight: 0.12,
           scale: 0.1,
+          lingerAtTargetMs: 1300,
           onArrive: (t) => flashGlowOnMental(t),
         })
       } finally {
@@ -2757,6 +2758,7 @@ function SoundReceiveEffect({
         durationMs: 1240,
         arcHeight: 0.12,
         scale: 0.1,
+        lingerAtTargetMs: 1300,
         onArrive: (t) => flashGlowOnMental(t),
       })
     },
@@ -6214,17 +6216,19 @@ export function Simulation(): React.ReactElement {
 
   useEffect(() => {
     if (!timelineSoundPending) return
+    if (timelineMode !== 'slideshow') return
     if (timelineIndex < 3) return
+    if (timelineIndex >= TIMELINE_STOPS.length - 1 && (ttsMuted || ttsStatus === 'waiting')) return
     if (soundReceiveActive || sceneReceiveActive) return
     setSoundReceiveFlowMode('ear-to-mind')
     setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Receiving...' })
     setSoundReceiveActive(true)
     setSoundReceiveRequestId((prev) => prev + 1)
-    setTimelineSoundPending(false)
-  }, [timelineIndex, timelineSoundPending, soundReceiveActive, sceneReceiveActive])
+  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, sceneReceiveActive, ttsMuted, ttsStatus])
 
   useEffect(() => {
     if (!timelineSoundPending) return
+    if (timelineMode !== 'slideshow') return
     if (timelineIndex >= 3) return
     if (soundReceiveActive || sceneReceiveActive) return
     const id = window.setTimeout(() => {
@@ -6234,7 +6238,19 @@ export function Simulation(): React.ReactElement {
       setSoundReceiveRequestId((prev) => prev + 1)
     }, 280)
     return () => window.clearTimeout(id)
-  }, [timelineIndex, timelineSoundPending, soundReceiveActive, sceneReceiveActive])
+  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, sceneReceiveActive])
+
+  useEffect(() => {
+    if (!timelineSoundPending) return
+    if (timelineMode !== 'slideshow') return
+    const reachedEnd = timelineIndex >= TIMELINE_STOPS.length - 1
+    const ttsFinished = ttsMuted || ttsStatus === 'waiting'
+    if (!reachedEnd || !ttsFinished) return
+    setTimelineSoundPending(false)
+    if (!soundReceiveActive) {
+      setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Delivered' })
+    }
+  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, ttsMuted, ttsStatus])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
@@ -7143,7 +7159,6 @@ export function Simulation(): React.ReactElement {
               setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Receiving...' })
               setSoundReceiveActive(true)
               setSoundReceiveRequestId((prev) => prev + 1)
-              setTimelineSoundPending(false)
               return
             }
             setSoundReceiveActive(false)

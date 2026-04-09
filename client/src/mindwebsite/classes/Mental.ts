@@ -555,6 +555,7 @@ export class Mental extends AbstractMental {
         durationMs?: number;
         arcHeight?: number;
         scale?: number;
+        lingerAtTargetMs?: number;
         basisPath?: string;
         dracoPath?: string;
         onArrive?: (target: Mental) => void;
@@ -725,9 +726,11 @@ export class Mental extends AbstractMental {
                     ribbonGeometry.setDrawRange(0, Math.max(0, (trailPoints.length - 1) * 6));
                 };
                 const duration = options.durationMs ?? 1400;
+                const lingerAtTargetMs = Math.max(0, options.lingerAtTargetMs ?? 0);
                 const arcHeight = options.arcHeight ?? 0.12;
                 const tmpEndLocal = new THREE.Vector3();
                 let animationFrame = 0;
+                let lingerTimeout: ReturnType<typeof setTimeout> | null = null;
                 let startTime = 0;
                 let disposed = false;
                 const disposePlane = () => {
@@ -735,6 +738,10 @@ export class Mental extends AbstractMental {
                         return;
                     disposed = true;
                     cancelAnimationFrame(animationFrame);
+                    if (lingerTimeout) {
+                        clearTimeout(lingerTimeout);
+                        lingerTimeout = null;
+                    }
                     parent.remove(plane);
                     if (trailLine.parent) {
                         trailLine.parent.remove(trailLine);
@@ -797,7 +804,15 @@ export class Mental extends AbstractMental {
                     }
                     else {
                         options.onArrive?.(target);
-                        disposePlane();
+                        if (lingerAtTargetMs > 0) {
+                            lingerTimeout = setTimeout(() => {
+                                lingerTimeout = null;
+                                disposePlane();
+                            }, lingerAtTargetMs);
+                        }
+                        else {
+                            disposePlane();
+                        }
                     }
                 };
                 animationFrame = requestAnimationFrame(step);
