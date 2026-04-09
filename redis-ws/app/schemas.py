@@ -311,6 +311,7 @@ class VithiEventResponse(BaseModel):
     mind_id_range: Optional[List[int]] = None
     mind_name: Optional[str] = None
     description: str
+    reason: str = ""
     mental_ids: List[int] = []
     mental_details: List[VithiMentalDetail] = []
 

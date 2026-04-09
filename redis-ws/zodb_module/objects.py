@@ -158,21 +158,46 @@ class PhassaObject(MentalSphereObject):
         )
         experience_weight = sanna.get_experience_weight()
 
+        _SENSE_OBJECT_LABEL = {
+            "eye": "a visible form", "ear": "a sound",
+            "nose": "an odor", "tongue": "a taste", "body": "a tactile sensation",
+        }
+        sense_obj = _SENSE_OBJECT_LABEL.get(sense, f"a {sense} object")
+        pleasant_label = "unpleasant" if desire == "bad" else "pleasant"
+
         events = []
         order = 0
         is_bad_initial = (desire == "bad")
 
         order += 1
         events.append(VithiEvent(order=order, stage="atita_bhavanga", mind_id=28,
-                                 description="Past bhavanga — last moment of life-continuum"))
+                                 description="Past bhavanga, last moment of life continuum",
+                                 reason=(
+                                     f"A {pleasant_label} object, {sense_obj}, is about to strike the {sense} sense door. "
+                                     f"This is the last moment of the resting bhavanga or life continuum before disruption."
+                                 )))
         order += 1
         events.append(VithiEvent(order=order, stage="bhavanga_calana", mind_id=28,
-                                 description="Bhavanga vibration — life-continuum disturbed"))
+                                 description="Bhavanga vibration, life continuum disturbed",
+                                 reason=(
+                                     f"The {pleasant_label} object, {sense_obj}, strikes the {sense} sense door "
+                                     f"causing the bhavanga or life continuum to vibrate."
+                                 )))
         order += 1
         events.append(VithiEvent(order=order, stage="bhavanga_upaccheda", mind_id=28,
-                                 description="Bhavanga arrest — life-continuum cut off"))
+                                 description="Bhavanga arrest, life continuum cut off",
+                                 reason=(
+                                     "The disturbance from the object is strong enough "
+                                     "to cut off the bhavanga stream and allow the cognitive process to begin."
+                                 )))
 
         if vividity in ("atiparittarammana", "parittarammana"):
+            events.append(VithiEvent(order=order + 1, stage="vithi_blocked", mind_id=None,
+                                     description="Object too faint, vithi does not proceed",
+                                     reason=(
+                                         "The object is too faint for the cognitive process "
+                                         "to proceed beyond bhavanga arrest. The mind sinks back into the bhavanga stream."
+                                     )))
             return {
                 "events": events,
                 "updated_experience_weight": experience_weight,
@@ -181,26 +206,34 @@ class PhassaObject(MentalSphereObject):
 
         order += 1
         events.append(VithiEvent(order=order, stage="pancadvaravajjana", mind_id=28,
-                                 description="Five-door adverting — attention turns to object"))
+                                 description="Five door adverting, attention turns to object",
+                                 reason=(
+                                     f"The five door adverting consciousness or pancadvaravajjana redirects awareness to {sense_obj} at the {sense} door. "
+                                     f"This is always the same kiriya citta that turns attention to the new object."
+                                 )))
 
-        pv_id, pv_desc = _pancavinnana(sense, is_bad_initial)
+        pv_id, pv_desc, pv_reason = _pancavinnana(sense, is_bad_initial)
         order += 1
-        events.append(VithiEvent(order=order, stage="pancavinnana", mind_id=pv_id, description=pv_desc))
+        events.append(VithiEvent(order=order, stage="pancavinnana", mind_id=pv_id,
+                                 description=pv_desc, reason=pv_reason))
 
-        sp_id, sp_desc = _sampaticchana(is_bad_initial)
+        sp_id, sp_desc, sp_reason = _sampaticchana(is_bad_initial)
         order += 1
-        events.append(VithiEvent(order=order, stage="sampaticchana", mind_id=sp_id, description=sp_desc))
+        events.append(VithiEvent(order=order, stage="sampaticchana", mind_id=sp_id,
+                                 description=sp_desc, reason=sp_reason))
 
-        st_id, st_desc = _santirana(is_bad_initial, desire)
+        st_id, st_desc, st_reason = _santirana(is_bad_initial, desire)
         order += 1
-        events.append(VithiEvent(order=order, stage="santirana", mind_id=st_id, description=st_desc))
+        events.append(VithiEvent(order=order, stage="santirana", mind_id=st_id,
+                                 description=st_desc, reason=st_reason))
 
-        vt_id, vt_desc, final_is_bad = _votthapana(
+        vt_id, vt_desc, final_is_bad, vt_reason = _votthapana(
             is_bad_initial, sense, experience_weight,
             anusaya_dosa, anusaya_lobha, yoniso_manasikara,
         )
         order += 1
-        events.append(VithiEvent(order=order, stage="votthapana", mind_id=vt_id, description=vt_desc))
+        events.append(VithiEvent(order=order, stage="votthapana", mind_id=vt_id,
+                                 description=vt_desc, reason=vt_reason))
 
         for jev in _javana(final_is_bad, vividity, person_type,
                           sense=sense, desire=desire,

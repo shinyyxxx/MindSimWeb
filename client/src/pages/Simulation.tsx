@@ -96,6 +96,7 @@ interface VithiEvent {
   mind_id_range: number[] | null
   mind_name: string | null
   description: string
+  reason?: string
   mental_ids?: number[]
   mental_details?: VithiMentalDetail[]
 }
@@ -3216,6 +3217,16 @@ function TimelineCanvas({
                       <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                         {currentEvt.description}
                       </div>
+                      {currentEvt.reason && (
+                        <div style={{
+                          fontSize: 10, color: '#a78bfa', marginTop: 4,
+                          padding: '4px 6px', borderRadius: 4,
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          lineHeight: 1.4,
+                        }}>
+                          {currentEvt.reason}
+                        </div>
+                      )}
                       {selectedIndex === 2 && vithiResultType === 'blocked' && (
                         <div style={{
                           marginTop: 6, padding: '6px 8px', borderRadius: 6,
@@ -4174,8 +4185,13 @@ function XRTimelinePanel({
                       <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.075 : 0.055), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
                         {currentEvt.description}
                       </Text>
+                      {currentEvt.reason && (
+                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.1 : 0.08), 0.006]} anchorX="left" anchorY="middle" fontSize={0.012} color="#a78bfa" maxWidth={0.74}>
+                          {currentEvt.reason}
+                        </Text>
+                      )}
                       {selectedIndex === 2 && vithiResultType === 'blocked' && (
-                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.095 : 0.08), 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#fca5a5" maxWidth={0.74}>
+                        <Text position={[-0.88, stageInfoY - (selectedIndex > 2 ? 0.12 : 0.1), 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#fca5a5" maxWidth={0.74}>
                           Object too faint — no further cetasikas or cognitive stages arise from this point onward.
                         </Text>
                       )}

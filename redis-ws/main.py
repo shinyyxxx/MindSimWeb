@@ -741,6 +741,7 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
                 mind_id_range=ev.mind_id_range,
                 mind_name=mind_name,
                 description=ev.description,
+                reason=ev.reason,
                 mental_ids=mental_ids,
                 mental_details=mental_details,
             ))
