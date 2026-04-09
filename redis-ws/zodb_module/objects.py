@@ -201,7 +201,10 @@ class PhassaObject(MentalSphereObject):
         order += 1
         events.append(VithiEvent(order=order, stage="votthapana", mind_id=vt_id, description=vt_desc))
 
-        for jev in _javana(final_is_bad, vividity, person_type):
+        for jev in _javana(final_is_bad, vividity, person_type,
+                          sense=sense, desire=desire,
+                          yoniso_manasikara=yoniso_manasikara,
+                          desirability=desirability):
             order += 1
             jev.order = order
             events.append(jev)

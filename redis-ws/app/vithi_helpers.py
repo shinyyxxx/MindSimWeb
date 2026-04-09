@@ -83,38 +83,39 @@ _PERSON_AKUSALA_RANGE = {
 }
 
 
-def _javana(is_bad: bool, vividity: str, person_type: str):
+def _javana(is_bad: bool, vividity: str, person_type: str,
+            sense: str = "", desire: str = "",
+            yoniso_manasikara: bool = False, desirability: str = "moderate"):
     events = []
     if vividity not in ("mahantarammana", "atimahantarammana"):
         return events
 
-    for i in range(7):
-        if person_type == "arahant":
-            if not is_bad:
-                events.append(VithiEvent(
-                    order=0, stage="javana", mind_id=30,
-                    description=f"Javana {i+1}/7 — arahant functional (hasituppada)",
-                ))
-            else:
-                events.append(VithiEvent(
-                    order=0, stage="javana", mind_id=None,
-                    mind_id_range=list(range(47, 55)),
-                    description=f"Javana {i+1}/7 — arahant kiriya citta",
-                ))
+    if person_type == "arahant":
+        if not is_bad:
+            mid, label = 30, "hasituppada (smile-producing)"
         else:
-            if is_bad:
-                akusala_range = _PERSON_AKUSALA_RANGE.get(person_type, list(range(1, 13)))
-                events.append(VithiEvent(
-                    order=0, stage="javana", mind_id=None,
-                    mind_id_range=akusala_range,
-                    description=f"Javana {i+1}/7 — akusala citta ({person_type})",
-                ))
-            else:
-                events.append(VithiEvent(
-                    order=0, stage="javana", mind_id=None,
-                    mind_id_range=list(range(31, 39)),
-                    description=f"Javana {i+1}/7 — kusala citta",
-                ))
+            mid, label = 47, "arahant kiriya citta"
+    elif is_bad:
+        if desire == "good":
+            mid, label = 1, "lobha-rooted (greed, attachment to pleasant object, unprompted)"
+        else:
+            mid, label = 9, "dosa-rooted (hatred, aversion, unprompted)"
+    else:
+        # Kusala — pick based on wisdom and feeling quality
+        if yoniso_manasikara:
+            mid, label = 31, "kusala (joy, with wisdom, unprompted)"
+        elif desirability == "excellent":
+            mid, label = 33, "kusala (joy, without wisdom, unprompted)"
+        elif vividity == "mahantarammana":
+            mid, label = 35, "kusala (equanimity, with wisdom, unprompted)"
+        else:
+            mid, label = 37, "kusala (equanimity, without wisdom, unprompted)"
+
+    for i in range(7):
+        events.append(VithiEvent(
+            order=0, stage="javana", mind_id=mid,
+            description=f"Javana {i+1}/7 — {label}",
+        ))
     return events
 
 
@@ -124,25 +125,17 @@ def _tadalammana(vividity: str, desire: str, desirability: str):
         return events
 
     if desire == "bad":
-        for i in range(2):
-            events.append(VithiEvent(
-                order=0, stage="tadalammana", mind_id=19,
-                description=f"Registration {i+1}/2 — akusala vipaka santirana (unpleasant object)",
-            ))
+        mid, label = 19, "akusala vipaka santirana (unpleasant object)"
     elif desirability == "excellent":
-        for i in range(2):
-            events.append(VithiEvent(
-                order=0, stage="tadalammana", mind_id=None,
-                mind_id_range=[27, 39, 40, 41, 42],
-                description=f"Registration {i+1}/2 — somanassa tadalammana (excellent object)",
-            ))
+        mid, label = 39, "somanassa vipaka (excellent object, with wisdom, unprompted)"
     else:
-        for i in range(2):
-            events.append(VithiEvent(
-                order=0, stage="tadalammana", mind_id=None,
-                mind_id_range=[26, 43, 44, 45, 46],
-                description=f"Registration {i+1}/2 — upekkha tadalammana (moderately good object)",
-            ))
+        mid, label = 43, "upekkha vipaka (moderate object, with wisdom, unprompted)"
+
+    for i in range(2):
+        events.append(VithiEvent(
+            order=0, stage="tadalammana", mind_id=mid,
+            description=f"Registration {i+1}/2 — {label}",
+        ))
     return events
 
 
