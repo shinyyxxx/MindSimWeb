@@ -3511,11 +3511,11 @@ function XRTimelineToggle({
       if (inputSource.handedness !== 'right') continue
       const gamepad = (inputSource as { gamepad?: Gamepad }).gamepad
       if (!gamepad || !gamepad.buttons?.length) continue
-      // Runtime mappings differ across browsers/devices; cover common B-slot indices.
+      // Right controller: B button only (do not toggle on A).
+      // Keep a conservative fallback for runtimes that expose only 4 face buttons.
       bPressed = Boolean(
         gamepad.buttons[5]?.pressed ||
-        gamepad.buttons[4]?.pressed ||
-        gamepad.buttons[3]?.pressed
+        (!gamepad.buttons[5] && gamepad.buttons[3]?.pressed)
       )
       if (bPressed) break
     }
