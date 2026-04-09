@@ -324,7 +324,7 @@ export function CodeRunner(): React.ReactElement {
   }, [handleExecute])
 
   return (
-    <main className="page">
+    <main className="page cr-code-runner-page">
       <div className="cr-layout">
         <section className="cr-editor-panel">
           <div className="cr-editor-header">
@@ -387,7 +387,7 @@ export function CodeRunner(): React.ReactElement {
           )}
 
           {localResult && (
-            <>
+            <div className="cr-result-stack">
               <div className="cr-summary">
                 <span className="cr-summary-msg">
                   Parsed {localResult.mindCount} mind(s) and {localResult.mentalCount} mental(s)
@@ -403,8 +403,41 @@ export function CodeRunner(): React.ReactElement {
                 </div>
               </div>
 
+              {sceneMind && (
+                <div className="cr-section cr-playground-embed-section">
+                  <div className="cr-playground-header cr-playground-header--inline">
+                    <h3 className="cr-section-title" style={{ margin: 0 }}>
+                      3D Playground
+                    </h3>
+                    <span className="cr-playground-hint">Orbit · zoom · fills column height</span>
+                  </div>
+                  <div className="cr-playground-canvas cr-playground-canvas--embed">
+                    <Canvas
+                      camera={{ position: [0, 0, 4], fov: 60 }}
+                      shadows
+                      gl={{ antialias: true, toneMappingExposure: 1.2 }}
+                    >
+                      <Environment preset="dawn" background blur={1} />
+                      <OrbitControls
+                        enableDamping
+                        dampingFactor={0.05}
+                        enableZoom
+                        enablePan
+                        minDistance={1}
+                        maxDistance={10}
+                      />
+                      <ambientLight intensity={1.0} />
+                      <directionalLight position={[5, 8, 5]} intensity={2.0} castShadow />
+                      <directionalLight position={[-5, 3, -5]} intensity={1.5} />
+                      <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
+                      <MindSphere mind={sceneMind} />
+                    </Canvas>
+                  </div>
+                </div>
+              )}
+
               {localResult.log.length > 0 && (
-                <div className="cr-section">
+                <div className="cr-section cr-section--shrink">
                   <h3 className="cr-section-title">Execution Log</h3>
                   <div className="cr-log">
                     {localResult.log.map((entry, i) => (
@@ -416,56 +449,32 @@ export function CodeRunner(): React.ReactElement {
                   </div>
                 </div>
               )}
-
-              {result && result.execution_log.length > 0 && (
-                <div className="cr-section">
-                  <h3 className="cr-section-title">Backend Log</h3>
-                  <div className="cr-log">
-                    {result.execution_log.map((entry, i) => (
-                      <div key={i} className="cr-log-entry">
-                        <span className="cr-log-idx">{i + 1}</span>
-                        {entry}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           )}
         </section>
       </div>
 
-      {sceneMind && (
+      {result && result.execution_log.length > 0 && (
         <>
           <div className="cr-resize-handle" onMouseDown={handleResizeStart}>
             <div className="cr-resize-grip" />
           </div>
-          <section className="cr-playground-panel" style={{ height: playgroundHeight }}>
+          <section className="cr-playground-panel cr-backend-log-panel" style={{ height: playgroundHeight }}>
             <div className="cr-playground-header">
-              <h3 className="cr-section-title" style={{ margin: 0 }}>3D Playground</h3>
+              <h3 className="cr-section-title" style={{ margin: 0 }}>
+                Backend Log
+              </h3>
               <span className="cr-playground-hint">Drag the handle above to resize</span>
             </div>
-            <div className="cr-playground-canvas">
-              <Canvas
-                camera={{ position: [0, 0, 4], fov: 60 }}
-                shadows
-                gl={{ antialias: true, toneMappingExposure: 1.2 }}
-              >
-                <Environment preset="dawn" background blur={1} />
-                <OrbitControls
-                  enableDamping
-                  dampingFactor={0.05}
-                  enableZoom
-                  enablePan
-                  minDistance={1}
-                  maxDistance={10}
-                />
-                <ambientLight intensity={1.0} />
-                <directionalLight position={[5, 8, 5]} intensity={2.0} castShadow />
-                <directionalLight position={[-5, 3, -5]} intensity={1.5} />
-                <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
-                <MindSphere mind={sceneMind} />
-              </Canvas>
+            <div className="cr-backend-log-body">
+              <div className="cr-log cr-log--fill">
+                {result.execution_log.map((entry, i) => (
+                  <div key={i} className="cr-log-entry">
+                    <span className="cr-log-idx">{i + 1}</span>
+                    {entry}
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         </>

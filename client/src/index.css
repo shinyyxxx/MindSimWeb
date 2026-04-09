@@ -1733,6 +1733,18 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   padding: 18px;
   min-height: calc(100vh - 68px);
 }
+/* Code Runner: fill viewport so the result column + 3D playground can grow. */
+.cr-code-runner-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+.cr-code-runner-page .cr-layout {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
 .cr-editor-panel,
 .cr-result-panel {
   background: #fff;
@@ -1743,6 +1755,26 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   flex-direction: column;
   overflow: hidden;
   min-height: 520px;
+}
+.cr-code-runner-page .cr-editor-panel,
+.cr-code-runner-page .cr-result-panel {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
+.cr-result-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.cr-result-stack .cr-summary {
+  flex-shrink: 0;
+}
+.cr-section--shrink {
+  flex-shrink: 0;
 }
 .cr-editor-header {
   padding: 16px 18px 14px;
@@ -1999,6 +2031,51 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
 .cr-playground-canvas {
   flex: 1;
   min-height: 0;
+}
+
+.cr-playground-header--inline {
+  padding: 0 0 10px;
+  border-bottom: none;
+}
+.cr-playground-canvas--embed {
+  flex: 1;
+  min-height: 200px;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  background: #0b1220;
+}
+.cr-playground-embed-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+.cr-playground-embed-section .cr-section-title {
+  flex-shrink: 0;
+}
+.cr-playground-embed-section .cr-playground-header--inline {
+  flex-shrink: 0;
+}
+
+.cr-backend-log-panel {
+  flex-direction: column;
+}
+.cr-backend-log-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 18px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.cr-log--fill {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 @media (max-width: 900px) {
