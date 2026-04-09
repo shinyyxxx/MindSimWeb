@@ -3381,7 +3381,7 @@ function TimelineCanvas({
                 {slideshowPaused ? '▶ Play' : '⏸ Pause'}
               </button>
               <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                {slideshowPaused ? 'Paused' : 'Auto-advance every 10s'}
+                {slideshowPaused ? 'Paused' : 'Auto-advance every 20s'}
               </span>
             </div>
           )}
