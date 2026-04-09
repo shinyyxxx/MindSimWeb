@@ -1,15 +1,12 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
-import { SamskaraDemo } from '../components/SamskaraDemo'
-
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { SamskaraDemo } from '../components/SamskaraDemo';
 export function Home(): React.ReactElement {
-  const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
-
-  return (
-    <main className="page">
+    const asset = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+    return (<main className="page">
       <section className="hero-section">
         <div className="hero-content">
-          <img className="logo" src={asset('/assets/logoP.png')} alt="Logo" />
+          <img className="logo" src={asset('/assets/logoP.png')} alt="Logo"/>
           <h1 className="hero-heading">Welcome to Mindsim</h1>
           <p className="hero-text">
             Explore and visualize mental factors in an interactive 3D environment
@@ -37,31 +34,18 @@ export function Home(): React.ReactElement {
             </p>
           </div>
           <div className="skandha-3d">
-            <model-viewer
-              src={asset('/assets/humanMind/human.gltf')}
-              alt="Human form 3D model"
-              camera-controls
-              disable-zoom
-              auto-rotate
-              rotation-per-second="20deg"
-              touch-action="pan-y"
-              style={{ width: '100%', height: '100%' }}
-            ></model-viewer>
+            <model-viewer src={asset('/assets/humanMind/human.gltf')} alt="Human form 3D model" camera-controls disable-zoom auto-rotate rotation-per-second="20deg" touch-action="pan-y" style={{ width: '100%', height: '100%' }}></model-viewer>
           </div>
         </div>
 
         <div className="skandha-item">
           <div className="skandha-3d" style={{ background: 'white' }}>
-            <img
-              src={asset('/assets/emotion/emotion.png')}
-              alt="Emotion"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
+            <img src={asset('/assets/emotion/emotion.png')} alt="Emotion" style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+        }}/>
           </div>
           <div className="skandha-card">
             <div style={{ fontSize: 48, color: '#e74c3c' }}>♥</div>
@@ -81,16 +65,12 @@ export function Home(): React.ReactElement {
             </p>
           </div>
           <div className="skandha-3d" style={{ background: 'white' }}>
-            <img
-              src={asset('/assets/optical/opticBunny.png')}
-              alt="Optical perception"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
+            <img src={asset('/assets/optical/opticBunny.png')} alt="Optical perception" style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+        }}/>
           </div>
         </div>
 
@@ -114,16 +94,7 @@ export function Home(): React.ReactElement {
             </p>
           </div>
           <div className="skandha-3d">
-            <model-viewer
-              src={asset('/assets/brain/scene.gltf')}
-              alt="Brain 3D model"
-              camera-controls
-              disable-zoom
-              auto-rotate
-              rotation-per-second="15deg"
-              touch-action="pan-y"
-              style={{ width: '100%', height: '100%' }}
-            ></model-viewer>
+            <model-viewer src={asset('/assets/brain/scene.gltf')} alt="Brain 3D model" camera-controls disable-zoom auto-rotate rotation-per-second="15deg" touch-action="pan-y" style={{ width: '100%', height: '100%' }}></model-viewer>
           </div>
         </div>
       </section>
@@ -135,26 +106,14 @@ export function Home(): React.ReactElement {
           <Link className="btn btn-white" to="/register">
             Create Account
           </Link>
-          <Link
-            className="btn btn-outline"
-            to="/login"
-            style={{
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              borderColor: 'white',
-            }}
-          >
+          <Link className="btn btn-outline" to="/login" style={{
+            background: 'rgba(255,255,255,0.2)',
+            color: 'white',
+            borderColor: 'white',
+        }}>
             Learn More
           </Link>
         </div>
       </section>
-    </main>
-  )
+    </main>);
 }
-
-
-
-
-
-
-

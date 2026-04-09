@@ -1,12 +1,10 @@
-import React from 'react'
-import { NavLink } from 'react-router-dom'
-
+import React from 'react';
+import { NavLink } from 'react-router-dom';
 export function Navbar(): React.ReactElement {
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `link ${isActive ? 'active' : ''}`
-
-  return (
-    <header className="nav">
+    const linkClass = ({ isActive }: {
+        isActive: boolean;
+    }) => `link ${isActive ? 'active' : ''}`;
+    return (<header className="nav">
       <NavLink className="brand" to="/">
         Mindsim
       </NavLink>
@@ -27,13 +25,5 @@ export function Navbar(): React.ReactElement {
           Simulation
         </NavLink>
       </nav>
-    </header>
-  )
+    </header>);
 }
-
-
-
-
-
-
-
