@@ -1776,7 +1776,7 @@ function MentalsLayer({
       onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
       const sendPromise = currentSender.sendDataTo(gl, found, {
         planeModelPath,
-        durationMs: 5600,
+        durationMs: 3900,
         arcHeight: 0.14,
         scale: 0.1,
         onArrive: (t) => flashGlowOnMental(t),
@@ -2675,7 +2675,7 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, target, {
           planeModelPath,
-          durationMs: 4200,
+          durationMs: 3150, 
           arcHeight: 0.12,
           scale: 0.1,
           onArrive: (t) => flashGlowOnMental(t),
@@ -2736,7 +2736,7 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, receiver, {
           planeModelPath,
-          durationMs: 3920,
+          durationMs: 2940,
           arcHeight: 0.12,
           scale: 0.1,
         })
@@ -2754,7 +2754,7 @@ function SoundReceiveEffect({
     async (sender: Mental, receiver: Mental): Promise<void> => {
       await sender.sendDataTo(gl, receiver, {
         planeModelPath,
-        durationMs: 3920,
+        durationMs: 2940,
         arcHeight: 0.12,
         scale: 0.1,
         onArrive: (t) => flashGlowOnMental(t),
