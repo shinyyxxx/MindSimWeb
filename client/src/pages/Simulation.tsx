@@ -73,7 +73,8 @@ import { useXRSession } from './simulation/useXRSession'
 import { useStationaryDraggableXrPanel } from './simulation/useStationaryDraggableXrPanel'
 import { cancelNarration, speakNarration } from './simulation/narration'
 import { detailTextForVoiceNarration } from '../utils/inspectVoiceText'
-import { CodeParser, type ParsedAction } from '../utils/codeParser'
+import { CodeParser, stripDslExplainLines, type ParsedAction } from '../utils/codeParser'
+import { playTextToSpeech } from '../utils/googleTts'
 import { validateMentalComposition, PERSON_TYPES, type PersonType } from '../utils/mentalValidation'
 import perceptionBowlModel from '../assets/bowl.glb?url'
 import paperPlaneModel from '../assets/paper_plane.glb?url'
@@ -5753,7 +5754,44 @@ export function Simulation(): React.ReactElement {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
     scriptMentalMapRef.current.clear()
 
-    actions.forEach((action) => {
+    for (const action of actions) {
+      if (action.type === 'variable_explain') {
+        if (action.variableKind === 'mind') {
+          if (action.text !== null) mind.setDetail(action.text)
+          const label = mind.getName()
+          const detailTrim = (mind.getDetail() || '').trim()
+          const speak =
+            action.text !== null
+              ? `${label}. ${action.text}`
+              : detailTrim.length > 0
+                ? `${label}. ${detailTrim}`
+                : label
+          try {
+            await playTextToSpeech(speak)
+          } catch {
+            /* TTS optional */
+          }
+        } else {
+          if (!linkedMentalVars.has(action.variable)) continue
+          const mental = nowMentalsByVar.get(action.variable)
+          if (!mental) continue
+          if (action.text !== null) mental.setDetail(action.text)
+          const label = mental.getName()
+          const detailTrim = (mental.getDetail() || '').trim()
+          const speak =
+            action.text !== null
+              ? `${label}. ${action.text}`
+              : detailTrim.length > 0
+                ? `${label}. ${detailTrim}`
+                : label
+          try {
+            await playTextToSpeech(speak)
+          } catch {
+            /* TTS optional */
+          }
+        }
+        continue
+      }
       if (action.type === 'create_mind') {
         scriptMindVars.add(action.variable)
         mind.setName(action.data.name || mind.getName())
@@ -5761,7 +5799,7 @@ export function Simulation(): React.ReactElement {
         mind.setScale(action.data.scale || DEFAULT_MIND_SCALE)
         mind.setPosition(action.data.position || DEFAULT_MIND_POSITION)
       } else if (action.type === 'create_mental') {
-        if (!linkedMentalVars.has(action.variable)) return
+        if (!linkedMentalVars.has(action.variable)) continue
         const targetName = plannedMentalNameByVar.get(action.variable) || action.data.name || ''
         const maybeName = normalizeMentalName(targetName)
         const matchedDefault =
@@ -5802,9 +5840,9 @@ export function Simulation(): React.ReactElement {
           if (vec) mind.setPosition(vec)
         }
       } else if (action.type === 'update_mental_attribute') {
-        if (!linkedMentalVars.has(action.variable)) return
+        if (!linkedMentalVars.has(action.variable)) continue
         const mental = nowMentalsByVar.get(action.variable)
-        if (!mental) return
+        if (!mental) continue
         if (action.attribute === 'name') mental.setName(action.value)
         else if (action.attribute === 'color') mental.setColor(action.value)
         else if (action.attribute === 'scale') {
@@ -5824,7 +5862,7 @@ export function Simulation(): React.ReactElement {
           scriptMindVars.add(action.mindVariable)
         }
       }
-    })
+    }
 
     // Collect all mental names for validation
     const allLinkedNames: string[] = []
@@ -5842,7 +5880,7 @@ export function Simulation(): React.ReactElement {
     const localMsg = `Applied ${actions.length} action(s), ${scriptMindVars.size} mind var(s), ${linkedMentalVars.size} linked mental var(s), ${newMentalsByVar.size} scripted + ${usedDefaultMentals.size} matched default mental(s).`
     setCodeRunnerStatus(`${localMsg} Persisting...`)
 
-    const pythonCode = convertDslToPython(codeRunnerCode)
+    const pythonCode = convertDslToPython(stripDslExplainLines(codeRunnerCode))
     try {
       const res = await fetch(`${API_BASE}/api/execute_code`, {
         method: 'POST',

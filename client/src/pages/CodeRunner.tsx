@@ -3,7 +3,8 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { Mind } from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
-import { CodeParser, type ParsedAction } from '../utils/codeParser'
+import { CodeParser, stripDslExplainLines, type ParsedAction } from '../utils/codeParser'
+import { playTextToSpeech } from '../utils/googleTts'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
 
@@ -207,6 +208,34 @@ export function CodeRunner(): React.ReactElement {
     })
 
     for (const action of actions) {
+      if (action.type === 'variable_explain') {
+        const mind = mindsByVar.get(action.variable)
+        const mental = mentalsByVar.get(action.variable)
+        if (!mind && !mental) {
+          log.push(`Explain skipped: unknown variable '${action.variable}'`)
+          continue
+        }
+        const label = mind ? mind.getName() : mental!.getName()
+        const explicit = action.text
+        if (explicit !== null) {
+          if (mind) mind.setDetail(explicit)
+          else mental!.setDetail(explicit)
+        }
+        const detailTrim = (mind ? mind.getDetail() : mental!.getDetail() || '').trim()
+        const speak =
+          explicit !== null
+            ? `${label}. ${explicit}`
+            : detailTrim.length > 0
+              ? `${label}. ${detailTrim}`
+              : label
+        log.push(`TTS (${action.variable}): ${speak}`)
+        try {
+          await playTextToSpeech(speak)
+        } catch (err) {
+          log.push(`TTS error: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        continue
+      }
       if (action.type === 'create_mind') {
         const mind = new Mind({
           name: action.data.name,
@@ -286,7 +315,7 @@ export function CodeRunner(): React.ReactElement {
 
     setLoading(true)
     try {
-      const pythonCode = convertDslToPython(code)
+      const pythonCode = convertDslToPython(stripDslExplainLines(code))
       const res = await fetch(`${API_BASE}/api/execute_code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -332,6 +361,7 @@ export function CodeRunner(): React.ReactElement {
               <h1 className="cr-title">Code Runner</h1>
               <p className="cr-subtitle">
                 Write or upload code using <code>Mind()</code> and <code>*Mental()</code> with <code>.add()</code> to create objects.
+                Use <code>variable.explain = &quot;…&quot;</code> (set detail + TTS) or <code>variable.explain()</code> (TTS: detail, or name if empty).
               </p>
             </div>
             <div className="cr-actions">

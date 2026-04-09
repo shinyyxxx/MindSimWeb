@@ -36,12 +36,36 @@ export type ParsedAction = {
     type: 'add_mental_to_mind';
     mindVariable: string;
     mentalVariable: string;
+} | {
+    type: 'variable_explain';
+    variable: string;
+    variableKind: 'mind' | 'mental';
+    /** Assignment text, or `null` for `var.explain()` (speak detail, else name). */
+    text: string | null;
 };
 type VarType = 'mind' | 'mental';
 type VarInfo = {
     type: VarType;
     id: number | null;
 };
+
+/** `variable.explain = "…"` and `variable.explain()` are frontend-only; Python has no `explain`. */
+export function stripDslExplainLines(dsl: string): string {
+    return dsl
+        .split('\n')
+        .filter((line) => {
+            const t = line.trim();
+            if (!t)
+                return true;
+            if (/^\w+\.explain\s*=/.test(t))
+                return false;
+            if (/^\w+\.explain\s*\(\s*\)\s*;?\s*$/.test(t))
+                return false;
+            return true;
+        })
+        .join('\n');
+}
+
 export class CodeParser {
     private variables = new Map<string, VarInfo>();
     private minds = new Map<string, unknown>();
@@ -107,6 +131,22 @@ export class CodeParser {
                         data: { name: inferredName, color: '#ff6b9d', scale: 0.1, position: [0, 0, 0] },
                     });
                 }
+                else if (/^\w+\.explain\s*\(\s*\)\s*;?\s*$/.test(trimmed)) {
+                    const match = trimmed.match(/^(\w+)\.explain\s*\(\s*\)\s*;?\s*$/);
+                    if (!match)
+                        continue;
+                    const varName = match[1];
+                    const varInfo = this.variables.get(varName);
+                    if (!varInfo) {
+                        throw new Error(`Line ${lineNo}: variable "${varName}" not found`);
+                    }
+                    actions.push({
+                        type: 'variable_explain',
+                        variable: varName,
+                        variableKind: varInfo.type,
+                        text: null,
+                    });
+                }
                 else if (/^\w+\.\w+\s*=\s*.+/.test(trimmed)) {
                     const match = trimmed.match(/^(\w+)\.(\w+)\s*=\s*(.+)/);
                     if (!match)
@@ -122,7 +162,15 @@ export class CodeParser {
                     if (!varInfo) {
                         throw new Error(`Line ${lineNo}: variable "${varName}" not found`);
                     }
-                    if (varInfo.type === 'mind') {
+                    if (attribute === 'explain') {
+                        actions.push({
+                            type: 'variable_explain',
+                            variable: varName,
+                            variableKind: varInfo.type,
+                            text: value,
+                        });
+                    }
+                    else if (varInfo.type === 'mind') {
                         actions.push({
                             type: 'update_mind_attribute',
                             variable: varName,
@@ -219,6 +267,8 @@ export class CodeParser {
                         },
                         request_id: `add_${action.mindVariable}_${action.mentalVariable}_${Date.now()}`,
                     });
+                    break;
+                case 'variable_explain':
                     break;
             }
         }
