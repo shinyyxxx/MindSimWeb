@@ -21,6 +21,10 @@ type ActivePulseAnimation = {
     fromWorldSize: number;
     toWorldSize: number;
     fromOpacity: number;
+    pulseModel: THREE.Object3D;
+    parentMesh: THREE.Object3D;
+    baseModelWorldSize: number;
+    baseModelLocalScale: number;
 };
 export class Mental extends AbstractMental {
     modelPath?: string;
@@ -66,7 +70,7 @@ export class Mental extends AbstractMental {
         this.modelLoadToken = 0;
         this.activePulseAnimation = null;
         this.pendingActivePulse = false;
-        this.activePulseMaxWorldSize = 1.2;
+        this.activePulseMaxWorldSize = 10.4;
         this.normalizeVelocityToMotionSpeed();
     }
     createMaterial(): void {
@@ -203,29 +207,51 @@ export class Mental extends AbstractMental {
         const eased = 1 - Math.pow(1 - t, 3);
         const worldSize = THREE.MathUtils.lerp(anim.fromWorldSize, anim.toWorldSize, eased);
         const opacity = THREE.MathUtils.lerp(anim.fromOpacity, 0, t);
-        this.applyAttachedModelPulseVisual(worldSize, opacity);
+        this.applyPulseModelVisual(anim.pulseModel, anim.baseModelLocalScale, anim.baseModelWorldSize, worldSize, opacity);
         if (t >= 1) {
+            this.removePulseModel(anim.pulseModel, anim.parentMesh);
             this.activePulseAnimation = null;
-            this.applyAttachedModelPulseVisual(this.modelTargetWorldSize, this.modelOpacity);
         }
     }
     private tryStartActivePulse(): void {
-        if (!this.attachedModel || !this.mesh) {
+        if (!this.attachedModel || !this.mesh?.parent) {
             return;
         }
-        const baseWorldSize = Math.max(0.01, this.modelTargetWorldSize);
-        const mindWorldRadius = this.getParentMindWorldRadius();
-        const mindCap = mindWorldRadius ? Math.max(0.02, mindWorldRadius * 0.92) : this.activePulseMaxWorldSize;
-        const toWorldSize = Math.max(baseWorldSize, Math.min(this.activePulseMaxWorldSize, mindCap, baseWorldSize * 4));
+        if (this.activePulseAnimation) {
+            this.removePulseModel(this.activePulseAnimation.pulseModel, this.activePulseAnimation.parentMesh);
+            this.activePulseAnimation = null;
+        }
+        const parentMesh = this.mesh.parent;
+        const pulseModel = this.cloneModelForActivePulse(this.attachedModel);
+        pulseModel.rotation.set(0, 0, 0);
+        parentMesh.add(pulseModel);
+        parentMesh.updateMatrixWorld(true);
+        pulseModel.updateMatrixWorld(true);
+        const sourceWorldSize = this.getObjectWorldMaxSize(this.attachedModel);
+        const sourceWorldHeight = this.getObjectWorldHeight(this.attachedModel);
+        const baseWorldSize = Math.max(0.02, sourceWorldSize);
+        const mindWorldRadius = this.getObjectWorldScale(parentMesh);
+        const maxWorldSize = Math.min(this.activePulseMaxWorldSize, mindWorldRadius * 2.0);
+        const toWorldSize = Math.max(baseWorldSize, maxWorldSize);
+        const downOffsetWorld = Math.max(sourceWorldHeight * 0.7, mindWorldRadius * 0.45);
+        const downOffsetLocal = downOffsetWorld / Math.max(0.00001, mindWorldRadius);
+        pulseModel.position.y -= downOffsetLocal;
+        pulseModel.updateMatrixWorld(true);
+        const baseModelWorldSize = Math.max(0.00001, this.getObjectWorldMaxSize(pulseModel));
+        const baseModelLocalScale = pulseModel.scale.x;
         this.activePulseAnimation = {
             elapsedMs: 0,
             durationMs: 720,
             fromWorldSize: baseWorldSize,
             toWorldSize,
             fromOpacity: this.modelOpacity,
+            pulseModel,
+            parentMesh,
+            baseModelWorldSize,
+            baseModelLocalScale,
         };
         this.pendingActivePulse = false;
-        this.applyAttachedModelPulseVisual(baseWorldSize, this.modelOpacity);
+        this.applyPulseModelVisual(pulseModel, baseModelLocalScale, baseModelWorldSize, baseWorldSize, this.modelOpacity);
     }
     private getParentMindWorldRadius(): number | null {
         if (!this.mesh?.parent) {
@@ -262,6 +288,97 @@ export class Mental extends AbstractMental {
                 mesh.material.opacity = safeOpacity;
                 mesh.material.depthWrite = false;
                 mesh.material.needsUpdate = true;
+            }
+        });
+    }
+    private getObjectWorldScale(obj: THREE.Object3D): number {
+        const worldScale = new THREE.Vector3();
+        obj.getWorldScale(worldScale);
+        const s = Math.max(worldScale.x, worldScale.y, worldScale.z);
+        return Number.isFinite(s) && s > 0 ? s : 1;
+    }
+    private getObjectWorldMaxSize(obj: THREE.Object3D): number {
+        const box = new THREE.Box3().setFromObject(obj);
+        if (box.isEmpty()) {
+            return 0;
+        }
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        return Math.max(size.x, size.y, size.z);
+    }
+    private getObjectWorldHeight(obj: THREE.Object3D): number {
+        const box = new THREE.Box3().setFromObject(obj);
+        if (box.isEmpty()) {
+            return 0;
+        }
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        return size.y;
+    }
+    private cloneModelForActivePulse(source: THREE.Object3D): THREE.Object3D {
+        const clone = source.clone(true);
+        clone.userData.isMentalActivePulseClone = true;
+        clone.traverse((node) => {
+            if (!(node as THREE.Mesh).isMesh) {
+                return;
+            }
+            const mesh = node as THREE.Mesh;
+            if (Array.isArray(mesh.material)) {
+                mesh.material = mesh.material.map((mat) => mat.clone());
+            }
+            else if (mesh.material) {
+                mesh.material = mesh.material.clone();
+            }
+        });
+        clone.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(clone);
+        if (!box.isEmpty()) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            clone.position.sub(center);
+        }
+        clone.updateMatrixWorld(true);
+        return clone;
+    }
+    private applyPulseModelVisual(model: THREE.Object3D, baseModelLocalScale: number, baseModelWorldSize: number, worldSize: number, opacity: number): void {
+        const ratio = Math.max(0.00001, worldSize) / Math.max(0.00001, baseModelWorldSize);
+        model.scale.setScalar(baseModelLocalScale * ratio);
+        const safeOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+        model.traverse((node) => {
+            if (!(node as THREE.Mesh).isMesh) {
+                return;
+            }
+            const mesh = node as THREE.Mesh;
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((mat) => {
+                    mat.transparent = true;
+                    mat.opacity = safeOpacity;
+                    mat.depthWrite = false;
+                    mat.needsUpdate = true;
+                });
+            }
+            else if (mesh.material) {
+                mesh.material.transparent = true;
+                mesh.material.opacity = safeOpacity;
+                mesh.material.depthWrite = false;
+                mesh.material.needsUpdate = true;
+            }
+        });
+    }
+    private removePulseModel(model: THREE.Object3D, parentMesh: THREE.Object3D): void {
+        if (model.parent === parentMesh) {
+            parentMesh.remove(model);
+        }
+        model.traverse((node) => {
+            if (!(node as THREE.Mesh).isMesh) {
+                return;
+            }
+            const mesh = node as THREE.Mesh;
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((mat) => mat.dispose());
+            }
+            else if (mesh.material) {
+                mesh.material.dispose();
             }
         });
     }
@@ -692,7 +809,11 @@ export class Mental extends AbstractMental {
     }
     detachModel(): void {
         this.modelLoadToken += 1;
-        this.activePulseAnimation = null;
+        if (this.activePulseAnimation) {
+            this.removePulseModel(this.activePulseAnimation.pulseModel, this.activePulseAnimation.parentMesh);
+            this.activePulseAnimation = null;
+        }
+        this.pendingActivePulse = false;
         if (!this.attachedModel || !this.mesh)
             return;
         this.mesh.remove(this.attachedModel);
