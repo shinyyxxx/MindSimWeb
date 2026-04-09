@@ -272,21 +272,17 @@ export function XRMovement({ enabled, moveSpeed = 1.8, sprintMultiplier = 1.8, t
         let hasMovement = false;
         if (Math.abs(strafe) >= 0.001 || Math.abs(forward) >= 0.001) {
             hasMovement = true;
-            camera.getWorldDirection(forwardRef.current);
-            forwardRef.current.y = 0;
-            if (forwardRef.current.lengthSq() >= 1e-8) {
-                forwardRef.current.normalize();
-                rightRef.current.crossVectors(forwardRef.current, THREE.Object3D.DEFAULT_UP).normalize();
-                moveRef.current.set(0, 0, 0);
-                moveRef.current.addScaledVector(rightRef.current, strafe);
-                moveRef.current.addScaledVector(forwardRef.current, forward);
-                const moveLen = moveRef.current.length();
-                if (moveLen >= 1e-6) {
-                    moveRef.current.multiplyScalar(1 / moveLen);
-                    const speedMultiplier = keys.ShiftLeft || keys.ShiftRight ? sprintMultiplier : 1;
-                    const frameSpeed = moveSpeed * speedMultiplier * delta;
-                    locomotionOffsetRef.current.addScaledVector(moveRef.current, frameSpeed);
-                }
+            forwardRef.current.set(0, 0, -1).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yawRef.current);
+            rightRef.current.set(1, 0, 0).applyAxisAngle(THREE.Object3D.DEFAULT_UP, yawRef.current);
+            moveRef.current.set(0, 0, 0);
+            moveRef.current.addScaledVector(rightRef.current, strafe);
+            moveRef.current.addScaledVector(forwardRef.current, forward);
+            const moveLen = moveRef.current.length();
+            if (moveLen >= 1e-6) {
+                moveRef.current.multiplyScalar(1 / moveLen);
+                const speedMultiplier = keys.ShiftLeft || keys.ShiftRight ? sprintMultiplier : 1;
+                const frameSpeed = moveSpeed * speedMultiplier * delta;
+                locomotionOffsetRef.current.addScaledVector(moveRef.current, frameSpeed);
             }
         }
         const shouldUpdateReferenceSpace = hasMovement || Math.abs(turn) > 0.12 || locomotionOffsetRef.current.lengthSq() > 1e-8;

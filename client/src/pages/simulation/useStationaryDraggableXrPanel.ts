@@ -17,28 +17,34 @@ export function useStationaryDraggableXrPanel({ groupRef, gl, camera, layout, pa
     const initializedRef = useRef(false);
     const draggingRef = useRef(false);
     const dragControllerRef = useRef<THREE.Object3D | null>(null);
-    const hitOffsetRef = useRef(new THREE.Vector3());
     const dragDistanceRef = useRef(0);
     const tempVec = useRef(new THREE.Vector3());
     const tempOrigin = useRef(new THREE.Vector3());
     const tempDirection = useRef(new THREE.Vector3());
     const tempRayPoint = useRef(new THREE.Vector3());
+    const tempCameraPos = useRef(new THREE.Vector3());
+    const tempCameraQuat = useRef(new THREE.Quaternion());
+    const tempToCamera = useRef(new THREE.Vector3());
     const forwardRef = useRef(new THREE.Vector3());
     const rightRef = useRef(new THREE.Vector3());
+    const getPoseCamera = (): THREE.Camera => gl.xr.isPresenting ? gl.xr.getCamera(camera) : camera;
     const placePanelInFrontOfUser = () => {
         const group = groupRef.current;
         if (!group)
             return;
+        const poseCamera = getPoseCamera();
         const forward = forwardRef.current;
         const right = rightRef.current;
-        camera.getWorldDirection(forward);
-        right.set(1, 0, 0).applyQuaternion(camera.quaternion);
-        tempVec.current.copy(camera.position);
+        poseCamera.getWorldDirection(forward);
+        poseCamera.getWorldQuaternion(tempCameraQuat.current);
+        poseCamera.getWorldPosition(tempCameraPos.current);
+        right.set(1, 0, 0).applyQuaternion(tempCameraQuat.current);
+        tempVec.current.copy(tempCameraPos.current);
         tempVec.current.add(forward.multiplyScalar(layout.forward));
         tempVec.current.add(right.multiplyScalar(layout.right));
         tempVec.current.y -= layout.yDown;
         group.position.copy(tempVec.current);
-        group.quaternion.copy(camera.quaternion);
+        group.quaternion.copy(tempCameraQuat.current);
         initializedRef.current = true;
     };
     useEffect(() => {
@@ -60,7 +66,6 @@ export function useStationaryDraggableXrPanel({ groupRef, gl, camera, layout, pa
             draggingRef.current = true;
             dragControllerRef.current = controller;
             dragDistanceRef.current = Math.max(0.25, hit.distance);
-            hitOffsetRef.current.copy(group.position).sub(hit.point);
         };
         const onDragStartByIndex = (index: 0 | 1) => {
             const controller = controllers[index];
@@ -127,10 +132,10 @@ export function useStationaryDraggableXrPanel({ groupRef, gl, camera, layout, pa
             tempOrigin.current.setFromMatrixPosition(controller.matrixWorld);
             tempDirection.current.set(0, 0, -1).transformDirection(controller.matrixWorld);
             tempRayPoint.current.copy(tempOrigin.current).addScaledVector(tempDirection.current, dragDistanceRef.current);
-            group.position.copy(tempRayPoint.current).add(hitOffsetRef.current);
-        }
-        if (gl.xr.isPresenting && initializedRef.current) {
-            group.quaternion.copy(camera.quaternion);
+            group.position.copy(tempRayPoint.current);
+            const poseCamera = getPoseCamera();
+            poseCamera.getWorldQuaternion(tempCameraQuat.current);
+            group.quaternion.copy(tempCameraQuat.current);
         }
         if (panelWorldAnchorRef) {
             group.getWorldPosition(panelWorldAnchorRef.current);
