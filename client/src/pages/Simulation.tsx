@@ -3741,6 +3741,9 @@ function XRTimelinePanel({
   vithiResultType,
   subStepIndex,
   onSubStepChange,
+  ttsMuted,
+  onTtsMutedChange,
+  ttsStatus,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -3766,6 +3769,9 @@ function XRTimelinePanel({
   vithiResultType?: string | null
   subStepIndex?: number
   onSubStepChange?: (idx: number) => void
+  ttsMuted?: boolean
+  onTtsMutedChange?: (muted: boolean) => void
+  ttsStatus?: 'idle' | 'loading' | 'speaking' | 'waiting'
 }) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
@@ -3784,6 +3790,7 @@ function XRTimelinePanel({
   const slideshowPauseButtonRef = useRef<THREE.Mesh | null>(null)
   const subStepPrevButtonRef = useRef<THREE.Mesh | null>(null)
   const subStepNextButtonRef = useRef<THREE.Mesh | null>(null)
+  const ttsToggleButtonRef = useRef<THREE.Mesh | null>(null)
   const senseButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const variantButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -3852,6 +3859,7 @@ function XRTimelinePanel({
         slideshowPauseButtonRef.current,
         subStepPrevButtonRef.current,
         subStepNextButtonRef.current,
+        ttsToggleButtonRef.current,
         ...Object.values(senseButtonRefs.current),
         ...Object.values(variantButtonRefs.current),
       ].filter(Boolean) as THREE.Object3D[]
@@ -3874,6 +3882,12 @@ function XRTimelinePanel({
       }
       if (isHitInside(explainButtonRef.current, hits[0].object)) {
         setShowDetail((prev) => !prev)
+        return
+      }
+      if (isHitInside(ttsToggleButtonRef.current, hits[0].object)) {
+        const next = !ttsMuted
+        onTtsMutedChange?.(next)
+        if (next) cancelNarration()
         return
       }
       if (selectedIndex === 6 && isHitInside(happyButtonRef.current, hits[0].object)) {
@@ -3979,6 +3993,7 @@ function XRTimelinePanel({
     onOpenPanel,
     onPersonTypeChange,
     onSelect,
+    onTtsMutedChange,
     onSenseSelect,
     onT3HappyChange,
     onTimelineModeChange,
@@ -3991,6 +4006,7 @@ function XRTimelinePanel({
     slideshowPaused,
     t3HappySelected,
     timelineMode,
+    ttsMuted,
     t5SelectedId,
     stops,
   ])
@@ -4016,6 +4032,7 @@ function XRTimelinePanel({
         slideshowPauseButtonRef.current,
         subStepPrevButtonRef.current,
         subStepNextButtonRef.current,
+        ttsToggleButtonRef.current,
       ].filter(Boolean) as THREE.Object3D[]
       for (const controller of controllers) {
         if (!targets.length) break
@@ -4054,6 +4071,7 @@ function XRTimelinePanel({
         if (!nextHoveredAction && hitInside(slideshowPauseButtonRef.current)) nextHoveredAction = 'slideshow-pause'
         if (!nextHoveredAction && hitInside(subStepPrevButtonRef.current)) nextHoveredAction = 'substep-prev'
         if (!nextHoveredAction && hitInside(subStepNextButtonRef.current)) nextHoveredAction = 'substep-next'
+        if (!nextHoveredAction && hitInside(ttsToggleButtonRef.current)) nextHoveredAction = 'tts-toggle'
         if (!nextHoveredAction) {
           for (const opt of T0_SENSE_OPTIONS) {
             if (hitInside(senseButtonRefs.current[opt.id])) {
@@ -4105,13 +4123,23 @@ function XRTimelinePanel({
   const t5CurrentLabel = t5SelectedId
     ? (T5_MENTAL_OPTIONS.find((opt) => opt.id === t5SelectedId)?.label ?? 'Custom selection')
     : 'No selection (random)'
+  const ttsStatusLabel =
+    ttsMuted
+      ? 'Voice muted'
+      : ttsStatus === 'loading'
+        ? 'Loading voice...'
+        : ttsStatus === 'speaking'
+          ? 'Speaking...'
+          : ttsStatus === 'waiting' && timelineMode === 'slideshow' && !slideshowPaused
+            ? 'Next stage in a moment...'
+            : null
   const isActionHovered = (action: string): boolean => hoveredAction === action
   const panelTopY = 0.62
   const headerIconY = 0.5
   const headerTitleY = 0.52
   const headerSubtitleY = 0.46
   const headerDescTopY = 0.39
-  const stageInfoY = 0.31
+  const stageInfoY = selectedIndex === 0 ? 0.36 : 0.31
   const personTypeRowY = 0.23
   const modeRowY = 0.16
   const senseHeaderY = 0.06
@@ -4236,6 +4264,26 @@ function XRTimelinePanel({
           <Text position={[-0.75, headerSubtitleY, 0.005]} anchorX="left" anchorY="middle" fontSize={0.029} color="#94a3b8">
             Cognitive Timeline
           </Text>
+          <mesh ref={ttsToggleButtonRef} position={[-0.36, headerIconY, 0.004]}>
+            <planeGeometry args={[0.11, 0.075]} />
+            <meshBasicMaterial
+              color={
+                ttsMuted
+                  ? 0x334155
+                  : isActionHovered('tts-toggle')
+                    ? 0x6d28d9
+                    : 0x4c1d95
+              }
+            />
+          </mesh>
+          <Text position={[-0.36, headerIconY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.03} color="#f8fafc">
+            {ttsMuted ? '🔇' : '🔊'}
+          </Text>
+          {ttsStatusLabel && (
+            <Text position={[-0.36, 0.442, 0.006]} anchorX="center" anchorY="middle" fontSize={0.0115} color="#a78bfa" maxWidth={0.2}>
+              {ttsStatusLabel}
+            </Text>
+          )}
 
           {vithiStageData && vithiStageData.has(selectedIndex) && (
             (() => {
@@ -4691,6 +4739,9 @@ function ThreeScene({
   vithiResultType,
   subStepIndex,
   onSubStepChange,
+  ttsMuted,
+  onTtsMutedChange,
+  ttsStatus,
   xrTimelineOpen,
   xrTimelineDetailOpen,
   onToggleXrTimeline,
@@ -4750,6 +4801,9 @@ function ThreeScene({
   vithiResultType: string | null
   subStepIndex: number
   onSubStepChange: (idx: number) => void
+  ttsMuted: boolean
+  onTtsMutedChange: (muted: boolean) => void
+  ttsStatus: 'idle' | 'loading' | 'speaking' | 'waiting'
   xrTimelineOpen: boolean
   xrTimelineDetailOpen: boolean
   onToggleXrTimeline: () => void
@@ -4957,6 +5011,9 @@ function ThreeScene({
           vithiResultType={vithiResultType}
           subStepIndex={subStepIndex}
           onSubStepChange={onSubStepChange}
+          ttsMuted={ttsMuted}
+          onTtsMutedChange={onTtsMutedChange}
+          ttsStatus={ttsStatus}
         />
       )}
       <XROccludedConnector
@@ -6871,6 +6928,9 @@ export function Simulation(): React.ReactElement {
           vithiResultType={vithiResultType}
           subStepIndex={subStepIndex}
           onSubStepChange={setSubStepIndex}
+          ttsMuted={ttsMuted}
+          onTtsMutedChange={setTtsMuted}
+          ttsStatus={ttsStatus}
           xrTimelineOpen={xrTimelineOpen}
           xrTimelineDetailOpen={xrTimelineDetailOpen}
           onToggleXrTimeline={() =>
