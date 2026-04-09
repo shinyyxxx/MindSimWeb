@@ -3047,6 +3047,7 @@ function TimelineCanvas({
   onSubStepChange,
   ttsMuted,
   onTtsMutedChange,
+  ttsStatus,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -3072,6 +3073,7 @@ function TimelineCanvas({
   onSubStepChange?: (idx: number) => void
   ttsMuted?: boolean
   onTtsMutedChange?: (muted: boolean) => void
+  ttsStatus?: 'idle' | 'speaking' | 'waiting'
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -3169,21 +3171,44 @@ function TimelineCanvas({
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>Cognitive Timeline</div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setDetailPanelOpen(false)}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid rgba(148, 163, 184, 0.6)',
-                borderRadius: 8,
-                background: 'rgba(15, 23, 42, 0.75)',
-                color: '#cbd5e1',
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              Close
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !ttsMuted
+                  onTtsMutedChange?.(next)
+                  if (next) window.speechSynthesis.cancel()
+                }}
+                title={ttsMuted ? 'Unmute voice' : 'Mute voice'}
+                style={{
+                  padding: '5px 8px',
+                  border: '1px solid rgba(148, 163, 184, 0.6)',
+                  borderRadius: 8,
+                  background: ttsMuted ? 'rgba(100, 116, 139, 0.35)' : 'rgba(139, 92, 246, 0.25)',
+                  color: ttsMuted ? '#64748b' : '#a78bfa',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                }}
+              >
+                {ttsMuted ? '🔇' : '🔊'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailPanelOpen(false)}
+                style={{
+                  padding: '5px 10px',
+                  border: '1px solid rgba(148, 163, 184, 0.6)',
+                  borderRadius: 8,
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  color: '#cbd5e1',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
 
           {vithiStageData && vithiStageData.has(selectedIndex) && (
@@ -3227,22 +3252,36 @@ function TimelineCanvas({
                           padding: '4px 6px', borderRadius: 4,
                           background: 'rgba(139, 92, 246, 0.1)',
                           lineHeight: 1.4,
-                          display: 'flex', alignItems: 'flex-start', gap: 6,
                         }}>
-                          <span style={{ flex: 1 }}>{currentEvt.reason}</span>
-                          <button
-                            type="button"
-                            onClick={() => onTtsMutedChange?.(!ttsMuted)}
-                            title={ttsMuted ? 'Unmute voice' : 'Mute voice'}
-                            style={{
-                              flexShrink: 0, background: 'none', border: 'none',
-                              cursor: 'pointer', padding: 0, fontSize: 14,
-                              color: ttsMuted ? '#64748b' : '#a78bfa',
-                              lineHeight: 1,
-                            }}
-                          >
-                            {ttsMuted ? '🔇' : '🔊'}
-                          </button>
+                          {currentEvt.reason}
+                        </div>
+                      )}
+                      {!ttsMuted && ttsStatus === 'speaking' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                          <div style={{ display: 'flex', gap: 3 }}>
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} style={{
+                                width: 3, height: 10, borderRadius: 2, background: '#a78bfa',
+                                animation: `ttsBar 0.8s ease-in-out ${i * 0.15}s infinite alternate`,
+                              }} />
+                            ))}
+                          </div>
+                          <span style={{ fontSize: 9, color: '#94a3b8' }}>Speaking...</span>
+                        </div>
+                      )}
+                      {!ttsMuted && ttsStatus === 'waiting' && timelineMode === 'slideshow' && !slideshowPaused && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 9, color: '#94a3b8' }}>Next stage in a moment...</span>
+                          </div>
+                          <div style={{
+                            height: 3, borderRadius: 2, background: 'rgba(139, 92, 246, 0.2)', overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              height: '100%', borderRadius: 2, background: '#a78bfa',
+                              animation: 'ttsProgress 5s linear forwards',
+                            }} />
+                          </div>
                         </div>
                       )}
                       {selectedIndex === 2 && vithiResultType === 'blocked' && (
@@ -4968,27 +5007,33 @@ export function Simulation(): React.ReactElement {
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
   const [ttsMuted, setTtsMuted] = useState(false)
+  const [ttsStatus, setTtsStatus] = useState<'idle' | 'speaking' | 'waiting'>('idle')
+  const ttsLastReasonRef = useRef('')
 
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
 
   useEffect(() => {
-    window.speechSynthesis.cancel()
-    if (ttsMuted) return
+    setTtsStatus('idle')
+    if (ttsMuted) { window.speechSynthesis.cancel(); ttsLastReasonRef.current = ''; return }
     if (!vithiStageData || vithiStageData.size === 0) return
     const stage = vithiStageData.get(timelineIndex)
     if (!stage) return
     let reason = ''
     if (stage.events.length > 0) {
-      const si = Math.min(subStepIndex, stage.events.length - 1)
-      reason = stage.events[si]?.reason ?? ''
+      reason = stage.events[0]?.reason ?? ''
     }
-    if (!reason) return
+    if (!reason || reason === ttsLastReasonRef.current) return
+    window.speechSynthesis.cancel()
+    ttsLastReasonRef.current = reason
     const utterance = new SpeechSynthesisUtterance(reason)
     utterance.rate = 1
     utterance.pitch = 1
+    utterance.onstart = () => setTtsStatus('speaking')
+    utterance.onend = () => setTtsStatus('waiting')
+    utterance.onerror = () => setTtsStatus('idle')
     window.speechSynthesis.speak(utterance)
-    return () => { window.speechSynthesis.cancel() }
-  }, [timelineIndex, subStepIndex, vithiStageData, ttsMuted])
+    return () => { window.speechSynthesis.cancel(); setTtsStatus('idle') }
+  }, [timelineIndex, vithiStageData, ttsMuted])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
     if (timelineIndex === 6) {
@@ -5523,7 +5568,9 @@ export function Simulation(): React.ReactElement {
     if (timelineMode !== 'slideshow' || slideshowPaused) return
     const maxIdx = TIMELINE_STOPS.length - 1
     if (timelineIndex >= maxIdx) return
-    const timer = setInterval(() => {
+    if (ttsStatus === 'speaking') return
+    const delay = ttsStatus === 'waiting' ? 5000 : 20000
+    const timer = setTimeout(() => {
       setTimelineIndex((prev) => {
         if (prev >= maxIdx) {
           setSlideshowPaused(true)
@@ -5531,9 +5578,9 @@ export function Simulation(): React.ReactElement {
         }
         return prev + 1
       })
-    }, 10000)
-    return () => clearInterval(timer)
-  }, [timelineMode, slideshowPaused, timelineIndex])
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [timelineMode, slideshowPaused, timelineIndex, ttsStatus])
 
   const handleRunCodeRunner = useCallback(async () => {
     const parser = new CodeParser()
@@ -6658,6 +6705,7 @@ export function Simulation(): React.ReactElement {
               onSubStepChange={setSubStepIndex}
               ttsMuted={ttsMuted}
               onTtsMutedChange={setTtsMuted}
+              ttsStatus={ttsStatus}
             />
           )}
         </div>
