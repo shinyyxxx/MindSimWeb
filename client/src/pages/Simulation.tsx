@@ -337,6 +337,12 @@ const T0_SPECIFIC_SEEDS: MentalSeed[] = [
   { name: 'Decision', color: '#a1a1aa', scale: 0.14, position: [-0.08, -0.5, 0.12], variant: 'decision' },
 ]
 
+/** Bhavanga cetasikas — shown at T0-T2 and T10 (universal 7 + T0-specific 3) */
+const BHAVANGA_VARIANTS: MentalVariant[] = [
+  ...UNIVERSAL_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
+  ...T0_SPECIFIC_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
+]
+
 const DEFAULT_SEEDS: MentalSeed[] = [
   { name: 'Faith (Saddhā)', color: '#22c55e', scale: 0.12, position: [-0.5, 0.1, 0.1], variant: 'faith' },
   { name: 'Mindfulness (Sati)', color: '#22c55e', scale: 0.12, position: [-0.6, -0.1, -0.1], variant: 'mindfulness' },
@@ -1570,6 +1576,7 @@ function MentalsLayer({
   const appliedMentalsRef = useRef<Set<Mental>>(new Set())
   const hasHydratedMentalsRef = useRef(false)
   const enteringMentalsRef = useRef<Map<Mental, { elapsed: number; duration: number; startScale: number; targetScale: number }>>(new Map())
+  const exitingMentalsRef = useRef<Map<Mental, { elapsed: number; duration: number; startScale: number; startOpacity: number }>>(new Map())
   const pendingModelLoadMentalsRef = useRef<Set<Mental>>(new Set())
   const basisPath = 'https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'
   type DissolveBurst = {
@@ -1634,8 +1641,8 @@ function MentalsLayer({
       const i3 = i * 3
       const theta = Math.random() * Math.PI * 2
       const phi = Math.acos(1 - 2 * Math.random())
-      const spread = 0.06 + Math.random() * 0.62
-      const spawnRadius = Math.random() * 0.02
+      const spawnRadius = 0.02 + Math.random() * 0.12
+      const drift = 0.01 + Math.random() * 0.04
 
       const dirX = Math.sin(phi) * Math.cos(theta)
       const dirY = Math.cos(phi)
@@ -1645,9 +1652,9 @@ function MentalsLayer({
       positions[i3 + 1] = origin.y + dirY * spawnRadius
       positions[i3 + 2] = origin.z + dirZ * spawnRadius
 
-      velocities[i3] = dirX * spread
-      velocities[i3 + 1] = dirY * spread
-      velocities[i3 + 2] = dirZ * spread
+      velocities[i3] = dirX * drift
+      velocities[i3 + 1] = dirY * drift + 0.015
+      velocities[i3 + 2] = dirZ * drift
     }
 
     const burst: DissolveBurst = {
@@ -1655,7 +1662,7 @@ function MentalsLayer({
       positions,
       velocities,
       age: 0,
-      lifetime: 0.72 + Math.random() * 0.16,
+      lifetime: 0.9 + Math.random() * 0.3,
       color,
       size: 0.042 + Math.random() * 0.02,
     }
@@ -1818,16 +1825,18 @@ function MentalsLayer({
       if (next.has(mental)) return
       enteringMentalsRef.current.delete(mental)
       pendingModelLoadMentalsRef.current.delete(mental)
-      const worldPos = new THREE.Vector3()
+      if (exitingMentalsRef.current.has(mental)) return
       const mesh = mental.getMesh()
-      if (mesh) {
-        mesh.getWorldPosition(worldPos)
-      } else {
-        worldPos.set(mind.position.x, mind.position.y, mind.position.z)
-      }
-      spawnDissolveBurst(worldPos, mental.color)
-      mind.removeMental(mental)
-      mental.detachModel()
+      const currentScale = mesh ? mesh.scale.x : mental.scale
+      const mat = mesh?.material as THREE.MeshPhysicalMaterial | undefined
+      const currentOpacity = mat?.opacity ?? 0.45
+      mental.setFrozen(true)
+      exitingMentalsRef.current.set(mental, {
+        elapsed: 0,
+        duration: 0.4 + Math.random() * 0.1,
+        startScale: currentScale,
+        startOpacity: currentOpacity,
+      })
     })
 
     next.forEach((mental) => {
@@ -1859,7 +1868,7 @@ function MentalsLayer({
 
     appliedMentalsRef.current = next
     hasHydratedMentalsRef.current = true
-  }, [gl, mentals, mind, spawnDissolveBurst, mentalScaleFactor])
+  }, [gl, mentals, mind, mentalScaleFactor])
 
   useEffect(() => {
     enteringMentalsRef.current.forEach((anim, mental) => {
@@ -1896,6 +1905,12 @@ function MentalsLayer({
 
   useEffect(() => {
     return () => {
+      exitingMentalsRef.current.forEach((anim, mental) => {
+        mental.setOpacity(anim.startOpacity)
+        mind.removeMental(mental)
+        mental.detachModel()
+      })
+      exitingMentalsRef.current.clear()
       const applied = appliedMentalsRef.current
       applied.forEach((mental) => {
         enteringMentalsRef.current.delete(mental)
@@ -2255,6 +2270,26 @@ function MentalsLayer({
       }
     })
 
+    exitingMentalsRef.current.forEach((anim, mental) => {
+      anim.elapsed += delta
+      const t = Math.min(1, anim.elapsed / anim.duration)
+      const eased = t * t
+      const nextScale = THREE.MathUtils.lerp(anim.startScale, 0, eased)
+      const nextOpacity = THREE.MathUtils.lerp(anim.startOpacity, 0, eased)
+      const mesh = mental.getMesh()
+      if (mesh) {
+        mesh.scale.set(nextScale, nextScale, nextScale)
+        mesh.updateMatrixWorld(true)
+      }
+      mental.setOpacity(nextOpacity)
+      if (t >= 1) {
+        mind.removeMental(mental)
+        mental.detachModel()
+        mental.setOpacity(anim.startOpacity)
+        exitingMentalsRef.current.delete(mental)
+      }
+    })
+
     const list = burstsRef.current
     if (!list.length) return
 
@@ -2262,13 +2297,11 @@ function MentalsLayer({
 
     list.forEach((burst) => {
       burst.age += delta
-      const drag = Math.max(0, 1 - delta * 2.7)
-      const gravity = 0.65
+      const drag = Math.max(0, 1 - delta * 1.8)
       const count = burst.positions.length / 3
 
       for (let i = 0; i < count; i += 1) {
         const i3 = i * 3
-        burst.velocities[i3 + 1] -= gravity * delta * 0.35
         burst.positions[i3] += burst.velocities[i3] * delta
         burst.positions[i3 + 1] += burst.velocities[i3 + 1] * delta
         burst.positions[i3 + 2] += burst.velocities[i3 + 2] * delta
@@ -2286,8 +2319,9 @@ function MentalsLayer({
         const material = points.material as THREE.PointsMaterial
         if (material) {
           const t = Math.min(1, burst.age / burst.lifetime)
-          material.opacity = Math.max(0, 0.95 * (1 - t))
-          material.size = burst.size * (1 + t * 0.55)
+          const fadeT = t * t
+          material.opacity = Math.max(0, 0.85 * (1 - fadeT))
+          material.size = burst.size * Math.max(0, 1 - fadeT * 0.7)
           material.needsUpdate = true
         }
       }
@@ -2337,6 +2371,7 @@ function MentalsLayer({
       burstPointRefs.current.clear()
       burstsRef.current = []
       enteringMentalsRef.current.clear()
+      exitingMentalsRef.current.clear()
       pendingModelLoadMentalsRef.current.clear()
       particleSpriteTexture.dispose()
     }
@@ -4787,6 +4822,7 @@ function ThreeScene({
   ttsMuted,
   onTtsMutedChange,
   ttsStatus,
+  newMentalHighlight,
   xrTimelineOpen,
   xrTimelineDetailOpen,
   onToggleXrTimeline,
@@ -4826,6 +4862,7 @@ function ThreeScene({
   onRendererReady?: (gl: THREE.WebGLRenderer) => void
   searchHighlight?: THREE.Object3D[]
   explainHighlight?: THREE.Object3D[]
+  newMentalHighlight?: THREE.Object3D[]
   timelineIndex: number
   onTimelineSelect: (index: number) => void
   t3HappySelected: boolean
@@ -4912,6 +4949,9 @@ function ThreeScene({
         : selectedOutlineSelection.length > 0
           ? selectedOutlineSelection
           : hoverSelection
+
+  const newMentalOutlineSelection =
+    (explainHighlight?.length ?? 0) > 0 ? [] : (newMentalHighlight ?? [])
 
   // When hiding the human model, put the mind back to its default position/scale.
   useLayoutEffect(() => {
@@ -5078,6 +5118,15 @@ function ThreeScene({
             visibleEdgeColor={0xffffff}
             hiddenEdgeColor={0x190a05}
             edgeStrength={30}
+            resolutionScale={1}
+            xRay
+          />
+          <Outline
+            selection={newMentalOutlineSelection}
+            blendFunction={BlendFunction.ALPHA}
+            visibleEdgeColor={0xfbbf24}
+            hiddenEdgeColor={0x92400e}
+            edgeStrength={50}
             resolutionScale={1}
             xRay
           />
@@ -5321,13 +5370,32 @@ export function Simulation(): React.ReactElement {
   }, [])
 
   const [mentals, setMentals] = useState<Mental[]>([])
+  const prevStageVariantsRef = useRef<Set<MentalVariant>>(new Set())
+  const [newMentalSelection, setNewMentalSelection] = useState<THREE.Object3D[]>([])
 
   useEffect(() => {
+    const updateHighlight = (currentVars: MentalVariant[], currentMentals: Mental[]) => {
+      const currentSet = new Set(currentVars)
+      const prev = prevStageVariantsRef.current
+      const newMeshes: THREE.Object3D[] = []
+      for (let i = 0; i < currentVars.length; i++) {
+        if (!prev.has(currentVars[i])) {
+          const mesh = currentMentals[i]?.getMesh()
+          if (mesh) newMeshes.push(mesh)
+        }
+      }
+      setNewMentalSelection(newMeshes)
+      prevStageVariantsRef.current = currentSet
+    }
+
     if (vithiStageData && vithiStageData.size > 0) {
       const stage = vithiStageData.get(timelineIndex)
-      if (timelineIndex <= 2) {
-        setActiveVariants(new Set())
-        setMentals([])
+      if (timelineIndex <= 2 || timelineIndex === 10) {
+        const bMentals = BHAVANGA_VARIANTS.map((v) => getOrCreateMental(v))
+        bMentals.forEach((m) => m.setFrozen(true))
+        setActiveVariants(new Set(BHAVANGA_VARIANTS))
+        setMentals(bMentals)
+        updateHighlight(BHAVANGA_VARIANTS, bMentals)
         return
       }
       if (stage && !stage.blocked) {
@@ -5341,16 +5409,21 @@ export function Simulation(): React.ReactElement {
         const vars = details
           .map((d) => CETASIKA_NAME_TO_VARIANT[d.name])
           .filter((v): v is MentalVariant => v != null)
+        const stageMentals = vars.map((v) => getOrCreateMental(v))
+        stageMentals.forEach((m) => m.setFrozen(false))
         setActiveVariants(new Set(vars))
-        setMentals(vars.map((v) => getOrCreateMental(v)))
+        setMentals(stageMentals)
+        updateHighlight(vars, stageMentals)
       } else {
         setActiveVariants(new Set())
         setMentals([])
+        updateHighlight([], [])
       }
       return
     }
     setActiveVariants(new Set())
     setMentals([])
+    updateHighlight([], [])
   }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, subStepIndex, vithiStageData])
 
   const allMentals = useMemo(() => {
@@ -7065,6 +7138,7 @@ export function Simulation(): React.ReactElement {
           defaultMindScale={DEFAULT_MIND_SCALE}
           searchHighlight={searchHighlight}
           explainHighlight={soundReceiveHighlight.length > 0 ? soundReceiveHighlight : explainHighlight}
+          newMentalHighlight={newMentalSelection}
           stops={dynamicStops}
           timelineIndex={timelineIndex}
           onTimelineSelect={setTimelineIndex}
