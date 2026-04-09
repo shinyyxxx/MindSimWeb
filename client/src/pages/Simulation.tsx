@@ -4329,9 +4329,9 @@ function XRTimelinePanel({
                       const descriptionY = nextRow(estimateLineCount(currentEvt.description, 56))
                       const reasonY = currentEvt.reason ? nextRow(estimateLineCount(currentEvt.reason, 72)) : null
                       const blockedY = selectedIndex === 2 && vithiResultType === 'blocked' ? nextRow(estimateLineCount('Object too faint — no further cetasikas or cognitive stages arise from this point onward.', 64)) : null
-                      const substepY = evts.length > 1 ? cursorY - 0.012 : null
+                      const substepY = evts.length > 1 ? cursorY - 0.03 : null
                       const detailsY = selectedIndex > 2 && currentDetails.length > 0
-                        ? (substepY !== null ? substepY - 0.058 : cursorY - 0.028)
+                        ? (substepY !== null ? substepY - 0.078 : cursorY - 0.05)
                         : null
                       return (
                         <>
