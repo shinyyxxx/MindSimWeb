@@ -108,6 +108,7 @@ interface VithiStageInfo {
   mental_ids: number[]
   mental_details: VithiMentalDetail[]
   blocked: boolean
+  events: VithiEvent[]
 }
 
 const VITHI_STAGE_ORDER = [
@@ -2959,6 +2960,8 @@ function TimelineCanvas({
   slideshowPaused,
   onSlideshowPausedChange,
   vithiStageData,
+  subStepIndex,
+  onSubStepChange,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -2978,6 +2981,8 @@ function TimelineCanvas({
   slideshowPaused?: boolean
   onSlideshowPausedChange?: (paused: boolean) => void
   vithiStageData?: Map<number, VithiStageInfo> | null
+  subStepIndex?: number
+  onSubStepChange?: (idx: number) => void
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -3095,11 +3100,68 @@ function TimelineCanvas({
           {vithiStageData && vithiStageData.has(selectedIndex) && (
             (() => {
               const stage = vithiStageData.get(selectedIndex)!
-              return stage.blocked ? (
-                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>No citta at this stage</p>
-              ) : (
-                <div style={{ margin: '8px 0 0', fontSize: 12, color: '#a5b4fc' }}>
-                  {stage.mental_details.length} cetasika(s): {stage.mental_details.map(d => d.name).join(', ')}
+              if (stage.blocked) {
+                return <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>No citta at this stage</p>
+              }
+              const evts = stage.events
+              const si = subStepIndex ?? 0
+              const currentEvt = evts.length > 0 ? evts[Math.min(si, evts.length - 1)] : null
+              const currentDetails = currentEvt?.mental_details ?? stage.mental_details
+              return (
+                <div style={{ margin: '8px 0 0' }}>
+                  {currentEvt && (
+                    <div style={{
+                      padding: '10px 12px', borderRadius: 10, marginBottom: 8,
+                      background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(96, 165, 250, 0.4)',
+                    }}>
+                      <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                        {currentEvt.stage.replace(/_/g, ' ')}
+                      </div>
+                      <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
+                        {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                        {currentEvt.description}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>
+                        Step {currentEvt.order}
+                      </div>
+                      {evts.length > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <button
+                            type="button"
+                            disabled={si === 0}
+                            onClick={() => onSubStepChange?.(si - 1)}
+                            style={{
+                              padding: '2px 10px', borderRadius: 5,
+                              border: '1px solid rgba(148,163,184,0.4)',
+                              background: si === 0 ? 'rgba(51,65,85,0.3)' : 'rgba(96,165,250,0.25)',
+                              color: si === 0 ? '#475569' : '#93c5fd',
+                              fontSize: 13, fontWeight: 700, cursor: si === 0 ? 'default' : 'pointer',
+                            }}
+                          >&lt;</button>
+                          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+                            {si + 1}/{evts.length}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={si === evts.length - 1}
+                            onClick={() => onSubStepChange?.(si + 1)}
+                            style={{
+                              padding: '2px 10px', borderRadius: 5,
+                              border: '1px solid rgba(148,163,184,0.4)',
+                              background: si === evts.length - 1 ? 'rgba(51,65,85,0.3)' : 'rgba(96,165,250,0.25)',
+                              color: si === evts.length - 1 ? '#475569' : '#93c5fd',
+                              fontSize: 13, fontWeight: 700, cursor: si === evts.length - 1 ? 'default' : 'pointer',
+                            }}
+                          >&gt;</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 12, color: '#a5b4fc' }}>
+                    {currentDetails.length} cetasika(s): {currentDetails.map(d => d.name).join(', ')}
+                  </div>
                 </div>
               )
             })()
@@ -3252,25 +3314,6 @@ function TimelineCanvas({
             </div>
           )}
 
-          {vithiCurrentEvent && (
-            <div style={{
-              marginTop: 12, padding: '10px 12px', borderRadius: 10,
-              background: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(96, 165, 250, 0.4)',
-            }}>
-              <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {vithiCurrentEvent.stage.replace(/_/g, ' ')}
-              </div>
-              <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
-                {vithiCurrentEvent.mind_name || `Citta ${vithiCurrentEvent.mind_id ?? '?'}`}
-              </div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                {vithiCurrentEvent.description}
-              </div>
-              <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>
-                Step {vithiCurrentEvent.order}
-              </div>
-            </div>
-          )}
 
           {selectedIndex === 3 && (
             <div style={{ marginTop: 12 }}>
@@ -3551,6 +3594,8 @@ function XRTimelinePanel({
   onSlideshowPausedChange,
   vithiCurrentEvent,
   vithiStageData,
+  subStepIndex,
+  onSubStepChange,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -3572,6 +3617,8 @@ function XRTimelinePanel({
   onSlideshowPausedChange?: (paused: boolean) => void
   vithiCurrentEvent?: VithiEvent | null
   vithiStageData?: Map<number, VithiStageInfo> | null
+  subStepIndex?: number
+  onSubStepChange?: (idx: number) => void
 }) {
   const { gl, camera } = useThree()
   const groupRef = useRef<THREE.Group | null>(null)
@@ -3588,6 +3635,8 @@ function XRTimelinePanel({
   const modeManualButtonRef = useRef<THREE.Mesh | null>(null)
   const modeSlideshowButtonRef = useRef<THREE.Mesh | null>(null)
   const slideshowPauseButtonRef = useRef<THREE.Mesh | null>(null)
+  const subStepPrevButtonRef = useRef<THREE.Mesh | null>(null)
+  const subStepNextButtonRef = useRef<THREE.Mesh | null>(null)
   const senseButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const variantButtonRefs = useRef<Record<string, THREE.Mesh | null>>({})
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -3654,6 +3703,8 @@ function XRTimelinePanel({
         modeManualButtonRef.current,
         modeSlideshowButtonRef.current,
         slideshowPauseButtonRef.current,
+        subStepPrevButtonRef.current,
+        subStepNextButtonRef.current,
         ...Object.values(senseButtonRefs.current),
         ...Object.values(variantButtonRefs.current),
       ].filter(Boolean) as THREE.Object3D[]
@@ -3730,6 +3781,18 @@ function XRTimelinePanel({
         onSlideshowPausedChange?.(!slideshowPaused)
         return
       }
+      if (isHitInside(subStepPrevButtonRef.current, hits[0].object)) {
+        const si = subStepIndex ?? 0
+        if (si > 0) onSubStepChange?.(si - 1)
+        return
+      }
+      if (isHitInside(subStepNextButtonRef.current, hits[0].object)) {
+        const si = subStepIndex ?? 0
+        const stage = vithiStageData?.get(selectedIndex)
+        const maxSi = (stage?.events?.length ?? 1) - 1
+        if (si < maxSi) onSubStepChange?.(si + 1)
+        return
+      }
       if (selectedIndex === 0 && hasContactMental) {
         for (const opt of T0_SENSE_OPTIONS) {
           const mesh = senseButtonRefs.current[opt.id]
@@ -3803,6 +3866,8 @@ function XRTimelinePanel({
         modeManualButtonRef.current,
         modeSlideshowButtonRef.current,
         slideshowPauseButtonRef.current,
+        subStepPrevButtonRef.current,
+        subStepNextButtonRef.current,
       ].filter(Boolean) as THREE.Object3D[]
       for (const controller of controllers) {
         if (!targets.length) break
@@ -3839,6 +3904,8 @@ function XRTimelinePanel({
         if (!nextHoveredAction && hitInside(modeManualButtonRef.current)) nextHoveredAction = 'mode-manual'
         if (!nextHoveredAction && hitInside(modeSlideshowButtonRef.current)) nextHoveredAction = 'mode-slideshow'
         if (!nextHoveredAction && hitInside(slideshowPauseButtonRef.current)) nextHoveredAction = 'slideshow-pause'
+        if (!nextHoveredAction && hitInside(subStepPrevButtonRef.current)) nextHoveredAction = 'substep-prev'
+        if (!nextHoveredAction && hitInside(subStepNextButtonRef.current)) nextHoveredAction = 'substep-next'
         if (!nextHoveredAction) {
           for (const opt of T0_SENSE_OPTIONS) {
             if (hitInside(senseButtonRefs.current[opt.id])) {
@@ -3920,7 +3987,10 @@ function XRTimelinePanel({
   }
   if (selectedIndex === 3) contentBottomY = -0.2
   if (selectedIndex === 5) contentBottomY = -0.265
-  if (vithiCurrentEvent) contentBottomY = Math.min(contentBottomY, -0.32)
+  if (vithiStageData?.has(selectedIndex) && !vithiStageData.get(selectedIndex)!.blocked && vithiStageData.get(selectedIndex)!.events.length > 0) {
+    const evtCount = vithiStageData.get(selectedIndex)!.events.length
+    contentBottomY = Math.min(contentBottomY, stageInfoY - (evtCount > 1 ? 0.18 : 0.13))
+  }
   const explainButtonY = Math.max(-0.52, contentBottomY - 0.09)
   // Size panel to content so we don't keep excessive empty space below controls.
   const panelBottomY = explainButtonY - 0.075
@@ -4036,13 +4106,57 @@ function XRTimelinePanel({
           {vithiStageData && vithiStageData.has(selectedIndex) && (
             (() => {
               const stage = vithiStageData.get(selectedIndex)!
-              const stageText = stage.blocked
-                ? 'No citta at this stage'
-                : `${stage.mental_details.length} cetasika(s): ${stage.mental_details.map((d) => d.name).join(', ')}`
+              if (stage.blocked) {
+                return (
+                  <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.018} color="#6b7280" maxWidth={0.78}>
+                    No citta at this stage
+                  </Text>
+                )
+              }
+              const evts = stage.events
+              const si = subStepIndex ?? 0
+              const currentEvt = evts.length > 0 ? evts[Math.min(si, evts.length - 1)] : null
+              const currentDetails = currentEvt?.mental_details ?? stage.mental_details
               return (
-                <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.018} color={stage.blocked ? '#6b7280' : '#a5b4fc'} maxWidth={0.78}>
-                  {stageText}
-                </Text>
+                <>
+                  {currentEvt && (
+                    <>
+                      <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#60a5fa" maxWidth={0.74}>
+                        {currentEvt.stage.replace(/_/g, ' ').toUpperCase()}
+                      </Text>
+                      <Text position={[-0.88, stageInfoY - 0.035, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
+                        {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
+                      </Text>
+                      <Text position={[-0.88, stageInfoY - 0.065, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#94a3b8" maxWidth={0.74}>
+                        {currentEvt.description}
+                      </Text>
+                      {evts.length > 1 && (
+                        <>
+                          <mesh ref={subStepPrevButtonRef} position={[-0.82, stageInfoY - 0.095, 0.005]}>
+                            <planeGeometry args={[0.08, 0.05]} />
+                            <meshBasicMaterial color={si === 0 ? 0x1e293b : 0x334155} />
+                          </mesh>
+                          <Text position={[-0.82, stageInfoY - 0.095, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === 0 ? '#475569' : '#93c5fd'}>
+                            ◀
+                          </Text>
+                          <Text position={[-0.68, stageInfoY - 0.095, 0.007]} anchorX="center" anchorY="middle" fontSize={0.018} color="#94a3b8">
+                            {`${si + 1}/${evts.length}`}
+                          </Text>
+                          <mesh ref={subStepNextButtonRef} position={[-0.54, stageInfoY - 0.095, 0.005]}>
+                            <planeGeometry args={[0.08, 0.05]} />
+                            <meshBasicMaterial color={si === evts.length - 1 ? 0x1e293b : 0x334155} />
+                          </mesh>
+                          <Text position={[-0.54, stageInfoY - 0.095, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color={si === evts.length - 1 ? '#475569' : '#93c5fd'}>
+                            ▶
+                          </Text>
+                        </>
+                      )}
+                    </>
+                  )}
+                  <Text position={[-0.88, stageInfoY - (evts.length > 1 ? 0.13 : 0.095), 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#a5b4fc" maxWidth={0.78}>
+                    {`${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`}
+                  </Text>
+                </>
               )
             })()
           )}
@@ -4177,23 +4291,6 @@ function XRTimelinePanel({
             </>
           )}
 
-          {vithiCurrentEvent && (
-            <>
-              <mesh position={[-0.48, -0.24, 0.004]}>
-                <planeGeometry args={[0.8, 0.15]} />
-                <meshBasicMaterial color={0x1d4ed8} transparent opacity={0.24} />
-              </mesh>
-              <Text position={[-0.86, -0.2, 0.007]} anchorX="left" anchorY="middle" fontSize={0.02} color="#60a5fa" maxWidth={0.74}>
-                {vithiCurrentEvent.stage.replace(/_/g, ' ').toUpperCase()}
-              </Text>
-              <Text position={[-0.86, -0.24, 0.007]} anchorX="left" anchorY="middle" fontSize={0.022} color="#e2e8f0" maxWidth={0.74}>
-                {vithiCurrentEvent.mind_name || `Citta ${vithiCurrentEvent.mind_id ?? '?'}`}
-              </Text>
-              <Text position={[-0.86, -0.28, 0.007]} anchorX="left" anchorY="middle" fontSize={0.019} color="#94a3b8" maxWidth={0.74}>
-                {`Step ${vithiCurrentEvent.order}: ${vithiCurrentEvent.description}`}
-              </Text>
-            </>
-          )}
 
           {selectedIndex === 3 && (
             <>
@@ -4508,6 +4605,8 @@ function ThreeScene({
   slideshowPaused,
   onSlideshowPausedChange,
   vithiStageData,
+  subStepIndex,
+  onSubStepChange,
   xrTimelineOpen,
   xrTimelineDetailOpen,
   onToggleXrTimeline,
@@ -4563,6 +4662,8 @@ function ThreeScene({
   slideshowPaused: boolean
   onSlideshowPausedChange: (paused: boolean) => void
   vithiStageData: Map<number, VithiStageInfo> | null
+  subStepIndex: number
+  onSubStepChange: (idx: number) => void
   xrTimelineOpen: boolean
   xrTimelineDetailOpen: boolean
   onToggleXrTimeline: () => void
@@ -4755,6 +4856,8 @@ function ThreeScene({
           onSlideshowPausedChange={onSlideshowPausedChange}
           vithiCurrentEvent={vithiCurrentEvent}
           vithiStageData={vithiStageData}
+          subStepIndex={subStepIndex}
+          onSubStepChange={onSubStepChange}
         />
       )}
       <XROccludedConnector
@@ -4830,10 +4933,13 @@ export function Simulation(): React.ReactElement {
   const [menuRevealReady, setMenuRevealReady] = useState(false)
   const [menuLineProgress, setMenuLineProgress] = useState(1)
   const [timelineIndex, setTimelineIndex] = useState(0)
+  const [subStepIndex, setSubStepIndex] = useState(0)
   const [timelineMode, setTimelineMode] = useState<'manual' | 'slideshow'>('manual')
   const [slideshowPaused, setSlideshowPaused] = useState(false)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+
+  useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
     if (timelineIndex === 3) {
@@ -4983,7 +5089,14 @@ export function Simulation(): React.ReactElement {
       for (let t = 0; t <= timelineIndex; t++) {
         const stage = vithiStageData.get(t)
         if (!stage || stage.blocked) continue
-        const stageVars = stage.mental_details
+        let details: VithiMentalDetail[]
+        if (t === timelineIndex && stage.events.length > 0) {
+          const si = Math.min(subStepIndex, stage.events.length - 1)
+          details = stage.events[si]?.mental_details ?? stage.mental_details
+        } else {
+          details = stage.mental_details
+        }
+        const stageVars = details
           .map((d) => CETASIKA_NAME_TO_VARIANT[d.name])
           .filter((v): v is MentalVariant => v != null)
         stageVars.forEach((v) => allVariants.add(v))
@@ -4996,7 +5109,7 @@ export function Simulation(): React.ReactElement {
     setActiveVariants(new Set())
     const variants = getMentalVariantsForTimelineStop(timelineIndex, t3HappySelected, t5SelectedId)
     setMentals(variants.map((variant) => getOrCreateMental(variant)))
-  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, vithiStageData])
+  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, subStepIndex, vithiStageData])
 
   const allMentals = useMemo(() => {
     const base = scriptResultActive ? [...scriptMatchedDefaultMentals] : [...mentals]
@@ -5596,6 +5709,7 @@ export function Simulation(): React.ReactElement {
                 mental_ids: [],
                 mental_details: [],
                 blocked: true,
+                events: [],
               })
               continue
             }
@@ -5631,6 +5745,7 @@ export function Simulation(): React.ReactElement {
               mental_ids: Array.from(allMentalIds).sort((a, b) => a - b),
               mental_details: Array.from(allDetails.values()),
               blocked: false,
+              events: eventsForStage,
             })
           }
           setVithiStageData(stageMap)
@@ -6466,6 +6581,8 @@ export function Simulation(): React.ReactElement {
               slideshowPaused={slideshowPaused}
               onSlideshowPausedChange={setSlideshowPaused}
               vithiStageData={vithiStageData}
+              subStepIndex={subStepIndex}
+              onSubStepChange={setSubStepIndex}
             />
           )}
         </div>
@@ -6561,6 +6678,8 @@ export function Simulation(): React.ReactElement {
           onSlideshowPausedChange={setSlideshowPaused}
           vithiCurrentEvent={vithiCurrentEvent}
           vithiStageData={vithiStageData}
+          subStepIndex={subStepIndex}
+          onSubStepChange={setSubStepIndex}
           xrTimelineOpen={xrTimelineOpen}
           xrTimelineDetailOpen={xrTimelineDetailOpen}
           onToggleXrTimeline={() =>
