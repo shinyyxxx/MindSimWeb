@@ -1534,6 +1534,36 @@ function MindSphere({ mind }: { mind: Mind }) {
   return <primitive object={mindMesh} />
 }
 
+const FLASH_ORANGE = new THREE.Color('#ff8c00')
+
+function flashGlowOnMental(mental: Mental): void {
+  const mat = mental.getMesh()?.material as THREE.MeshPhysicalMaterial | undefined
+  if (!mat) return
+  const origEmissive = mat.emissiveIntensity
+  const origOpacity = mat.opacity
+  const origColor = mat.color.clone()
+  const origEmissiveColor = mat.emissive.clone()
+  mat.emissiveIntensity = 2.2
+  mat.opacity = Math.min(0.85, origOpacity + 0.35)
+  mat.color.copy(FLASH_ORANGE)
+  mat.emissive.copy(FLASH_ORANGE)
+  mat.needsUpdate = true
+  let start = 0
+  const duration = 600
+  const fade = (ts: number) => {
+    if (!start) start = ts
+    const t = Math.min(1, (ts - start) / duration)
+    const eased = t * t
+    mat.emissiveIntensity = THREE.MathUtils.lerp(2.2, origEmissive, eased)
+    mat.opacity = THREE.MathUtils.lerp(Math.min(0.85, origOpacity + 0.35), origOpacity, eased)
+    mat.color.lerpColors(FLASH_ORANGE, origColor, eased)
+    mat.emissive.lerpColors(FLASH_ORANGE, origEmissiveColor, eased)
+    mat.needsUpdate = true
+    if (t < 1) requestAnimationFrame(fade)
+  }
+  requestAnimationFrame(fade)
+}
+
 function MentalsLayer({
   mind,
   mentals,
@@ -1746,9 +1776,10 @@ function MentalsLayer({
       onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Sending...' })
       const sendPromise = currentSender.sendDataTo(gl, found, {
         planeModelPath,
-        durationMs: 1400,
+        durationMs: 2800,
         arcHeight: 0.14,
         scale: 0.1,
+        onArrive: (t) => flashGlowOnMental(t),
       })
 
       if (!sendPromise || typeof (sendPromise as Promise<void>).then !== 'function') {
@@ -2644,9 +2675,10 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, target, {
           planeModelPath,
-          durationMs: 1050,
+          durationMs: 2100,
           arcHeight: 0.12,
           scale: 0.1,
+          onArrive: (t) => flashGlowOnMental(t),
         })
       } finally {
         const senderMeshNow = sender.getMesh()
@@ -2704,7 +2736,7 @@ function SoundReceiveEffect({
       try {
         await sender.sendDataTo(gl, receiver, {
           planeModelPath,
-          durationMs: 980,
+          durationMs: 1960,
           arcHeight: 0.12,
           scale: 0.1,
         })
@@ -2722,9 +2754,10 @@ function SoundReceiveEffect({
     async (sender: Mental, receiver: Mental): Promise<void> => {
       await sender.sendDataTo(gl, receiver, {
         planeModelPath,
-        durationMs: 980,
+        durationMs: 1960,
         arcHeight: 0.12,
         scale: 0.1,
+        onArrive: (t) => flashGlowOnMental(t),
       })
     },
     [gl, planeModelPath]

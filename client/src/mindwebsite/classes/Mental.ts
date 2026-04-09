@@ -557,6 +557,7 @@ export class Mental extends AbstractMental {
         scale?: number;
         basisPath?: string;
         dracoPath?: string;
+        onArrive?: (target: Mental) => void;
     }): Promise<void> {
         if (!this.mesh || !target.getMesh()) {
             return Promise.reject(new Error('Missing sender or target mesh'));
@@ -795,6 +796,7 @@ export class Mental extends AbstractMental {
                         animationFrame = requestAnimationFrame(step);
                     }
                     else {
+                        options.onArrive?.(target);
                         disposePlane();
                     }
                 };
