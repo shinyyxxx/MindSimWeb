@@ -91,6 +91,9 @@ export function cancelNarration(): void {
     catch {
     }
     if (activeResolve) {
+        // #region agent log
+        fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:cancelNarration',message:'cancelNarration resolving activeResolve',data:{},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+        // #endregion
         const resolve = activeResolve;
         activeResolve = null;
         resolve();
@@ -107,17 +110,32 @@ export function speakNarration(text: string, options: NarrationOptions = {}): Pr
                 && 'speechSynthesis' in window
                 && 'SpeechSynthesisUtterance' in window;
             const hasGoogleKey = Boolean(import.meta.env.VITE_GOOGLE_TTS_KEY);
+            // #region agent log
+            fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:speakNarration',message:'speakNarration entered',data:{textLen:clean.length,hasGoogleKey,hasSpeechSynthesis,lang:options.lang,rate:options.rate},timestamp:Date.now(),hypothesisId:'H1,H4'})}).catch(()=>{});
+            // #endregion
             if (hasGoogleKey) {
                 try {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:googleTts-start',message:'Calling Google TTS',data:{textLen:clean.length},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+                    // #endregion
                     await speakWithGoogleTts(clean, options);
+                    // #region agent log
+                    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:googleTts-done',message:'Google TTS playback finished',data:{textLen:clean.length},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+                    // #endregion
                     resolve();
                     return;
                 }
                 catch (err) {
+                    // #region agent log
+                    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:googleTts-fail',message:'Google TTS failed',data:{error:String(err)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+                    // #endregion
                     console.error('Google TTS failed, falling back to browser speech', err);
                 }
             }
             if (!hasSpeechSynthesis) {
+                // #region agent log
+                fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'narration.ts:no-speech-synthesis',message:'No speech synthesis available, resolving immediately',data:{},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+                // #endregion
                 resolve();
                 return;
             }

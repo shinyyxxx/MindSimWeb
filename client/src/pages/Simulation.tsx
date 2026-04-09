@@ -3177,7 +3177,7 @@ function TimelineCanvas({
                 onClick={() => {
                   const next = !ttsMuted
                   onTtsMutedChange?.(next)
-                  if (next) window.speechSynthesis.cancel()
+                  if (next) cancelNarration()
                 }}
                 title={ttsMuted ? 'Unmute voice' : 'Mute voice'}
                 style={{
@@ -5017,8 +5017,11 @@ export function Simulation(): React.ReactElement {
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-entry',message:'TTS effect fired',data:{timelineIndex,ttsMuted,hasVithiData:!!vithiStageData&&vithiStageData.size>0},timestamp:Date.now(),hypothesisId:'H1,H4,H5'})}).catch(()=>{});
+    // #endregion
     setTtsStatus('idle')
-    if (ttsMuted) { window.speechSynthesis.cancel(); ttsLastReasonRef.current = ''; return }
+    if (ttsMuted) { cancelNarration(); ttsLastReasonRef.current = ''; return }
     if (!vithiStageData || vithiStageData.size === 0) return
     const stage = vithiStageData.get(timelineIndex)
     if (!stage) return
@@ -5027,16 +5030,32 @@ export function Simulation(): React.ReactElement {
       reason = stage.events[0]?.reason ?? ''
     }
     if (!reason || reason === ttsLastReasonRef.current) return
-    window.speechSynthesis.cancel()
+    cancelNarration()
     ttsLastReasonRef.current = reason
-    const utterance = new SpeechSynthesisUtterance(reason)
-    utterance.rate = 1
-    utterance.pitch = 1
-    utterance.onstart = () => setTtsStatus('speaking')
-    utterance.onend = () => setTtsStatus('waiting')
-    utterance.onerror = () => setTtsStatus('idle')
-    window.speechSynthesis.speak(utterance)
-    return () => { window.speechSynthesis.cancel(); setTtsStatus('idle') }
+    const hasThai = /[\u0E00-\u0E7F]/.test(reason)
+    // #region agent log
+    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-speak',message:'About to call speakNarration',data:{reason:reason.substring(0,80),hasThai,timelineIndex},timestamp:Date.now(),hypothesisId:'H1,H2'})}).catch(()=>{});
+    // #endregion
+    setTtsStatus('speaking')
+    speakNarration(reason, { lang: hasThai ? 'th-TH' : 'en-US', rate: 0.95 })
+      .then(() => {
+        // #region agent log
+        fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-then',message:'speakNarration resolved -> waiting',data:{timelineIndex},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+        // #endregion
+        setTtsStatus('waiting')
+      })
+      .catch((err) => {
+        // #region agent log
+        fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-catch',message:'speakNarration rejected -> idle',data:{error:String(err),timelineIndex},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+        // #endregion
+        setTtsStatus('idle')
+      })
+    return () => {
+      // #region agent log
+      fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-cleanup',message:'Effect cleanup called',data:{timelineIndex},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
+      // #endregion
+      cancelNarration(); setTtsStatus('idle')
+    }
   }, [timelineIndex, vithiStageData, ttsMuted])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
