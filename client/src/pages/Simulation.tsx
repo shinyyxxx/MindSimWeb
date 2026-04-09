@@ -123,6 +123,7 @@ const VITHI_STAGE_ORDER = [
   'votthapana',
   'javana',
   'tadalammana',
+  'bhavanga',
 ] as const
 
 const VITHI_STAGE_DISPLAY_NAMES: Record<string, string> = {
@@ -136,6 +137,7 @@ const VITHI_STAGE_DISPLAY_NAMES: Record<string, string> = {
   votthapana: 'Voṭṭhapana',
   javana: 'Javana',
   tadalammana: 'Tadālammaṇa',
+  bhavanga: 'Bhavaṅga',
 }
 
 const VITHI_STAGE_EXPLANATIONS: Record<string, string> = {
@@ -157,6 +159,8 @@ const VITHI_STAGE_EXPLANATIONS: Record<string, string> = {
     'Determining consciousness (votthapana) is a crucial turning point in the cognitive process. This functional (kiriya) citta determines whether the object is desirable or undesirable and "decides" the quality of the javana cittas that will follow. Although called "determining," it operates automatically based on conditions — wise attention (yoniso manasikara) or unwise attention shapes the outcome. It has 12 cetasikas.',
   javana:
     'Impulsion (javana) is where kamma is actually made. It runs for 7 thought-moments in normal consciousness, each lasting about a billionth of a finger-snap. The javana cittas are either wholesome (kusala) or unwholesome (akusala) depending on the determining consciousness that preceded them. The first javana is weakest, the 7th is stronger, and the middle five produce the most potent kamma. This is the ethically significant phase of the entire process.',
+  bhavanga:
+    'After the cognitive process (vithi) is complete, the mind returns to bhavanga — the life-continuum consciousness. This is the resting state of the mind that flows continuously between active cognitive processes. The mind always returns here after every sense-door or mind-door process, remaining in bhavanga until the next object strikes a sense door with sufficient force to initiate a new vithi cycle.',
   tadalammana:
     'Registration (tadalammana) occurs only when the object is vivid enough (atimahantarammana or mahantarammana). It "registers" or re-cognizes the object for 2 thought-moments after javana, functioning as an echo of the cognitive process before the mind sinks back into the bhavanga stream. It is a resultant (vipaka) citta and makes no new kamma. If the object is weak, registration does not arise and the bhavanga resumes immediately after javana.',
 }
@@ -311,6 +315,7 @@ const TIMELINE_STOPS: { label: string; description: string }[] = [
   { label: 'T7', description: 'Clinging — mental formations intensify' },
   { label: 'T8', description: 'Becoming — kamma taking shape in the mind' },
   { label: 'T9', description: 'Full cycle — mind in flux, various factors active' },
+  { label: 'T10', description: 'Bhavanga — mind returns to life-continuum after every cognitive process' },
 ]
 
 /** Universal 7 — common to all timeline steps: Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty */
@@ -6046,6 +6051,7 @@ export function Simulation(): React.ReactElement {
     votthapana: 'Votthapana — determining',
     javana: 'Javana — impulsion',
     tadalammana: 'Tadalammana — registration',
+    bhavanga: 'Bhavanga — return to life-continuum',
   }
 
   const dynamicStops = useMemo(() => {
