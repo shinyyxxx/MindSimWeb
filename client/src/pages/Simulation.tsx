@@ -3045,6 +3045,8 @@ function TimelineCanvas({
   vithiResultType,
   subStepIndex,
   onSubStepChange,
+  ttsMuted,
+  onTtsMutedChange,
 }: {
   stops: Array<{ label: string; description: string }>
   selectedIndex: number
@@ -3068,6 +3070,8 @@ function TimelineCanvas({
   vithiResultType?: string | null
   subStepIndex?: number
   onSubStepChange?: (idx: number) => void
+  ttsMuted?: boolean
+  onTtsMutedChange?: (muted: boolean) => void
 }) {
   const [showDetail, setShowDetail] = useState(false)
   const [detailPanelOpen, setDetailPanelOpen] = useState(true)
@@ -3223,8 +3227,22 @@ function TimelineCanvas({
                           padding: '4px 6px', borderRadius: 4,
                           background: 'rgba(139, 92, 246, 0.1)',
                           lineHeight: 1.4,
+                          display: 'flex', alignItems: 'flex-start', gap: 6,
                         }}>
-                          {currentEvt.reason}
+                          <span style={{ flex: 1 }}>{currentEvt.reason}</span>
+                          <button
+                            type="button"
+                            onClick={() => onTtsMutedChange?.(!ttsMuted)}
+                            title={ttsMuted ? 'Unmute voice' : 'Mute voice'}
+                            style={{
+                              flexShrink: 0, background: 'none', border: 'none',
+                              cursor: 'pointer', padding: 0, fontSize: 14,
+                              color: ttsMuted ? '#64748b' : '#a78bfa',
+                              lineHeight: 1,
+                            }}
+                          >
+                            {ttsMuted ? '🔇' : '🔊'}
+                          </button>
                         </div>
                       )}
                       {selectedIndex === 2 && vithiResultType === 'blocked' && (
@@ -4949,8 +4967,28 @@ export function Simulation(): React.ReactElement {
   const [slideshowPaused, setSlideshowPaused] = useState(false)
   const [t3HappySelected, setT3HappySelected] = useState(false)
   const [t5SelectedId, setT5SelectedId] = useState<string | null>(null)
+  const [ttsMuted, setTtsMuted] = useState(false)
 
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
+
+  useEffect(() => {
+    window.speechSynthesis.cancel()
+    if (ttsMuted) return
+    if (!vithiStageData || vithiStageData.size === 0) return
+    const stage = vithiStageData.get(timelineIndex)
+    if (!stage) return
+    let reason = ''
+    if (stage.events.length > 0) {
+      const si = Math.min(subStepIndex, stage.events.length - 1)
+      reason = stage.events[si]?.reason ?? ''
+    }
+    if (!reason) return
+    const utterance = new SpeechSynthesisUtterance(reason)
+    utterance.rate = 1
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+    return () => { window.speechSynthesis.cancel() }
+  }, [timelineIndex, subStepIndex, vithiStageData, ttsMuted])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
     if (timelineIndex === 6) {
@@ -6618,6 +6656,8 @@ export function Simulation(): React.ReactElement {
               vithiResultType={vithiResultType}
               subStepIndex={subStepIndex}
               onSubStepChange={setSubStepIndex}
+              ttsMuted={ttsMuted}
+              onTtsMutedChange={setTtsMuted}
             />
           )}
         </div>
