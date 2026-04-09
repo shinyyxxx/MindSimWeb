@@ -5904,6 +5904,29 @@ export function Simulation(): React.ReactElement {
               events: eventsForStage,
             })
           }
+
+          const bhavangaIdx = VITHI_STAGE_ORDER.indexOf('bhavanga')
+          if (bhavangaIdx >= 0) {
+            stageMap.set(bhavangaIdx, {
+              mind_id: null,
+              mind_id_range: null,
+              mind_name: 'Bhavaṅga',
+              description: 'The mind returns to the life-continuum (bhavanga) after completing the cognitive process.',
+              mental_ids: [],
+              mental_details: [],
+              blocked: false,
+              events: [{
+                order: 0,
+                stage: 'bhavanga',
+                mind_id: null,
+                mind_id_range: null,
+                mind_name: 'Bhavaṅga',
+                description: 'The mind returns to the life-continuum (bhavanga) after completing the cognitive process.',
+                reason: 'After every sense-door cognitive process, the mind returns to bhavanga — its resting state. It remains here, flowing as a continuous stream of life-continuum consciousness, until the next sense object strikes with enough force to begin a new vithi cycle.',
+              }],
+            })
+          }
+
           setVithiStageData(stageMap)
 
           if (timelineMode === 'slideshow') {
