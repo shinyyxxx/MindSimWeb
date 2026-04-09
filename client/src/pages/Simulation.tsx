@@ -3231,9 +3231,11 @@ function TimelineCanvas({
                       <div style={{ fontSize: 10, color: '#60a5fa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
                         {currentEvt.stage.replace(/_/g, ' ')}
                       </div>
-                      <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
-                        {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
-                      </div>
+                      {(currentEvt.mind_name || currentEvt.mind_id != null) && (
+                        <div style={{ fontSize: 13, color: '#e2e8f0', fontWeight: 600, marginTop: 3 }}>
+                          {currentEvt.mind_name || `Citta ${currentEvt.mind_id}`}
+                        </div>
+                      )}
                       {selectedIndex > 2 && (
                         <div style={{ fontSize: 10, color: '#7dd3fc', marginTop: 2 }}>
                           {currentEvt.mind_id != null
@@ -4227,9 +4229,11 @@ function XRTimelinePanel({
                       <Text position={[-0.88, stageInfoY, 0.006]} anchorX="left" anchorY="middle" fontSize={0.016} color="#60a5fa" maxWidth={0.74}>
                         {currentEvt.stage.replace(/_/g, ' ').toUpperCase()}
                       </Text>
-                      <Text position={[-0.88, stageInfoY - 0.035, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
-                        {currentEvt.mind_name || `Citta ${currentEvt.mind_id ?? '?'}`}
-                      </Text>
+                      {(currentEvt.mind_name || currentEvt.mind_id != null) && (
+                        <Text position={[-0.88, stageInfoY - 0.035, 0.006]} anchorX="left" anchorY="middle" fontSize={0.019} color="#e2e8f0" maxWidth={0.74}>
+                          {currentEvt.mind_name || `Citta ${currentEvt.mind_id}`}
+                        </Text>
+                      )}
                       {selectedIndex > 2 && (
                         <Text position={[-0.88, stageInfoY - 0.055, 0.006]} anchorX="left" anchorY="middle" fontSize={0.014} color="#7dd3fc" maxWidth={0.74}>
                           {currentEvt.mind_id != null

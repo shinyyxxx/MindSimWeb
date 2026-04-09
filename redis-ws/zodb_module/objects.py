@@ -170,21 +170,21 @@ class PhassaObject(MentalSphereObject):
         is_bad_initial = (desire == "bad")
 
         order += 1
-        events.append(VithiEvent(order=order, stage="atita_bhavanga", mind_id=28,
+        events.append(VithiEvent(order=order, stage="atita_bhavanga", mind_id=None,
                                  description="Past bhavanga, last moment of life continuum",
                                  reason=(
                                      f"A {pleasant_label} object, {sense_obj}, is about to strike the {sense} sense door. "
                                      f"This is the last moment of the resting bhavanga or life continuum before disruption."
                                  )))
         order += 1
-        events.append(VithiEvent(order=order, stage="bhavanga_calana", mind_id=28,
+        events.append(VithiEvent(order=order, stage="bhavanga_calana", mind_id=None,
                                  description="Bhavanga vibration, life continuum disturbed",
                                  reason=(
                                      f"The {pleasant_label} object, {sense_obj}, strikes the {sense} sense door "
                                      f"causing the bhavanga or life continuum to vibrate."
                                  )))
         order += 1
-        events.append(VithiEvent(order=order, stage="bhavanga_upaccheda", mind_id=28,
+        events.append(VithiEvent(order=order, stage="bhavanga_upaccheda", mind_id=None,
                                  description="Bhavanga arrest, life continuum cut off",
                                  reason=(
                                      "The disturbance from the object is strong enough "
