@@ -15,6 +15,13 @@ type MentalPassthroughGlassBackup = {
     iridescenceIOR: number;
     emissiveIntensity: number;
 };
+type ActivePulseAnimation = {
+    elapsedMs: number;
+    durationMs: number;
+    fromWorldSize: number;
+    toWorldSize: number;
+    fromOpacity: number;
+};
 export class Mental extends AbstractMental {
     modelPath?: string;
     modelTargetWorldSize: number;
@@ -31,6 +38,9 @@ export class Mental extends AbstractMental {
     private dragging: boolean;
     private modelVisible: boolean;
     private modelLoadToken: number;
+    private activePulseAnimation: ActivePulseAnimation | null;
+    private pendingActivePulse: boolean;
+    private activePulseMaxWorldSize: number;
     private passthroughGlassActive = false;
     private passthroughGlassBackup: MentalPassthroughGlassBackup | null = null;
     constructor(options: MentalBaseOptions = {}) {
@@ -54,6 +64,9 @@ export class Mental extends AbstractMental {
         this.dragging = false;
         this.modelVisible = true;
         this.modelLoadToken = 0;
+        this.activePulseAnimation = null;
+        this.pendingActivePulse = false;
+        this.activePulseMaxWorldSize = 1.2;
         this.normalizeVelocityToMotionSpeed();
     }
     createMaterial(): void {
@@ -172,6 +185,85 @@ export class Mental extends AbstractMental {
                 }
             });
         }
+    }
+    active(): void {
+        this.pendingActivePulse = true;
+        this.tryStartActivePulse();
+    }
+    updateVisualEffects(deltaTime: number): void {
+        if (this.pendingActivePulse) {
+            this.tryStartActivePulse();
+        }
+        if (!this.activePulseAnimation) {
+            return;
+        }
+        const anim = this.activePulseAnimation;
+        anim.elapsedMs += Math.max(0, deltaTime) * 1000;
+        const t = THREE.MathUtils.clamp(anim.elapsedMs / Math.max(1, anim.durationMs), 0, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const worldSize = THREE.MathUtils.lerp(anim.fromWorldSize, anim.toWorldSize, eased);
+        const opacity = THREE.MathUtils.lerp(anim.fromOpacity, 0, t);
+        this.applyAttachedModelPulseVisual(worldSize, opacity);
+        if (t >= 1) {
+            this.activePulseAnimation = null;
+            this.applyAttachedModelPulseVisual(this.modelTargetWorldSize, this.modelOpacity);
+        }
+    }
+    private tryStartActivePulse(): void {
+        if (!this.attachedModel || !this.mesh) {
+            return;
+        }
+        const baseWorldSize = Math.max(0.01, this.modelTargetWorldSize);
+        const mindWorldRadius = this.getParentMindWorldRadius();
+        const mindCap = mindWorldRadius ? Math.max(0.02, mindWorldRadius * 0.92) : this.activePulseMaxWorldSize;
+        const toWorldSize = Math.max(baseWorldSize, Math.min(this.activePulseMaxWorldSize, mindCap, baseWorldSize * 4));
+        this.activePulseAnimation = {
+            elapsedMs: 0,
+            durationMs: 720,
+            fromWorldSize: baseWorldSize,
+            toWorldSize,
+            fromOpacity: this.modelOpacity,
+        };
+        this.pendingActivePulse = false;
+        this.applyAttachedModelPulseVisual(baseWorldSize, this.modelOpacity);
+    }
+    private getParentMindWorldRadius(): number | null {
+        if (!this.mesh?.parent) {
+            return null;
+        }
+        const worldScale = new THREE.Vector3();
+        this.mesh.parent.getWorldScale(worldScale);
+        const radius = Math.max(worldScale.x, worldScale.y, worldScale.z);
+        return Number.isFinite(radius) && radius > 0 ? radius : null;
+    }
+    private applyAttachedModelPulseVisual(worldSize: number, opacity: number): void {
+        if (!this.attachedModel || !this.mesh) {
+            return;
+        }
+        const bubbleScale = Math.max(0.00001, this.mesh.scale.x);
+        const localScale = worldSize / bubbleScale;
+        this.attachedModel.scale.setScalar(localScale);
+        const safeOpacity = THREE.MathUtils.clamp(opacity, 0, 1);
+        this.attachedModel.traverse((child) => {
+            if (!(child as THREE.Mesh).isMesh) {
+                return;
+            }
+            const mesh = child as THREE.Mesh;
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((mat) => {
+                    mat.transparent = true;
+                    mat.opacity = safeOpacity;
+                    mat.depthWrite = false;
+                    mat.needsUpdate = true;
+                });
+            }
+            else if (mesh.material) {
+                mesh.material.transparent = true;
+                mesh.material.opacity = safeOpacity;
+                mesh.material.depthWrite = false;
+                mesh.material.needsUpdate = true;
+            }
+        });
     }
     toggleModelVisible(): boolean {
         this.setModelVisible(!this.modelVisible);
@@ -327,6 +419,9 @@ export class Mental extends AbstractMental {
                 this.mesh?.add(obj);
                 obj.visible = this.modelVisible;
                 this.attachedModel = obj;
+                if (this.pendingActivePulse) {
+                    this.tryStartActivePulse();
+                }
                 ktx2Loader.dispose();
                 dracoLoader.dispose();
                 resolve();
@@ -597,6 +692,7 @@ export class Mental extends AbstractMental {
     }
     detachModel(): void {
         this.modelLoadToken += 1;
+        this.activePulseAnimation = null;
         if (!this.attachedModel || !this.mesh)
             return;
         this.mesh.remove(this.attachedModel);

@@ -2078,6 +2078,118 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   overflow-y: auto;
 }
 
+.cr-mini-ide {
+  position: fixed;
+  width: min(420px, calc(100vw - 24px));
+  height: min(52vh, 420px);
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.95);
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.45);
+  color: #e2e8f0;
+  overflow: hidden;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+}
+
+.cr-mini-ide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.32);
+  cursor: grab;
+  user-select: none;
+}
+
+.cr-mini-ide-title {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.cr-mini-ide-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cr-mini-ide-btn {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.cr-mini-ide-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cr-mini-ide-btn-run {
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+}
+
+.cr-mini-ide-textarea {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  padding: 10px 11px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  tab-size: 4;
+}
+
+.cr-mini-ide-hint {
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #cbd5e1;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.cr-mini-ide-hint code {
+  background: rgba(148, 163, 184, 0.2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.cr-mini-ide-hint kbd {
+  background: rgba(148, 163, 184, 0.28);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+}
+
+.cr-mini-ide-error {
+  border-top: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(127, 29, 29, 0.35);
+  color: #fecaca;
+  font-size: 11px;
+  padding: 7px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.cr-mini-ide-status {
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.85);
+  color: #cbd5e1;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+
 @media (max-width: 900px) {
   .cr-layout { grid-template-columns: 1fr; }
   .cr-resize-handle { margin: 0 12px; }

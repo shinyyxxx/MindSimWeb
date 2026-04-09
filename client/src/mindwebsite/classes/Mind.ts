@@ -286,6 +286,7 @@ export class Mind extends AbstractMind {
         if (!mindMesh)
             return;
         this.mentals.forEach((mental) => {
+            mental.updateVisualEffects(deltaTime);
             if (mental.isOutsideMindPinned() || mental.isDragging()) {
                 mental.setVelocity(0, 0, 0);
                 return;

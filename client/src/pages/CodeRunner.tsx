@@ -1,12 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import React, { memo, useState, useRef, useCallback, useEffect } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, OrbitControls } from '@react-three/drei'
 import { Mind } from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
+import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
 import { CodeParser, stripDslExplainLines, type ParsedAction } from '../utils/codeParser'
 import { playTextToSpeech } from '../utils/googleTts'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
+const BASIS_PATH = 'https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/'
 
 interface ExecuteResult {
   message: string
@@ -105,27 +107,113 @@ function MindSphere({ mind }: { mind: Mind }) {
   return <primitive object={mesh} />
 }
 
+function MindMentalModels({ mind }: { mind: Mind }) {
+  const { gl } = useThree()
+
+  useEffect(() => {
+    const mentals = mind.getMentals()
+    mentals.forEach((mental) => {
+      mental.loadModel(gl, { basisPath: BASIS_PATH }).catch((err) => {
+        console.error('Failed to load mental model', err)
+      })
+    })
+
+    return () => {
+      mentals.forEach((mental) => {
+        mental.detachModel()
+      })
+    }
+  }, [gl, mind])
+
+  return null
+}
+
+const ScenePlayground = memo(function ScenePlayground({ mind }: { mind: Mind }) {
+  return (
+    <Canvas
+      camera={{ position: [0, 0, 4], fov: 60 }}
+      shadows
+      gl={{ antialias: true, toneMappingExposure: 1.2 }}
+    >
+      <Environment preset="dawn" background blur={1} />
+      <OrbitControls
+        enableDamping
+        dampingFactor={0.05}
+        enableZoom
+        enablePan
+        minDistance={1}
+        maxDistance={10}
+      />
+      <ambientLight intensity={1.0} />
+      <directionalLight position={[5, 8, 5]} intensity={2.0} castShadow />
+      <directionalLight position={[-5, 3, -5]} intensity={1.5} />
+      <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
+      <MindSphere mind={mind} />
+      <MindMentalModels mind={mind} />
+    </Canvas>
+  )
+})
+
 type LocalResult = {
   log: string[]
   mindCount: number
   mentalCount: number
 }
 
+type RuntimeContext = {
+  mindsByVar: Map<string, Mind>
+  mentalsByVar: Map<string, Mental>
+}
+
 export function CodeRunner(): React.ReactElement {
   const [code, setCode] = useState(PLACEHOLDER_CODE)
+  const [miniCode, setMiniCode] = useState('mt2.explain()')
   const [result, setResult] = useState<ExecuteResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [miniLoading, setMiniLoading] = useState(false)
+  const [miniStatus, setMiniStatus] = useState<string | null>(null)
+  const [miniError, setMiniError] = useState<string | null>(null)
   const [localResult, setLocalResult] = useState<LocalResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [sceneMind, setSceneMind] = useState<Mind | null>(null)
   const prevMindRef = useRef<Mind | null>(null)
+  const runtimeContextRef = useRef<RuntimeContext>({
+    mindsByVar: new Map<string, Mind>(),
+    mentalsByVar: new Map<string, Mental>(),
+  })
+  const [miniEditorOpen, setMiniEditorOpen] = useState(false)
+  const [miniEditorPos, setMiniEditorPos] = useState({ x: 28, y: 96 })
+  const miniEditorDragRef = useRef({ active: false, dx: 0, dy: 0 })
 
   useEffect(() => {
     return () => {
       prevMindRef.current?.dispose()
+    }
+  }, [])
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!miniEditorDragRef.current.active) return
+      const maxX = Math.max(12, window.innerWidth - 392)
+      const maxY = Math.max(12, window.innerHeight - 260)
+      const nextX = Math.min(maxX, Math.max(12, e.clientX - miniEditorDragRef.current.dx))
+      const nextY = Math.min(maxY, Math.max(12, e.clientY - miniEditorDragRef.current.dy))
+      setMiniEditorPos({ x: nextX, y: nextY })
+    }
+    const onMouseUp = () => {
+      if (!miniEditorDragRef.current.active) return
+      miniEditorDragRef.current.active = false
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
     }
   }, [])
 
@@ -162,6 +250,16 @@ export function CodeRunner(): React.ReactElement {
     document.body.style.cursor = 'row-resize'
   }, [playgroundHeight])
 
+  const handleMiniEditorPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement | null
+    if (!target?.closest('[data-cr-mini-drag-handle]')) return
+    miniEditorDragRef.current.active = true
+    miniEditorDragRef.current.dx = e.clientX - miniEditorPos.x
+    miniEditorDragRef.current.dy = e.clientY - miniEditorPos.y
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+  }, [miniEditorPos.x, miniEditorPos.y])
+
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -174,11 +272,24 @@ export function CodeRunner(): React.ReactElement {
     e.target.value = ''
   }, [])
 
+  const parseStringLiteralOrRaw = useCallback((input: string): string => {
+    const value = input.trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+      (value.startsWith('\'') && value.endsWith('\'') && value.length >= 2)
+    ) {
+      return value.slice(1, -1)
+    }
+    return value
+  }, [])
+
   const handleExecute = useCallback(async () => {
     if (!code.trim()) return
 
     setParseError(null)
     setError(null)
+    setMiniError(null)
+    setMiniStatus(null)
     setResult(null)
     setLocalResult(null)
 
@@ -252,7 +363,8 @@ export function CodeRunner(): React.ReactElement {
         mindCount++
         log.push(`Created Mind '${action.data.name}' (var: ${action.variable})`)
       } else if (action.type === 'create_mental') {
-        const mental = new Mental({
+        const MentalCtor = action.data.constructorName === 'FeelingMental' ? FeelingMental : Mental
+        const mental = new MentalCtor({
           name: action.data.name,
           detail: '',
           color: action.data.color,
@@ -265,6 +377,20 @@ export function CodeRunner(): React.ReactElement {
         mentalsByVar.set(action.variable, mental)
         mentalCount++
         log.push(`Created Mental '${action.data.name}' (var: ${action.variable})`)
+      } else if (action.type === 'mental_feel') {
+        const mental = mentalsByVar.get(action.variable)
+        if (!mental) continue
+        if (mental instanceof FeelingMental) {
+          mental.feel(action.mood)
+          log.push(`Feeling mood model applied '${action.mood}' on '${mental.getName()}'`)
+        } else {
+          log.push(`feel() skipped for '${action.variable}': not a FeelingMental`)
+        }
+      } else if (action.type === 'mental_active') {
+        const mental = mentalsByVar.get(action.variable)
+        if (!mental) continue
+        mental.active()
+        log.push(`Active pulse applied on '${mental.getName()}'`)
       } else if (action.type === 'update_mind_attribute') {
         const mind = mindsByVar.get(action.variable)
         if (!mind) continue
@@ -310,6 +436,10 @@ export function CodeRunner(): React.ReactElement {
     } else {
       setSceneMind(null)
     }
+    runtimeContextRef.current = {
+      mindsByVar: new Map(mindsByVar),
+      mentalsByVar: new Map(mentalsByVar),
+    }
 
     setLocalResult({ log, mindCount, mentalCount })
 
@@ -334,6 +464,154 @@ export function CodeRunner(): React.ReactElement {
     }
   }, [code])
 
+  const handleRunMini = useCallback(async () => {
+    const commandText = miniCode.trim()
+    if (!commandText) return
+
+    const { mindsByVar, mentalsByVar } = runtimeContextRef.current
+    const knownVarCount = mindsByVar.size + mentalsByVar.size
+    if (knownVarCount === 0) {
+      setMiniError('Run the normal editor once first so variables exist (example: mt2).')
+      setMiniStatus(null)
+      return
+    }
+
+    setMiniLoading(true)
+    setMiniError(null)
+    const logs: string[] = []
+    try {
+      const lines = commandText.split('\n')
+      for (let i = 0; i < lines.length; i += 1) {
+        const lineNo = i + 1
+        const trimmed = lines[i].trim()
+        if (!trimmed || trimmed.startsWith('#')) continue
+
+        const explainCallMatch = trimmed.match(/^(\w+)\.explain\s*\(\s*\)\s*;?\s*$/)
+        if (explainCallMatch) {
+          const variable = explainCallMatch[1]
+          const mind = mindsByVar.get(variable)
+          const mental = mentalsByVar.get(variable)
+          if (!mind && !mental) throw new Error(`Line ${lineNo}: variable "${variable}" not found`)
+          const targetName = mind ? mind.getName() : mental!.getName()
+          const detailTrim = (mind ? mind.getDetail() : mental!.getDetail() || '').trim()
+          const speak = detailTrim.length > 0 ? `${targetName}. ${detailTrim}` : targetName
+          logs.push(`TTS (${variable}): ${speak}`)
+          await playTextToSpeech(speak)
+          continue
+        }
+
+        const explainAssignMatch = trimmed.match(/^(\w+)\.explain\s*=\s*(.+)\s*$/)
+        if (explainAssignMatch) {
+          const variable = explainAssignMatch[1]
+          const text = parseStringLiteralOrRaw(explainAssignMatch[2])
+          const mind = mindsByVar.get(variable)
+          const mental = mentalsByVar.get(variable)
+          if (!mind && !mental) throw new Error(`Line ${lineNo}: variable "${variable}" not found`)
+          if (mind) mind.setDetail(text)
+          else mental!.setDetail(text)
+          const label = mind ? mind.getName() : mental!.getName()
+          const speak = `${label}. ${text}`
+          logs.push(`TTS (${variable}): ${speak}`)
+          await playTextToSpeech(speak)
+          continue
+        }
+
+        const feelMatch = trimmed.match(/^(\w+)\.feel\s*\(\s*(['"])(.*)\2\s*\)\s*;?\s*$/)
+        if (feelMatch) {
+          const variable = feelMatch[1]
+          const mood = feelMatch[3].trim()
+          const mental = mentalsByVar.get(variable)
+          if (!mental) throw new Error(`Line ${lineNo}: variable "${variable}" not found`)
+          if (!(mental instanceof FeelingMental)) {
+            throw new Error(`Line ${lineNo}: feel() is only supported on FeelingMental`)
+          }
+          mental.feel(mood)
+          logs.push(`Feeling mood model applied '${mood}' on '${mental.getName()}'`)
+          continue
+        }
+
+        const activeMatch = trimmed.match(/^(\w+)\.active\s*\(\s*\)\s*;?\s*$/)
+        if (activeMatch) {
+          const variable = activeMatch[1]
+          const mental = mentalsByVar.get(variable)
+          if (!mental) throw new Error(`Line ${lineNo}: variable "${variable}" not found`)
+          mental.active()
+          logs.push(`Active pulse applied on '${mental.getName()}'`)
+          continue
+        }
+
+        const updateMatch = trimmed.match(/^(\w+)\.(\w+)\s*=\s*(.+)\s*$/)
+        if (updateMatch) {
+          const variable = updateMatch[1]
+          const attribute = updateMatch[2]
+          const rawValue = parseStringLiteralOrRaw(updateMatch[3])
+          const mind = mindsByVar.get(variable)
+          const mental = mentalsByVar.get(variable)
+          if (!mind && !mental) throw new Error(`Line ${lineNo}: variable "${variable}" not found`)
+
+          if (mind) {
+            if (attribute === 'name') mind.setName(rawValue)
+            else if (attribute === 'color') mind.setColor(rawValue)
+            else if (attribute === 'scale') {
+              const s = parseFloat(rawValue)
+              if (!Number.isNaN(s)) mind.setScale(s)
+            } else if (attribute === 'position') {
+              const vec = parseNumberList(rawValue)
+              if (vec) mind.setPosition(vec)
+            } else if (attribute === 'detail') {
+              mind.setDetail(rawValue)
+            } else {
+              throw new Error(`Line ${lineNo}: unsupported attribute "${attribute}" for Mind`)
+            }
+            logs.push(`Updated ${variable}.${attribute}`)
+            continue
+          }
+
+          if (mental) {
+            if (attribute === 'name') mental.setName(rawValue)
+            else if (attribute === 'color') mental.setColor(rawValue)
+            else if (attribute === 'scale') {
+              const s = parseFloat(rawValue)
+              if (!Number.isNaN(s)) mental.setScale(s)
+            } else if (attribute === 'position') {
+              const vec = parseNumberList(rawValue)
+              if (vec) mental.setPosition(vec)
+            } else if (attribute === 'detail') {
+              mental.setDetail(rawValue)
+            } else {
+              throw new Error(`Line ${lineNo}: unsupported attribute "${attribute}" for Mental`)
+            }
+            logs.push(`Updated ${variable}.${attribute}`)
+            continue
+          }
+        }
+
+        throw new Error(`Line ${lineNo}: unsupported mini command`)
+      }
+
+      const knownVariables = [
+        ...Array.from(mindsByVar.keys()),
+        ...Array.from(mentalsByVar.keys()),
+      ]
+      setMiniStatus(
+        logs.length > 0
+          ? `${logs.length} command(s) applied. Known vars: ${knownVariables.join(', ')}`
+          : 'No commands executed.',
+      )
+      setLocalResult((prev) => {
+        const mindCount = mindsByVar.size
+        const mentalCount = mentalsByVar.size
+        if (!prev) return { log: logs, mindCount, mentalCount }
+        return { ...prev, mindCount, mentalCount, log: [...prev.log, ...logs] }
+      })
+    } catch (err) {
+      setMiniError(err instanceof Error ? err.message : 'Mini IDE command failed')
+      setMiniStatus(null)
+    } finally {
+      setMiniLoading(false)
+    }
+  }, [miniCode, parseStringLiteralOrRaw])
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -352,6 +630,24 @@ export function CodeRunner(): React.ReactElement {
     }
   }, [handleExecute])
 
+  const handleMiniKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handleRunMini()
+    }
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      const ta = e.currentTarget
+      const start = ta.selectionStart
+      const end = ta.selectionEnd
+      const val = ta.value
+      setMiniCode(val.substring(0, start) + '    ' + val.substring(end))
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = start + 4
+      })
+    }
+  }, [handleRunMini])
+
   return (
     <main className="page cr-code-runner-page">
       <div className="cr-layout">
@@ -368,6 +664,15 @@ export function CodeRunner(): React.ReactElement {
               <input ref={fileInputRef} type="file" accept=".py,.txt" onChange={handleFileUpload} style={{ display: 'none' }} />
               <button className="cr-btn cr-btn-secondary" onClick={() => fileInputRef.current?.click()}>
                 Upload .py
+              </button>
+              <button
+                className="cr-btn cr-btn-secondary"
+                onClick={() => {
+                  setMiniEditorOpen((prev) => !prev)
+                  setMiniError(null)
+                }}
+              >
+                {miniEditorOpen ? 'Hide Mini IDE' : 'Mini IDE'}
               </button>
               <button className="cr-btn cr-btn-primary" onClick={handleExecute} disabled={loading || !code.trim()}>
                 {loading ? 'Running...' : 'Run'}
@@ -442,26 +747,7 @@ export function CodeRunner(): React.ReactElement {
                     <span className="cr-playground-hint">Orbit · zoom · fills column height</span>
                   </div>
                   <div className="cr-playground-canvas cr-playground-canvas--embed">
-                    <Canvas
-                      camera={{ position: [0, 0, 4], fov: 60 }}
-                      shadows
-                      gl={{ antialias: true, toneMappingExposure: 1.2 }}
-                    >
-                      <Environment preset="dawn" background blur={1} />
-                      <OrbitControls
-                        enableDamping
-                        dampingFactor={0.05}
-                        enableZoom
-                        enablePan
-                        minDistance={1}
-                        maxDistance={10}
-                      />
-                      <ambientLight intensity={1.0} />
-                      <directionalLight position={[5, 8, 5]} intensity={2.0} castShadow />
-                      <directionalLight position={[-5, 3, -5]} intensity={1.5} />
-                      <pointLight position={[0, 6, 0]} intensity={2.0} distance={15} decay={2} />
-                      <MindSphere mind={sceneMind} />
-                    </Canvas>
+                    <ScenePlayground mind={sceneMind} />
                   </div>
                 </div>
               )}
@@ -483,6 +769,34 @@ export function CodeRunner(): React.ReactElement {
           )}
         </section>
       </div>
+
+      {miniEditorOpen && (
+        <div className="cr-mini-ide" onPointerDown={handleMiniEditorPointerDown} style={{ left: miniEditorPos.x, top: miniEditorPos.y }}>
+          <div className="cr-mini-ide-header" data-cr-mini-drag-handle>
+            <strong className="cr-mini-ide-title">Mini IDE</strong>
+            <div className="cr-mini-ide-header-actions">
+              <button className="cr-mini-ide-btn cr-mini-ide-btn-run" onClick={handleRunMini} disabled={miniLoading || !miniCode.trim()}>
+                {miniLoading ? 'Running...' : 'Run'}
+              </button>
+              <button className="cr-mini-ide-btn" onClick={() => setMiniEditorOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+          <textarea
+            className="cr-mini-ide-textarea"
+            value={miniCode}
+            onChange={(e) => setMiniCode(e.target.value)}
+            onKeyDown={handleMiniKeyDown}
+            spellCheck={false}
+          />
+          <div className="cr-mini-ide-hint">
+            Uses vars from normal Run (examples: <code>mt2.explain()</code>, <code>mt2.active()</code>) · <kbd>Cmd/Ctrl</kbd>+<kbd>Enter</kbd> to run
+          </div>
+          {miniError && <div className="cr-mini-ide-error">{miniError}</div>}
+          {miniStatus && !miniError && <div className="cr-mini-ide-status">{miniStatus}</div>}
+        </div>
+      )}
 
       {result && result.execution_log.length > 0 && (
         <>

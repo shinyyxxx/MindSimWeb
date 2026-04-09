@@ -17,6 +17,7 @@ export type ParsedAction = {
     type: 'create_mental';
     variable: string;
     data: {
+        constructorName: string;
         name: string;
         color: string;
         scale: number;
@@ -33,6 +34,13 @@ export type ParsedAction = {
     attribute: string;
     value: string;
 } | {
+    type: 'mental_feel';
+    variable: string;
+    mood: string;
+} | {
+    type: 'mental_active';
+    variable: string;
+} | {
     type: 'add_mental_to_mind';
     mindVariable: string;
     mentalVariable: string;
@@ -47,6 +55,7 @@ type VarType = 'mind' | 'mental';
 type VarInfo = {
     type: VarType;
     id: number | null;
+    className?: string;
 };
 
 /** `variable.explain = "…"` and `variable.explain()` are frontend-only; Python has no `explain`. */
@@ -60,6 +69,10 @@ export function stripDslExplainLines(dsl: string): string {
             if (/^\w+\.explain\s*=/.test(t))
                 return false;
             if (/^\w+\.explain\s*\(\s*\)\s*;?\s*$/.test(t))
+                return false;
+            if (/^\w+\.feel\s*\(\s*(['"]).*\1\s*\)\s*;?\s*$/.test(t))
+                return false;
+            if (/^\w+\.active\s*\(\s*\)\s*;?\s*$/.test(t))
                 return false;
             return true;
         })
@@ -124,11 +137,56 @@ export class CodeParser {
                             .replace(/Mental$/, '')
                             .replace(/([a-z])([A-Z])/g, '$1 $2')
                             .trim() || 'Mental Sphere');
-                    this.variables.set(varName, { type: 'mental', id: null });
+                    this.variables.set(varName, { type: 'mental', id: null, className });
                     actions.push({
                         type: 'create_mental',
                         variable: varName,
-                        data: { name: inferredName, color: '#ff6b9d', scale: 0.1, position: [0, 0, 0] },
+                        data: {
+                            constructorName: className,
+                            name: inferredName,
+                            color: '#ff6b9d',
+                            scale: 0.1,
+                            position: [0, 0, 0]
+                        },
+                    });
+                }
+                else if (/^\w+\.feel\s*\(\s*(['"]).*\1\s*\)\s*;?\s*$/.test(trimmed)) {
+                    const match = trimmed.match(/^(\w+)\.feel\s*\(\s*(['"])(.*)\2\s*\)\s*;?\s*$/);
+                    if (!match)
+                        continue;
+                    const varName = match[1];
+                    const mood = match[3].trim();
+                    const varInfo = this.variables.get(varName);
+                    if (!varInfo) {
+                        throw new Error(`Line ${lineNo}: variable "${varName}" not found`);
+                    }
+                    if (varInfo.type !== 'mental') {
+                        throw new Error(`Line ${lineNo}: variable "${varName}" is not a Mental`);
+                    }
+                    if (varInfo.className !== 'FeelingMental') {
+                        throw new Error(`Line ${lineNo}: feel() is only supported on FeelingMental`);
+                    }
+                    actions.push({
+                        type: 'mental_feel',
+                        variable: varName,
+                        mood,
+                    });
+                }
+                else if (/^\w+\.active\s*\(\s*\)\s*;?\s*$/.test(trimmed)) {
+                    const match = trimmed.match(/^(\w+)\.active\s*\(\s*\)\s*;?\s*$/);
+                    if (!match)
+                        continue;
+                    const varName = match[1];
+                    const varInfo = this.variables.get(varName);
+                    if (!varInfo) {
+                        throw new Error(`Line ${lineNo}: variable "${varName}" not found`);
+                    }
+                    if (varInfo.type !== 'mental') {
+                        throw new Error(`Line ${lineNo}: variable "${varName}" is not a Mental`);
+                    }
+                    actions.push({
+                        type: 'mental_active',
+                        variable: varName,
                     });
                 }
                 else if (/^\w+\.explain\s*\(\s*\)\s*;?\s*$/.test(trimmed)) {
@@ -268,6 +326,8 @@ export class CodeParser {
                         request_id: `add_${action.mindVariable}_${action.mentalVariable}_${Date.now()}`,
                     });
                     break;
+                case 'mental_feel':
+                case 'mental_active':
                 case 'variable_explain':
                     break;
             }

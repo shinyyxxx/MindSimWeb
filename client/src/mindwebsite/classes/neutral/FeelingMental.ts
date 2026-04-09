@@ -1,5 +1,6 @@
 import UniversalMental from './UniversalMental';
 import type { MentalBaseOptions } from '../AbstractMental';
+import { getFeelingMoodVisual } from '../../../utils/feelingMentalMoods';
 export class FeelingMental extends UniversalMental {
     constructor(options: MentalBaseOptions = {}) {
         super({
@@ -10,6 +11,19 @@ export class FeelingMental extends UniversalMental {
             motionSpeed: options.motionSpeed ?? 0,
             ...options,
         });
+    }
+    feel(mood: string): void {
+        const visual = getFeelingMoodVisual(mood);
+        if (!visual) {
+            return;
+        }
+        this.setModelPath(visual.modelPath);
+        if (typeof visual.modelTargetWorldSize === 'number') {
+            this.setModelTargetWorldSize(visual.modelTargetWorldSize);
+        }
+        if (visual.modelOffset) {
+            this.setModelOffset(visual.modelOffset);
+        }
     }
     override getType(): string {
         return 'feeling_mental';
