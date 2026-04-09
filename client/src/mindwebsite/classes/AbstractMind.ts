@@ -1,5 +1,41 @@
 import * as THREE from 'three'
 
+/** Word-wrap for mind labels; keeps each line within `maxWidth` px. */
+function wrapLabelLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const trial = current ? `${current} ${word}` : word
+    if (ctx.measureText(trial).width <= maxWidth) {
+      current = trial
+      continue
+    }
+    if (current) {
+      lines.push(current)
+      current = ''
+    }
+    if (ctx.measureText(word).width <= maxWidth) {
+      current = word
+      continue
+    }
+    let chunk = ''
+    for (const ch of word) {
+      const next = chunk + ch
+      if (ctx.measureText(next).width <= maxWidth) {
+        chunk = next
+      } else {
+        if (chunk) lines.push(chunk)
+        chunk = ch
+      }
+    }
+    if (chunk) current = chunk
+  }
+  if (current) lines.push(current)
+  return lines.length ? lines : ['']
+}
+
 export interface MindBaseOptions {
   name?: string
   detail?: string
@@ -243,54 +279,97 @@ export class AbstractMind {
   }
 
   private createLabelTexture(text: string): THREE.CanvasTexture {
+    const safe = (text || '').trim() || '—'
+    const pad = 20
+    const minCanvasW = 260
+    const maxCanvasW = 1536
+    const baseH = 256
+    const maxCanvasH = 720
+    const minFont = 22
+    const maxFont = 84
+    const horizontalMargin = pad * 2 + 48
+    const innerMaxW = maxCanvasW - horizontalMargin
+
+    const measure = document.createElement('canvas').getContext('2d')
+    if (!measure) {
+      const canvas = document.createElement('canvas')
+      canvas.width = 512
+      canvas.height = baseH
+      const t = new THREE.CanvasTexture(canvas)
+      t.needsUpdate = true
+      return t
+    }
+
+    let fontSize = maxFont
+    let lines: string[] = [safe]
+    let canvasW = minCanvasW
+    let canvasH = baseH
+
+    while (fontSize >= minFont) {
+      measure.font = `700 ${fontSize}px Arial`
+      const tw = measure.measureText(safe).width
+      if (tw <= innerMaxW) {
+        canvasW = Math.ceil(Math.min(maxCanvasW, Math.max(minCanvasW, tw + horizontalMargin)))
+        canvasH = baseH
+        lines = [safe]
+        break
+      }
+      fontSize -= 3
+    }
+
+    if (fontSize < minFont) {
+      fontSize = minFont
+      measure.font = `700 ${fontSize}px Arial`
+      lines = wrapLabelLines(measure, safe, innerMaxW)
+      const maxLineW = Math.max(...lines.map((ln) => measure.measureText(ln).width), 0)
+      canvasW = Math.ceil(Math.min(maxCanvasW, Math.max(minCanvasW, maxLineW + horizontalMargin)))
+      const lineHeight = fontSize * 1.22
+      canvasH = Math.ceil(Math.min(maxCanvasH, Math.max(baseH, pad * 2 + lines.length * lineHeight + 28)))
+    }
+
     const canvas = document.createElement('canvas')
-    canvas.width = 512
-    canvas.height = 256
+    canvas.width = canvasW
+    canvas.height = canvasH
 
     const ctx = canvas.getContext('2d')
     if (!ctx) {
-      const fallback = new THREE.CanvasTexture(canvas)
-      fallback.needsUpdate = true
-      return fallback
+      const t = new THREE.CanvasTexture(canvas)
+      t.needsUpdate = true
+      return t
     }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    ctx.clearRect(0, 0, canvasW, canvasH)
+    const boxW = canvasW - pad * 2
+    const boxH = canvasH - pad * 2
+    const r = Math.min(22, boxW * 0.08, boxH * 0.08)
+    const x = pad
+    const y = pad
+
     ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'
     ctx.lineWidth = 6
-
-    const pad = 20
-    const r = 22
-    const x = pad
-    const y = pad
-    const w = canvas.width - pad * 2
-    const h = canvas.height - pad * 2
-
     ctx.beginPath()
     ctx.moveTo(x + r, y)
-    ctx.arcTo(x + w, y, x + w, y + h, r)
-    ctx.arcTo(x + w, y + h, x, y + h, r)
-    ctx.arcTo(x, y + h, x, y, r)
-    ctx.arcTo(x, y, x + w, y, r)
+    ctx.arcTo(x + boxW, y, x + boxW, y + boxH, r)
+    ctx.arcTo(x + boxW, y + boxH, x, y + boxH, r)
+    ctx.arcTo(x, y + boxH, x, y, r)
+    ctx.arcTo(x, y, x + boxW, y, r)
     ctx.closePath()
     ctx.fill()
     ctx.stroke()
 
-    const safe = text || ''
-    let fontSize = 84
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.98)'
+    ctx.font = `700 ${fontSize}px Arial`
 
-    const maxTextWidth = w - 40
-    while (fontSize > 26) {
-      ctx.font = `700 ${fontSize}px Arial`
-      const metrics = ctx.measureText(safe)
-      if (metrics.width <= maxTextWidth) break
-      fontSize -= 4
+    const lh = fontSize * 1.22
+    const blockH = lines.length * lh
+    let cy = canvasH / 2 - blockH / 2 + lh / 2
+    for (const line of lines) {
+      ctx.fillText(line, canvasW / 2, cy)
+      cy += lh
     }
-
-    ctx.fillText(safe, canvas.width / 2, canvas.height / 2)
 
     const texture = new THREE.CanvasTexture(canvas)
     texture.needsUpdate = true
@@ -320,7 +399,13 @@ export class AbstractMind {
     this.labelSprite.position.set(0, yLocal, 0)
 
     const s = this.labelWorldSize / Math.max(0.00001, this.scale)
-    this.labelSprite.scale.set(s * 2.0, s * 1.0, 1)
+    const mat = this.labelSprite.material
+    const map = mat instanceof THREE.SpriteMaterial ? mat.map : null
+    const img = map?.image as { width?: number; height?: number } | undefined
+    const tw = img?.width && img.width > 0 ? img.width : 512
+    const th = img?.height && img.height > 0 ? img.height : 256
+    const aspect = tw / th
+    this.labelSprite.scale.set(s * aspect, s, 1)
   }
 
   private updateLabel(): void {

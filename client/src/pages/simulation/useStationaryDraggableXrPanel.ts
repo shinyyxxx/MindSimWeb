@@ -10,8 +10,9 @@ export type StationaryXrPanelLayout = {
 }
 
 /**
- * Places an XR UI group once in world space (no camera follow) and allows
- * moving it by squeezing the grip while pointing at the drag handle mesh.
+ * Places an XR UI group in world space (position is fixed until dragged) and allows
+ * moving it by squeezing the grip while pointing at the panel. While presenting,
+ * the group rotation follows the camera so the panel stays facing the user.
  */
 export function useStationaryDraggableXrPanel({
   groupRef,
@@ -141,7 +142,9 @@ export function useStationaryDraggableXrPanel({
       tempDirection.current.set(0, 0, -1).transformDirection(controller.matrixWorld)
       tempRayPoint.current.copy(tempOrigin.current).addScaledVector(tempDirection.current, dragDistanceRef.current)
       group.position.copy(tempRayPoint.current).add(hitOffsetRef.current)
-      // While dragging, keep UI facing the user for easier interaction.
+    }
+
+    if (gl.xr.isPresenting && initializedRef.current) {
       group.quaternion.copy(camera.quaternion)
     }
 
