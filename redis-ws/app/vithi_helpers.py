@@ -75,7 +75,7 @@ def _votthapana(is_bad: bool, sense: str, experience_weight: dict,
 
 
 _PERSON_AKUSALA_RANGE = {
-    "puthujjana": [1, 12],
+    "puthujjana": list(range(1, 13)),
     "sotapanna":  [3, 4, 7, 8, 9, 10, 12],
     "sakadagami": [3, 4, 7, 8, 9, 10, 12],
     "anagami":    [3, 4, 7, 8, 12],
@@ -98,12 +98,12 @@ def _javana(is_bad: bool, vividity: str, person_type: str):
             else:
                 events.append(VithiEvent(
                     order=0, stage="javana", mind_id=None,
-                    mind_id_range=[47, 54],
+                    mind_id_range=list(range(47, 55)),
                     description=f"Javana {i+1}/7 — arahant kiriya citta",
                 ))
         else:
             if is_bad:
-                akusala_range = _PERSON_AKUSALA_RANGE.get(person_type, [1, 12])
+                akusala_range = _PERSON_AKUSALA_RANGE.get(person_type, list(range(1, 13)))
                 events.append(VithiEvent(
                     order=0, stage="javana", mind_id=None,
                     mind_id_range=akusala_range,
@@ -112,7 +112,7 @@ def _javana(is_bad: bool, vividity: str, person_type: str):
             else:
                 events.append(VithiEvent(
                     order=0, stage="javana", mind_id=None,
-                    mind_id_range=[31, 38],
+                    mind_id_range=list(range(31, 39)),
                     description=f"Javana {i+1}/7 — kusala citta",
                 ))
     return events

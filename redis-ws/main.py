@@ -707,7 +707,7 @@ async def pancadvara_vithi_endpoint(request: PancadvaraVithiRequest):
                 if obj and hasattr(obj, 'mental_ids'):
                     ids_set.update(obj.mental_ids)
             if mind_id_range_list and hasattr(root, 'static_minds'):
-                for mid in range(mind_id_range_list[0], mind_id_range_list[-1] + 1):
+                for mid in mind_id_range_list:
                     obj = root.static_minds.get(mid)
                     if obj and hasattr(obj, 'mental_ids'):
                         ids_set.update(obj.mental_ids)

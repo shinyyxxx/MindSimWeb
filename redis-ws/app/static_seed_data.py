@@ -224,7 +224,7 @@ MINDS_DATA = [
     {'id': 11, 'name': 'Moha-vicikicchā-upekkhā', 'name_en': 'Delusion with doubt, equanimity',                 'pali': 'Mohamūlacitta 1',   'thai': 'โมหมูลจิต ดวงที่ 1',  'category': 'akusala', 'subgroup': 'mohamula',
      'description': 'Delusion-rooted with doubt, neutral feeling',
      'description_thai': 'จิตที่เกิดขึ้นพร้อมด้วยความเฉยๆ ประกอบด้วยความสงสัย',
-     'mental_ids': _UNIVERSAL_7 + [8, 9, 11] + _MOHA_4 + [23]},
+     'mental_ids': _UNIVERSAL_7 + [8, 9, 11] + _MOHA_4 + [23] + _DOUBT},
     {'id': 12, 'name': 'Moha-uddhacca-upekkhā', 'name_en': 'Delusion with restlessness, equanimity',                   'pali': 'Mohamūlacitta 2',   'thai': 'โมหมูลจิต ดวงที่ 2',  'category': 'akusala', 'subgroup': 'mohamula',
      'description': 'Delusion-rooted with restlessness, neutral feeling',
      'description_thai': 'จิตที่เกิดขึ้นพร้อมด้วยความเฉยๆ ประกอบด้วยความฟุ้งซ่าน',
