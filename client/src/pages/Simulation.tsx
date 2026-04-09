@@ -5017,9 +5017,6 @@ export function Simulation(): React.ReactElement {
   useEffect(() => { setSubStepIndex(0) }, [timelineIndex])
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-entry',message:'TTS effect fired',data:{timelineIndex,ttsMuted,hasVithiData:!!vithiStageData&&vithiStageData.size>0},timestamp:Date.now(),hypothesisId:'H1,H4,H5'})}).catch(()=>{});
-    // #endregion
     setTtsStatus('idle')
     if (ttsMuted) { cancelNarration(); ttsLastReasonRef.current = ''; return }
     if (!vithiStageData || vithiStageData.size === 0) return
@@ -5033,29 +5030,15 @@ export function Simulation(): React.ReactElement {
     cancelNarration()
     ttsLastReasonRef.current = reason
     const hasThai = /[\u0E00-\u0E7F]/.test(reason)
-    // #region agent log
-    fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-speak',message:'About to call speakNarration',data:{reason:reason.substring(0,80),hasThai,timelineIndex},timestamp:Date.now(),hypothesisId:'H1,H2'})}).catch(()=>{});
-    // #endregion
-    setTtsStatus('speaking')
-    speakNarration(reason, { lang: hasThai ? 'th-TH' : 'en-US', rate: 0.95 })
-      .then(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-then',message:'speakNarration resolved -> waiting',data:{timelineIndex},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
-        // #endregion
-        setTtsStatus('waiting')
-      })
-      .catch((err) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-catch',message:'speakNarration rejected -> idle',data:{error:String(err),timelineIndex},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-        // #endregion
-        setTtsStatus('idle')
-      })
-    return () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7348/ingest/be8de27e-6f32-40ba-ab50-dc91fcfe8c8b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'683fe8'},body:JSON.stringify({sessionId:'683fe8',location:'Simulation.tsx:ttsEffect-cleanup',message:'Effect cleanup called',data:{timelineIndex},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
-      // #endregion
-      cancelNarration(); setTtsStatus('idle')
-    }
+    let stale = false
+    speakNarration(reason, {
+      lang: hasThai ? 'th-TH' : 'en-US',
+      rate: 0.95,
+      onStart: () => { if (!stale) setTtsStatus('speaking') },
+    })
+      .then(() => { if (!stale) setTtsStatus('waiting') })
+      .catch(() => { if (!stale) setTtsStatus('idle') })
+    return () => { stale = true; cancelNarration(); setTtsStatus('idle') }
   }, [timelineIndex, vithiStageData, ttsMuted])
 
   const timelineScriptPresetsForStep = useMemo((): TimelineScriptPick[] => {
