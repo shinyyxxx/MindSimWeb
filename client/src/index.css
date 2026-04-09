@@ -1959,3 +1959,13 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
 @media (max-width: 900px) {
   .cr-layout { grid-template-columns: 1fr; }
 }
+
+@keyframes ttsBar {
+  0%   { transform: scaleY(0.4); opacity: 0.5; }
+  100% { transform: scaleY(1.4); opacity: 1; }
+}
+
+@keyframes ttsProgress {
+  0%   { width: 0%; }
+  100% { width: 100%; }
+}
