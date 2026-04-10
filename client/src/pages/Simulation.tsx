@@ -5442,6 +5442,7 @@ export function Simulation(): React.ReactElement {
   const [xrTimelineOpen, setXrTimelineOpen] = useState(false)
   const [xrTimelineDetailOpen, setXrTimelineDetailOpen] = useState(false)
   const timelineSignatureRef = useRef<string>('')
+  const initialMentalFreezeAppliedRef = useRef(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
 
@@ -5653,6 +5654,15 @@ export function Simulation(): React.ReactElement {
       ),
     [allMentals, scriptHasContact],
   )
+
+  useEffect(() => {
+    if (initialMentalFreezeAppliedRef.current) return
+    if (allMentals.length === 0) return
+    allMentals.forEach((mental) => {
+      mental.setFrozen(true)
+    })
+    initialMentalFreezeAppliedRef.current = true
+  }, [allMentals])
 
   useEffect(() => {
     mind.setLabelDepthOcclusion(isXrActive)
@@ -6053,6 +6063,23 @@ export function Simulation(): React.ReactElement {
     // Keep default mentals, but reset previously scripted output each run.
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
     scriptMentalMapRef.current.clear()
+    let autoMentalPositionIndex = 0
+    const explicitMentalPositionVars = new Set<string>()
+    actions.forEach((a) => {
+      if (a.type === 'update_mental_attribute' && a.attribute === 'position') {
+        explicitMentalPositionVars.add(a.variable)
+      }
+    })
+    const nextAutoMentalPosition = (): Vec3 => {
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+      const angle = autoMentalPositionIndex * goldenAngle
+      const ring = 0.38 + 0.1 * Math.floor(autoMentalPositionIndex / 6)
+      const x = mind.position.x + Math.cos(angle) * ring
+      const y = mind.position.y + ((autoMentalPositionIndex % 3) - 1) * 0.08
+      const z = mind.position.z + Math.sin(angle) * ring
+      autoMentalPositionIndex += 1
+      return [x, y, z]
+    }
 
     for (const action of actions) {
       if (action.type === 'variable_explain') {
@@ -6105,6 +6132,19 @@ export function Simulation(): React.ReactElement {
         const matchedDefault =
           maybeName.length > 0 ? defaultMentalsByName.get(maybeName) ?? null : null
         const canReuseDefault = Boolean(matchedDefault && !usedDefaultMentals.has(matchedDefault))
+        const hasCreatePosition =
+          Array.isArray(action.data.position)
+          && action.data.position.length === 3
+          && action.data.position.some((v) => Math.abs(v) > 1e-6)
+        const hasExplicitPosition = explicitMentalPositionVars.has(action.variable)
+        const resolvedPosition: Vec3 = (hasExplicitPosition || hasCreatePosition)
+          ? action.data.position
+          : (canReuseDefault && matchedDefault
+            ? (() => {
+                const p = matchedDefault.getPosition()
+                return [p.x, p.y, p.z] as Vec3
+              })()
+            : nextAutoMentalPosition())
         const mental =
           canReuseDefault && matchedDefault
             ? matchedDefault
@@ -6113,7 +6153,7 @@ export function Simulation(): React.ReactElement {
                 detail: '',
                 color: action.data.color || '#ff6b9d',
                 scale: action.data.scale || 0.12,
-                position: action.data.position || [0, 0, 0],
+                position: resolvedPosition,
                 labelEnabled: false,
                 motionSpeed: 0.0012,
                 opacity: 0.55,
@@ -6121,7 +6161,7 @@ export function Simulation(): React.ReactElement {
         mental.setName(action.data.name || mental.getName())
         mental.setColor(action.data.color || '#ff6b9d')
         mental.setScale(action.data.scale || 0.12)
-        mental.setPosition(action.data.position || [0, 0, 0])
+        mental.setPosition(resolvedPosition)
         mental.setFrozen(false)
         if (canReuseDefault && matchedDefault) {
           usedDefaultMentals.add(matchedDefault)
@@ -6174,6 +6214,28 @@ export function Simulation(): React.ReactElement {
           scriptMindVars.add(action.mindVariable)
         }
       }
+    }
+
+    // Spread scripted mentals farther apart for readability in Simulation Code Runner.
+    // This runs after script actions so even preset scripts with dense positions become clearer.
+    const scriptedMentalsToSpread = Array.from(newMentalsByVar.values())
+    if (scriptedMentalsToSpread.length > 1) {
+      const mindCenter = new THREE.Vector3(mind.position.x, mind.position.y, mind.position.z)
+      const spreadFactor = 1.9
+      const minRadius = 0.36
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+      scriptedMentalsToSpread.forEach((mental, idx) => {
+        const p = mental.getPosition()
+        const offset = new THREE.Vector3(p.x - mindCenter.x, p.y - mindCenter.y, p.z - mindCenter.z)
+        if (offset.lengthSq() < 1e-6) {
+          const angle = idx * goldenAngle
+          offset.set(Math.cos(angle) * minRadius, ((idx % 3) - 1) * 0.07, Math.sin(angle) * minRadius)
+        } else {
+          offset.multiplyScalar(spreadFactor)
+          if (offset.length() < minRadius) offset.setLength(minRadius)
+        }
+        mental.setPosition(mindCenter.x + offset.x, mindCenter.y + offset.y, mindCenter.z + offset.z)
+      })
     }
 
     // Collect all mental names for validation
@@ -6272,6 +6334,10 @@ export function Simulation(): React.ReactElement {
   const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     if (senseId === 'sound') {
       setSceneReceiveActive(false)
+      if (timelineSoundActive) {
+        setTimelineSoundCancelSignal((prev) => prev + 1)
+        setTimelineSoundActive(false)
+      }
       setTimelineSoundFlowMode('to-ear')
       setTimelineSoundStepFrom(null)
       setTimelineSoundStepTo(null)
@@ -6408,6 +6474,17 @@ export function Simulation(): React.ReactElement {
   useEffect(() => {
     if (!timelineSoundPending) return
     if (timelineMode !== 'slideshow') return
+    if (timelineIndex <= 2) {
+      const runningMentalStep = timelineSoundActive && timelineSoundStepTo !== null
+      if (runningMentalStep) {
+        setTimelineSoundCancelSignal((prev) => prev + 1)
+        setTimelineSoundActive(false)
+        return
+      }
+      timelineSoundCursorRef.current = -1
+      setTimelineSoundStepFrom(null)
+      setTimelineSoundStepTo(null)
+    }
     if (timelineIndex >= TIMELINE_STOPS.length - 1) return
     if (timelineSoundActive || sceneReceiveActive) return
     if (!(ttsStatus === 'loading' || ttsStatus === 'speaking')) return
@@ -6485,7 +6562,7 @@ export function Simulation(): React.ReactElement {
       setTimelineSoundRequestId((prev) => prev + 1)
     }, 180)
     return () => window.clearTimeout(id)
-  }, [allMentals, timelineIndex, timelineMode, timelineSoundPending, timelineSoundActive, sceneReceiveActive, ttsStatus])
+  }, [allMentals, timelineIndex, timelineMode, timelineSoundPending, timelineSoundActive, timelineSoundStepTo, sceneReceiveActive, ttsStatus])
 
   useEffect(() => {
     if (!timelineSoundPending) return
