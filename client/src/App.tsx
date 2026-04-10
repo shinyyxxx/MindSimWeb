@@ -4,7 +4,6 @@ import { Routes, Route } from 'react-router-dom'
 import { Navbar } from './components/Navbar'
 import { Home } from './pages/Home'
 import { SimplePage } from './pages/SimplePage'
-import { Playground } from './pages/Playground'
 import { Simulation } from './pages/Simulation'
 import { MindStudy } from './pages/MindStudy'
 import { MindStudyInspect } from './pages/MindStudyInspect'
@@ -23,7 +22,6 @@ function App(): React.ReactElement {
         <Route path="/mind-study/cognitive" element={<MindStudyCognitive />} />
         <Route path="/mind-study/:mindId" element={<MindStudyInspect />} />
         <Route path="/simulation" element={<Simulation />} />
-        <Route path="/playground" element={<Playground />} />
         <Route path="/code-runner" element={<CodeRunner />} />
         <Route path="/login" element={<SimplePage title="Login" />} />
         <Route path="/register" element={<SimplePage title="Register" />} />
