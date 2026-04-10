@@ -165,6 +165,14 @@ export class AbstractMind {
         }
         this.updateLabelTransform();
     }
+    setLabelWorldSize(size: number): void {
+        this.labelWorldSize = Math.max(0.01, size);
+        this.updateLabelTransform();
+    }
+    setLabelOffset(offset: number): void {
+        this.labelOffset = offset;
+        this.updateLabelTransform();
+    }
     setOpacity(opacity: number): void {
         const clamped = Math.max(0, Math.min(1, opacity));
         this.opacity = clamped;

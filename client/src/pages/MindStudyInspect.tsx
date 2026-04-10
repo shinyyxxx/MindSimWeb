@@ -84,6 +84,10 @@ const DESKTOP_INSPECT_CAMERA_POS: [
 ] = [0, 0, 5];
 const MINDSTUDY_INSPECT_AR_SCALE = 1.1;
 const MINDSTUDY_INSPECT_AR_MIND_SCALE_BASE = 0.5;
+const MINDSTUDY_INSPECT_LABEL_WORLD_SIZE = 0.46;
+const MINDSTUDY_INSPECT_LABEL_OFFSET = 0.24;
+const MINDSTUDY_INSPECT_AR_LABEL_WORLD_SIZE = 0.23;
+const MINDSTUDY_INSPECT_AR_LABEL_OFFSET = 0.18;
 const MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE = 0.5;
 const MINDSTUDY_INSPECT_AR_XR_PANEL_CONTENT_SCALE = MINDSTUDY_INSPECT_AR_XR_PANEL_GROUP_BASE * MINDSTUDY_INSPECT_AR_SCALE;
 const MINDSTUDY_INSPECT_XR_PANEL_LAYOUT: Partial<StationaryXrPanelLayout> = {
@@ -1614,18 +1618,22 @@ export function MindStudyInspect(): React.ReactElement {
         opacity: 0.18,
         color: parseInt('3b82f6', 16),
         labelEnabled: true,
-        labelWorldSize: 0.6,
-        labelOffset: 0.28,
+        labelWorldSize: MINDSTUDY_INSPECT_LABEL_WORLD_SIZE,
+        labelOffset: MINDSTUDY_INSPECT_LABEL_OFFSET,
     }), [mindLabel, mindDetail]);
     useEffect(() => () => mind.dispose(), [mind]);
     useEffect(() => {
         if (isArActive) {
             mind.setScale(MINDSTUDY_INSPECT_AR_MIND_SCALE_BASE * MINDSTUDY_INSPECT_AR_SCALE);
             mind.setPosition(0, 1.5, -2);
+            mind.setLabelWorldSize(MINDSTUDY_INSPECT_AR_LABEL_WORLD_SIZE);
+            mind.setLabelOffset(MINDSTUDY_INSPECT_AR_LABEL_OFFSET);
             return;
         }
         mind.setScale(1.6);
         mind.setPosition(0, -0.25, 0);
+        mind.setLabelWorldSize(MINDSTUDY_INSPECT_LABEL_WORLD_SIZE);
+        mind.setLabelOffset(MINDSTUDY_INSPECT_LABEL_OFFSET);
     }, [isArActive, mind]);
     useEffect(() => {
         mind.setPassthroughFriendlyGlass(isArActive);
