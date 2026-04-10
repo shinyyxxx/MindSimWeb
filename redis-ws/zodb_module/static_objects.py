@@ -1,9 +1,3 @@
-"""
-ZODB Persistent Objects for static Abhidhamma reference data.
-Stored under separate root keys: root.static_mentals, root.static_mental_groups,
-root.static_minds, root.static_mind_groups, root.static_rupas.
-"""
-
 import persistent
 from persistent.list import PersistentList
 

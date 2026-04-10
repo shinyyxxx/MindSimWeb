@@ -1,9 +1,3 @@
-"""
-Helpers for the static Abhidhamma reference data stored under
-root.static_mentals, root.static_mental_groups,
-root.static_minds, root.static_mind_groups.
-"""
-
 import transaction
 from persistent.mapping import PersistentMapping
 from persistent.list import PersistentList

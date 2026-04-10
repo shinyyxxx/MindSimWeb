@@ -1,7 +1,3 @@
-"""
-ZODB Persistent Objects
-"""
-
 import persistent
 from datetime import datetime
 

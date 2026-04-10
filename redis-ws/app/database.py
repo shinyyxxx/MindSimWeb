@@ -1,7 +1,3 @@
-"""
-PostgreSQL + PostGIS spatial data operations
-"""
-
 import psycopg
 from psycopg.rows import dict_row
 from contextlib import contextmanager

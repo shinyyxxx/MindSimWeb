@@ -1,7 +1,3 @@
-"""
-Mind ZODB operations - mirrors Django funcHelper.py
-"""
-
 from datetime import datetime
 from persistent.mapping import PersistentMapping
 import transaction

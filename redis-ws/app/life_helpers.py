@@ -1,10 +1,3 @@
-"""
-Life / Phassa / Sanna ZODB helpers.
-
-Life is a singleton stored at root.life.
-Phassa and Sanna are singletons stored at root.phassa / root.sanna.
-"""
-
 from datetime import datetime
 import transaction
 

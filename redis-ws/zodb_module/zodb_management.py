@@ -1,7 +1,3 @@
-"""
-ZODB Connection Management
-"""
-
 import os
 import ZODB
 import ZODB.FileStorage

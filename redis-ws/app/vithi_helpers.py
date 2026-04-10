@@ -1,10 +1,3 @@
-"""
-Pancadvara Vithi (Five-door cognitive process) — stage helper functions.
-
-The orchestration now lives in PhassaObject.run_vithi() (zodb_module/objects.py).
-These module-level helpers are called by that method.
-"""
-
 from dataclasses import dataclass
 from typing import Optional
 

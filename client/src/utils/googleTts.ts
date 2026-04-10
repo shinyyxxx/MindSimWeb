@@ -1,7 +1,3 @@
-/**
- * Speak text aloud: Google Cloud TTS when `VITE_GOOGLE_TTS_KEY` is set,
- * otherwise Web Speech API (`speechSynthesis`) in the browser.
- */
 export async function playTextToSpeech(text: string): Promise<void> {
   const trimmed = text.trim()
   if (!trimmed) return
