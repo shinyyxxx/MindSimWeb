@@ -2465,6 +2465,9 @@ function SoundReceiveEffect({
   onComplete,
   visualMode = 'sound',
   flowMode = 'full',
+  stepFrom = null,
+  stepTo = null,
+  cancelSignal = 0,
 }: {
   requestId: number
   mind: Mind
@@ -2473,7 +2476,10 @@ function SoundReceiveEffect({
   onHighlightChange?: (objects: THREE.Object3D[]) => void
   onComplete?: () => void
   visualMode?: 'sound' | 'scene'
-  flowMode?: 'full' | 'to-ear' | 'ear-to-mind'
+  flowMode?: 'full' | 'to-ear' | 'ear-to-mind' | 'timeline-step'
+  stepFrom?: 'ear' | string | null
+  stepTo?: string | null
+  cancelSignal?: number
 }) {
   const { gl } = useThree()
   const isSceneMode = visualMode === 'scene'
@@ -2500,6 +2506,7 @@ function SoundReceiveEffect({
   const planeStartRef = useRef<THREE.Vector3>(new THREE.Vector3())
   const tempVecRef = useRef<THREE.Vector3>(new THREE.Vector3())
   const prevRequestRef = useRef(0)
+  const prevCancelSignalRef = useRef(cancelSignal)
   const earWorld = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
@@ -2555,13 +2562,18 @@ function SoundReceiveEffect({
 
     const activeFlowMode = isSceneMode ? 'full' : flowMode
     const contact = activeFlowMode === 'to-ear'
+      || activeFlowMode === 'timeline-step'
       ? null
       : (
         mentals.find((m) => m.getName().trim().toLowerCase() === 'contact') ||
         mentals.find((m) => m.getName().toLowerCase().includes('contact')) ||
         null
       )
-    if (activeFlowMode !== 'to-ear' && !contact) {
+    if (activeFlowMode === 'timeline-step' && !stepTo) {
+      onComplete?.()
+      return
+    }
+    if (activeFlowMode !== 'to-ear' && activeFlowMode !== 'timeline-step' && !contact) {
       onComplete?.()
       return
     }
@@ -2608,9 +2620,13 @@ function SoundReceiveEffect({
     phaseRef.current = activeFlowMode === 'full' ? 'move_contact' : 'sending'
     phaseElapsedRef.current = 0
     sendStartedRef.current = false
-    setEarVisible(true)
+    const needsEar =
+      activeFlowMode === 'to-ear'
+      || activeFlowMode === 'ear-to-mind'
+      || (activeFlowMode === 'timeline-step' && (stepFrom ?? 'ear').trim().toLowerCase() === 'ear')
+    setEarVisible(needsEar)
     setActive(true)
-  }, [earDepthOffset, earHeightOffset, earSideGap, earWorld, flowMode, isSceneMode, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId])
+  }, [earDepthOffset, earHeightOffset, earSideGap, earWorld, flowMode, isSceneMode, mentals, mind.position.x, mind.position.y, mind.position.z, mind.scale, onComplete, onHighlightChange, requestId, stepFrom, stepTo])
 
   const resolveMentalByName = useCallback(
     (name: string): Mental | null => {
@@ -2652,6 +2668,14 @@ function SoundReceiveEffect({
     phaseRef.current = 'idle'
     onComplete?.()
   }, [onComplete, onHighlightChange])
+
+  useEffect(() => {
+    if (cancelSignal === prevCancelSignalRef.current) return
+    prevCancelSignalRef.current = cancelSignal
+    if (!active) return
+    runTokenRef.current += 1
+    cleanupAndRestore()
+  }, [active, cancelSignal, cleanupAndRestore])
 
   const sendFromWorldToMental = useCallback(
     async (startWorld: THREE.Vector3, target: Mental): Promise<void> => {
@@ -2818,6 +2842,30 @@ function SoundReceiveEffect({
 
           if (activeFlowMode === 'to-ear') {
             await sendFromWorldToWorld(planeStartRef.current, earWorld.clone())
+            if (runToken !== runTokenRef.current) return
+            cleanupAndRestore()
+            return
+          }
+
+          if (activeFlowMode === 'timeline-step') {
+            const toMental = resolveMentalByName(stepTo ?? '')
+            if (!toMental) {
+              cleanupAndRestore()
+              return
+            }
+            const toMesh = toMental.getMesh()
+            onHighlightChange?.(toMesh ? [toMesh] : [])
+            const fromKey = (stepFrom ?? 'ear').trim().toLowerCase()
+            if (fromKey === 'ear') {
+              await sendFromWorldToMental(earWorld.clone(), toMental)
+            } else {
+              const fromMental = resolveMentalByName(stepFrom ?? '')
+              if (!fromMental) {
+                cleanupAndRestore()
+                return
+              }
+              await sendMentalToMental(fromMental, toMental)
+            }
             if (runToken !== runTokenRef.current) return
             cleanupAndRestore()
             return
@@ -4875,10 +4923,17 @@ function ThreeScene({
   onSendSelection,
   soundReceiveRequestId,
   soundReceiveFlowMode,
+  timelineSoundRequestId,
+  timelineSoundFlowMode,
+  timelineSoundStepFrom,
+  timelineSoundStepTo,
+  timelineSoundCancelSignal,
   sceneReceiveRequestId,
   onSoundReceiveHighlightChange,
+  onTimelineSoundReceiveHighlightChange,
   onSceneReceiveHighlightChange,
   onSoundReceiveComplete,
+  onTimelineSoundReceiveComplete,
   onSceneReceiveComplete,
   showHumanModel,
   humanShape,
@@ -4938,11 +4993,18 @@ function ThreeScene({
   emojiMode: boolean
   onSendSelection?: (info: { sender?: string | null; receiver?: string | null; status?: string }) => void
   soundReceiveRequestId: number
-  soundReceiveFlowMode: 'full' | 'to-ear' | 'ear-to-mind'
+  soundReceiveFlowMode: 'full' | 'to-ear' | 'ear-to-mind' | 'timeline-step'
+  timelineSoundRequestId: number
+  timelineSoundFlowMode: 'to-ear' | 'timeline-step'
+  timelineSoundStepFrom: 'ear' | string | null
+  timelineSoundStepTo: string | null
+  timelineSoundCancelSignal: number
   sceneReceiveRequestId: number
   onSoundReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
+  onTimelineSoundReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
   onSceneReceiveHighlightChange?: (objects: THREE.Object3D[]) => void
   onSoundReceiveComplete?: () => void
+  onTimelineSoundReceiveComplete?: () => void
   onSceneReceiveComplete?: () => void
   showHumanModel: boolean
   humanShape: MorphShapeKey
@@ -5114,6 +5176,18 @@ function ThreeScene({
         flowMode={soundReceiveFlowMode}
       />
       <SoundReceiveEffect
+        requestId={timelineSoundRequestId}
+        mind={mind}
+        mentals={mentals}
+        planeModelPath={paperPlaneModel}
+        onHighlightChange={onTimelineSoundReceiveHighlightChange}
+        onComplete={onTimelineSoundReceiveComplete}
+        flowMode={timelineSoundFlowMode}
+        stepFrom={timelineSoundStepFrom}
+        stepTo={timelineSoundStepTo}
+        cancelSignal={timelineSoundCancelSignal}
+      />
+      <SoundReceiveEffect
         requestId={sceneReceiveRequestId}
         mind={mind}
         mentals={mentals}
@@ -5262,9 +5336,16 @@ export function Simulation(): React.ReactElement {
   const [sendMode, setSendMode] = useState(false)
   const [emojiMode, setEmojiMode] = useState(false)
   const [soundReceiveRequestId, setSoundReceiveRequestId] = useState(0)
-  const [soundReceiveFlowMode, setSoundReceiveFlowMode] = useState<'full' | 'to-ear' | 'ear-to-mind'>('full')
+  const [soundReceiveFlowMode, setSoundReceiveFlowMode] = useState<'full' | 'to-ear' | 'ear-to-mind' | 'timeline-step'>('full')
   const [timelineSoundPending, setTimelineSoundPending] = useState(false)
   const [soundReceiveActive, setSoundReceiveActive] = useState(false)
+  const [timelineSoundRequestId, setTimelineSoundRequestId] = useState(0)
+  const [timelineSoundFlowMode, setTimelineSoundFlowMode] = useState<'to-ear' | 'timeline-step'>('to-ear')
+  const [timelineSoundStepFrom, setTimelineSoundStepFrom] = useState<'ear' | string | null>(null)
+  const [timelineSoundStepTo, setTimelineSoundStepTo] = useState<string | null>(null)
+  const [timelineSoundCancelSignal, setTimelineSoundCancelSignal] = useState(0)
+  const [timelineSoundActive, setTimelineSoundActive] = useState(false)
+  const timelineSoundCursorRef = useRef<number>(-1)
   const [sceneReceiveRequestId, setSceneReceiveRequestId] = useState(0)
   const [sceneReceiveActive, setSceneReceiveActive] = useState(false)
   const [showHumanModel, setShowHumanModel] = useState(false)
@@ -6172,18 +6253,35 @@ export function Simulation(): React.ReactElement {
     setVithiResultType(null)
     setVithiQueue([])
     setTimelineSoundPending(false)
-  }, [])
+    setTimelineSoundStepFrom(null)
+    setTimelineSoundStepTo(null)
+    timelineSoundCursorRef.current = -1
+    if (timelineSoundActive) {
+      setTimelineSoundCancelSignal((prev) => prev + 1)
+      setTimelineSoundActive(false)
+    }
+  }, [timelineSoundActive])
 
   const handleSenseSelect = useCallback((senseId: string, variantParams: VithiParams) => {
     if (senseId === 'sound') {
       setSceneReceiveActive(false)
-      setSoundReceiveFlowMode('to-ear')
+      setTimelineSoundFlowMode('to-ear')
+      setTimelineSoundStepFrom(null)
+      setTimelineSoundStepTo(null)
+      timelineSoundCursorRef.current = -1
       setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Receiving...' })
-      setSoundReceiveActive(true)
-      setSoundReceiveRequestId((prev) => prev + 1)
+      setTimelineSoundActive(true)
+      setTimelineSoundRequestId((prev) => prev + 1)
       setTimelineSoundPending(true)
     } else {
       setTimelineSoundPending(false)
+      setTimelineSoundStepFrom(null)
+      setTimelineSoundStepTo(null)
+      timelineSoundCursorRef.current = -1
+      if (timelineSoundActive) {
+        setTimelineSoundCancelSignal((prev) => prev + 1)
+        setTimelineSoundActive(false)
+      }
     }
     const apiSense = SENSE_BUTTON_TO_API[senseId] || 'eye'
     const sannaMental = allMentals.find((m) => m instanceof PerceptionMental) as PerceptionMental | undefined
@@ -6298,33 +6396,97 @@ export function Simulation(): React.ReactElement {
       .catch((err: unknown) => {
         console.error('Vithi API error:', err)
       })
-  }, [allMentals, personType, timelineMode])
+  }, [allMentals, personType, timelineMode, timelineSoundActive])
 
   useEffect(() => {
     if (!timelineSoundPending) return
     if (timelineMode !== 'slideshow') return
-    if (timelineIndex < 3) return
-    if (timelineIndex >= TIMELINE_STOPS.length - 1 && (ttsMuted || ttsStatus === 'waiting')) return
-    if (soundReceiveActive || sceneReceiveActive) return
-    setSoundReceiveFlowMode('ear-to-mind')
-    setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Receiving...' })
-    setSoundReceiveActive(true)
-    setSoundReceiveRequestId((prev) => prev + 1)
-  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, sceneReceiveActive, ttsMuted, ttsStatus])
+    if (timelineIndex >= TIMELINE_STOPS.length - 1) return
+    if (timelineSoundActive || sceneReceiveActive) return
+    if (!(ttsStatus === 'loading' || ttsStatus === 'speaking')) return
 
-  useEffect(() => {
-    if (!timelineSoundPending) return
-    if (timelineMode !== 'slideshow') return
-    if (timelineIndex >= 3) return
-    if (soundReceiveActive || sceneReceiveActive) return
+    if (timelineIndex < 3) {
+      const id = window.setTimeout(() => {
+        setTimelineSoundFlowMode('to-ear')
+        setTimelineSoundStepFrom(null)
+        setTimelineSoundStepTo(null)
+        setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Receiving...' })
+        setTimelineSoundActive(true)
+        setTimelineSoundRequestId((prev) => prev + 1)
+      }, 280)
+      return () => window.clearTimeout(id)
+    }
+
+    const timelineChain = [
+      'Contact',
+      'Attention',
+      'Feeling',
+      'Perception',
+      'Initial Application',
+      'Sustained Application',
+      'Intention',
+      'Decision',
+      'Concentration',
+      'Life Faculty',
+    ] as const
+    const hasMentalByName = (name: string): boolean => {
+      const key = name.trim().toLowerCase()
+      if (!key) return false
+      const exact = allMentals.some((m) => m.getName().trim().toLowerCase() === key)
+      if (exact) return true
+      if (key.includes('decision') || key.includes('determination')) {
+        return allMentals.some((m) => {
+          const n = m.getName().toLowerCase()
+          return n.includes('decision') || n.includes('determination')
+        })
+      }
+      return allMentals.some((m) => m.getName().toLowerCase().includes(key))
+    }
+
+    let fromIndex = timelineSoundCursorRef.current
+    if (fromIndex < -1 || fromIndex >= timelineChain.length) fromIndex = -1
+
+    // Keep continuity: previous receiver should be next sender whenever possible.
+    // If that sender disappeared, restart from Contact.
+    if (fromIndex >= 0 && !hasMentalByName(timelineChain[fromIndex])) {
+      fromIndex = -1
+      timelineSoundCursorRef.current = -1
+    }
+
+    let toIndex = -1
+    if (fromIndex < 0) {
+      if (!hasMentalByName('Contact')) return
+      toIndex = 0
+    } else {
+      for (let hop = 1; hop <= timelineChain.length; hop += 1) {
+        const idx = (fromIndex + hop) % timelineChain.length
+        if (hasMentalByName(timelineChain[idx])) {
+          toIndex = idx
+          break
+        }
+      }
+      if (toIndex < 0) return
+    }
+    const toMental = timelineChain[toIndex]
+    const fromMental = fromIndex < 0 ? 'ear' : timelineChain[fromIndex]
     const id = window.setTimeout(() => {
-      setSoundReceiveFlowMode('to-ear')
-      setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Receiving...' })
-      setSoundReceiveActive(true)
-      setSoundReceiveRequestId((prev) => prev + 1)
-    }, 280)
+      setTimelineSoundFlowMode('timeline-step')
+      setTimelineSoundStepFrom(fromMental)
+      setTimelineSoundStepTo(toMental)
+      setSendInfo({ sender: fromMental === 'ear' ? 'Ear' : fromMental, receiver: toMental, status: 'Receiving...' })
+      setTimelineSoundActive(true)
+      setTimelineSoundRequestId((prev) => prev + 1)
+    }, 180)
     return () => window.clearTimeout(id)
-  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, sceneReceiveActive])
+  }, [allMentals, timelineIndex, timelineMode, timelineSoundPending, timelineSoundActive, sceneReceiveActive, ttsStatus])
+
+  useEffect(() => {
+    if (!timelineSoundPending) return
+    if (timelineMode !== 'slideshow') return
+    if (ttsStatus !== 'waiting') return
+    if (!timelineSoundActive) return
+    setTimelineSoundCancelSignal((prev) => prev + 1)
+  }, [timelineMode, timelineSoundPending, timelineSoundActive, ttsStatus])
 
   useEffect(() => {
     if (!timelineSoundPending) return
@@ -6333,10 +6495,10 @@ export function Simulation(): React.ReactElement {
     const ttsFinished = ttsMuted || ttsStatus === 'waiting'
     if (!reachedEnd || !ttsFinished) return
     setTimelineSoundPending(false)
-    if (!soundReceiveActive) {
+    if (!timelineSoundActive) {
       setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Delivered' })
     }
-  }, [timelineIndex, timelineMode, timelineSoundPending, soundReceiveActive, ttsMuted, ttsStatus])
+  }, [timelineIndex, timelineMode, timelineSoundPending, timelineSoundActive, ttsMuted, ttsStatus])
 
   const handleClearCodeRunnerMentals = useCallback(() => {
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
@@ -6577,21 +6739,28 @@ export function Simulation(): React.ReactElement {
               setProfile(null)
               setSceneReceiveActive(false)
               setTimelineSoundPending(false)
+              setTimelineSoundStepFrom(null)
+              setTimelineSoundStepTo(null)
+              timelineSoundCursorRef.current = -1
+              if (timelineSoundActive) {
+                setTimelineSoundCancelSignal((prev) => prev + 1)
+                setTimelineSoundActive(false)
+              }
               setSoundReceiveFlowMode('full')
               setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Receiving...' })
               setSoundReceiveActive(true)
               setSoundReceiveRequestId((prev) => prev + 1)
             }}
-            disabled={soundReceiveActive || sceneReceiveActive}
+            disabled={soundReceiveActive || sceneReceiveActive || timelineSoundActive}
             style={{
               padding: '6px 10px',
               borderRadius: 6,
               border: 'none',
               background: soundReceiveActive ? '#22c55e' : '#6366f1',
               color: 'white',
-              cursor: (soundReceiveActive || sceneReceiveActive) ? 'wait' : 'pointer',
+              cursor: (soundReceiveActive || sceneReceiveActive || timelineSoundActive) ? 'wait' : 'pointer',
               fontWeight: 600,
-              opacity: (soundReceiveActive || sceneReceiveActive) ? 0.9 : 1,
+              opacity: (soundReceiveActive || sceneReceiveActive || timelineSoundActive) ? 0.9 : 1,
             }}
           >
             {soundReceiveActive ? 'Receiving Sound...' : 'Receive Sound Data'}
@@ -6605,20 +6774,24 @@ export function Simulation(): React.ReactElement {
               setInspectOpen(false)
               setProfile(null)
               setSoundReceiveActive(false)
+              if (timelineSoundActive) {
+                setTimelineSoundCancelSignal((prev) => prev + 1)
+                setTimelineSoundActive(false)
+              }
               setSendInfo({ sender: 'Scene', receiver: 'Contact', status: 'Receiving...' })
               setSceneReceiveActive(true)
               setSceneReceiveRequestId((prev) => prev + 1)
             }}
-            disabled={soundReceiveActive || sceneReceiveActive}
+            disabled={soundReceiveActive || sceneReceiveActive || timelineSoundActive}
             style={{
               padding: '6px 10px',
               borderRadius: 6,
               border: 'none',
               background: sceneReceiveActive ? '#22c55e' : '#7c3aed',
               color: 'white',
-              cursor: (soundReceiveActive || sceneReceiveActive) ? 'wait' : 'pointer',
+              cursor: (soundReceiveActive || sceneReceiveActive || timelineSoundActive) ? 'wait' : 'pointer',
               fontWeight: 600,
-              opacity: (soundReceiveActive || sceneReceiveActive) ? 0.9 : 1,
+              opacity: (soundReceiveActive || sceneReceiveActive || timelineSoundActive) ? 0.9 : 1,
             }}
           >
             {sceneReceiveActive ? 'Receiving Scene...' : 'Receive Scene Data'}
@@ -7231,33 +7404,57 @@ export function Simulation(): React.ReactElement {
           onSendSelection={setSendInfo}
           soundReceiveRequestId={soundReceiveRequestId}
           soundReceiveFlowMode={soundReceiveFlowMode}
+          timelineSoundRequestId={timelineSoundRequestId}
+          timelineSoundFlowMode={timelineSoundFlowMode}
+          timelineSoundStepFrom={timelineSoundStepFrom}
+          timelineSoundStepTo={timelineSoundStepTo}
+          timelineSoundCancelSignal={timelineSoundCancelSignal}
           sceneReceiveRequestId={sceneReceiveRequestId}
           onSoundReceiveHighlightChange={setSoundReceiveHighlight}
+          onTimelineSoundReceiveHighlightChange={setSoundReceiveHighlight}
           onSceneReceiveHighlightChange={setSoundReceiveHighlight}
           onSoundReceiveComplete={() => {
             setSoundReceiveHighlight([])
-            const continueFromEarToMind =
-              soundReceiveFlowMode === 'to-ear' &&
-              timelineSoundPending &&
-              timelineIndex >= 3
-            if (continueFromEarToMind) {
-              setSoundReceiveFlowMode('ear-to-mind')
-              setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Receiving...' })
-              setSoundReceiveActive(true)
-              setSoundReceiveRequestId((prev) => prev + 1)
+            setSoundReceiveActive(false)
+            setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Delivered' })
+          }}
+          onTimelineSoundReceiveComplete={() => {
+            setSoundReceiveHighlight([])
+            setTimelineSoundActive(false)
+            if (timelineSoundPending && timelineMode === 'slideshow' && ttsStatus === 'waiting') {
+              setSendInfo((prev) => ({
+                sender: prev.sender ?? 'Sound',
+                receiver: prev.receiver ?? 'Ear',
+                status: 'Paused for next stage',
+              }))
               return
             }
-            setSoundReceiveActive(false)
-            if (soundReceiveFlowMode === 'to-ear') {
+            if (timelineSoundFlowMode === 'to-ear') {
               if (timelineSoundPending && timelineIndex < 3) {
                 setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Receiving...' })
               } else {
                 setSendInfo({ sender: 'Sound', receiver: 'Ear', status: 'Arrived at ear' })
               }
-            } else if (soundReceiveFlowMode === 'ear-to-mind') {
-              setSendInfo({ sender: 'Ear', receiver: 'Contact', status: 'Delivered' })
             } else {
-              setSendInfo({ sender: 'Sound', receiver: 'Contact', status: 'Delivered' })
+              const senderName = (timelineSoundStepFrom ?? 'ear').toLowerCase() === 'ear' ? 'Ear' : (timelineSoundStepFrom ?? 'Sound')
+              setSendInfo({ sender: senderName, receiver: timelineSoundStepTo ?? 'Mental', status: 'Delivered' })
+              const timelineChain = [
+                'Contact',
+                'Attention',
+                'Feeling',
+                'Perception',
+                'Initial Application',
+                'Sustained Application',
+                'Intention',
+                'Decision',
+                'Concentration',
+                'Life Faculty',
+              ] as const
+              const toName = (timelineSoundStepTo ?? '').trim().toLowerCase()
+              const idx = timelineChain.findIndex((name) => name.trim().toLowerCase() === toName)
+              if (idx >= 0) {
+                timelineSoundCursorRef.current = idx
+              }
             }
           }}
           onSceneReceiveComplete={() => {
