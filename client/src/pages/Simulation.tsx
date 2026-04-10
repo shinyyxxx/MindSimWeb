@@ -1821,8 +1821,9 @@ function MentalsLayer({
       return
     }
 
-    mind.getMentals().forEach((m) => m.setFrozen(m === found))
+    // Do not unfreeze other mentals on selection; keep existing freeze states stable.
     found.setFrozen(true)
+    found.setVelocity(0, 0, 0)
     const foundMesh = found.getMesh()
     const worldPos = new THREE.Vector3()
     foundMesh?.getWorldPosition(worldPos)
@@ -2387,8 +2388,7 @@ function MentalsLayer({
 
   useEffect(() => {
     if (!selectedMentalName) {
-      // Unfreeze all when selection is cleared
-      mind.getMentals().forEach((m) => m.setFrozen(false))
+      // Keep existing freeze states when selection is cleared.
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
@@ -6162,7 +6162,8 @@ export function Simulation(): React.ReactElement {
         mental.setColor(action.data.color || '#ff6b9d')
         mental.setScale(action.data.scale || 0.12)
         mental.setPosition(resolvedPosition)
-        mental.setFrozen(false)
+        mental.setFrozen(true)
+        mental.setVelocity(0, 0, 0)
         if (canReuseDefault && matchedDefault) {
           usedDefaultMentals.add(matchedDefault)
         } else {
@@ -6221,18 +6222,25 @@ export function Simulation(): React.ReactElement {
     const scriptedMentalsToSpread = Array.from(newMentalsByVar.values())
     if (scriptedMentalsToSpread.length > 1) {
       const mindCenter = new THREE.Vector3(mind.position.x, mind.position.y, mind.position.z)
-      const spreadFactor = 1.9
-      const minRadius = 0.36
-      const goldenAngle = Math.PI * (3 - Math.sqrt(5))
+      const spreadFactor = 2.2
+      const minRadius = 0.42
+      const maxRadius = 0.88
       scriptedMentalsToSpread.forEach((mental, idx) => {
         const p = mental.getPosition()
         const offset = new THREE.Vector3(p.x - mindCenter.x, p.y - mindCenter.y, p.z - mindCenter.z)
         if (offset.lengthSq() < 1e-6) {
-          const angle = idx * goldenAngle
-          offset.set(Math.cos(angle) * minRadius, ((idx % 3) - 1) * 0.07, Math.sin(angle) * minRadius)
+          const angle = Math.random() * Math.PI * 2
+          const radius = THREE.MathUtils.lerp(minRadius, maxRadius, Math.random())
+          const yJitter = THREE.MathUtils.lerp(-0.2, 0.2, Math.random())
+          offset.set(Math.cos(angle) * radius, yJitter, Math.sin(angle) * radius)
         } else {
           offset.multiplyScalar(spreadFactor)
-          if (offset.length() < minRadius) offset.setLength(minRadius)
+          const randomScale = THREE.MathUtils.lerp(0.9, 1.25, Math.random())
+          offset.multiplyScalar(randomScale)
+          const targetRadius = THREE.MathUtils.lerp(minRadius, maxRadius, Math.random())
+          if (offset.length() < targetRadius) offset.setLength(targetRadius)
+          if (offset.length() > maxRadius) offset.setLength(maxRadius)
+          offset.y += THREE.MathUtils.lerp(-0.12, 0.12, Math.random())
         }
         mental.setPosition(mindCenter.x + offset.x, mindCenter.y + offset.y, mindCenter.z + offset.z)
       })
