@@ -8,6 +8,7 @@ type PassthroughGlassBackup = {
     roughness: number;
     metalness: number;
     opacity: number;
+    color: THREE.Color;
     emissive: THREE.Color;
     emissiveIntensity: number;
     clearcoat: number;
@@ -64,6 +65,7 @@ export class Mind extends AbstractMind {
                 roughness: mat.roughness,
                 metalness: mat.metalness,
                 opacity: mat.opacity,
+                color: mat.color.clone(),
                 emissive: mat.emissive.clone(),
                 emissiveIntensity: mat.emissiveIntensity,
                 clearcoat: mat.clearcoat,
@@ -72,14 +74,15 @@ export class Mind extends AbstractMind {
             };
             mat.transmission = 0;
             mat.thickness = 0;
-            mat.roughness = 0.42;
+            mat.roughness = 0.46;
             mat.metalness = 0;
-            mat.clearcoat = 0.45;
-            mat.clearcoatRoughness = 0.28;
+            mat.clearcoat = 0.26;
+            mat.clearcoatRoughness = 0.36;
             mat.ior = 1.35;
-            mat.opacity = Math.min(0.38, Math.max(mat.opacity, 0.22));
-            mat.emissive.copy(mat.color).multiplyScalar(0.08);
-            mat.emissiveIntensity = 0.35;
+            mat.opacity = Math.min(0.33, Math.max(mat.opacity, 0.17));
+            mat.color.lerp(new THREE.Color(0xffffff), 0.07);
+            mat.emissive.copy(mat.color).multiplyScalar(0.055);
+            mat.emissiveIntensity = 0.27;
             mat.transparent = true;
             mat.depthWrite = false;
             mat.envMap = null;
@@ -96,6 +99,7 @@ export class Mind extends AbstractMind {
         mat.roughness = b.roughness;
         mat.metalness = b.metalness;
         mat.opacity = b.opacity;
+        mat.color.copy(b.color);
         mat.emissive.copy(b.emissive);
         mat.emissiveIntensity = b.emissiveIntensity;
         mat.clearcoat = b.clearcoat;

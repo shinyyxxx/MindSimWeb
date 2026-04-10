@@ -5,6 +5,7 @@ import { Mind } from '../mindwebsite/classes/Mind'
 import Mental from '../mindwebsite/classes/Mental'
 import FeelingMental from '../mindwebsite/classes/neutral/FeelingMental'
 import { CodeParser, stripDslExplainLines, type ParsedAction } from '../utils/codeParser'
+import { MENTAL_PREVIEW_ENTRIES, buildMentalSnippetOnly } from '../utils/mentalPreviewCode'
 import { playTextToSpeech } from '../utils/googleTts'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8004'
@@ -28,6 +29,7 @@ mt1.name = "Contact"
 mt1.color = "#a1a1aa"
 mt1.scale = 0.140
 mt1.position = (0.000, -0.450, 0.100)
+mt1.detail = "Phassa or contact: meeting of sense base, object, and the cognizing consciousness."
 m.add(mt1)
 
 mt2 = FeelingMental()
@@ -35,6 +37,7 @@ mt2.name = "Feeling"
 mt2.color = "#a1a1aa"
 mt2.scale = 0.140
 mt2.position = (0.150, -0.400, 0.000)
+mt2.detail = "Vedanā or feeling: pleasant, unpleasant, or neutral hedonic coloring of experience."
 m.add(mt2)
 
 mt3 = PerceptionMental()
@@ -42,6 +45,7 @@ mt3.name = "Perception"
 mt3.color = "#60a5fa"
 mt3.scale = 0.180
 mt3.position = (-0.140, 0.080, 0.180)
+mt3.detail = "Saññā or perception: recognition, labeling, and marking of the object as this or that."
 m.add(mt3)
 
 mt4 = IntentionMental()
@@ -49,6 +53,7 @@ mt4.name = "Intention"
 mt4.color = "#a1a1aa"
 mt4.scale = 0.140
 mt4.position = (0.050, -0.520, 0.050)
+mt4.detail = "Cetanā or intention: the directional impulse that shapes action and karma."
 m.add(mt4)
 
 mt5 = AttentionMental()
@@ -56,6 +61,7 @@ mt5.name = "Attention"
 mt5.color = "#a1a1aa"
 mt5.scale = 0.140
 mt5.position = (-0.100, -0.500, -0.150)
+mt5.detail = "Manasikāra or attention: selecting and aiming the mind at an object among competing stimuli."
 m.add(mt5)
 
 mt6 = ConcentrationMental()
@@ -63,6 +69,7 @@ mt6.name = "Concentration"
 mt6.color = "#a1a1aa"
 mt6.scale = 0.140
 mt6.position = (-0.180, -0.420, 0.020)
+mt6.detail = "Samādhi or concentration: one-pointedness; stability of mind on the chosen object."
 m.add(mt6)
 
 mt7 = LifeFacultyMental()
@@ -70,6 +77,7 @@ mt7.name = "Life Faculty"
 mt7.color = "#a1a1aa"
 mt7.scale = 0.140
 mt7.position = (0.180, -0.480, -0.080)
+mt7.detail = "Jīvitindriya or life faculty: sustains the co-arising mental factors in that moment of mind."
 m.add(mt7)`
 
 function parseNumberList(value: string): [number, number, number] | null {
@@ -177,6 +185,7 @@ export function CodeRunner(): React.ReactElement {
   const [miniError, setMiniError] = useState<string | null>(null)
   const [localResult, setLocalResult] = useState<LocalResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const codeTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const [sceneMind, setSceneMind] = useState<Mind | null>(null)
   const prevMindRef = useRef<Mind | null>(null)
@@ -185,6 +194,8 @@ export function CodeRunner(): React.ReactElement {
     mentalsByVar: new Map<string, Mental>(),
   })
   const [miniEditorOpen, setMiniEditorOpen] = useState(false)
+  const [mentalSnippetFilter, setMentalSnippetFilter] = useState('')
+  const [mentalSnippetsOpen, setMentalSnippetsOpen] = useState(false)
   const [miniEditorPos, setMiniEditorPos] = useState({ x: 28, y: 96 })
   const miniEditorDragRef = useRef({ active: false, dx: 0, dy: 0 })
 
@@ -259,6 +270,31 @@ export function CodeRunner(): React.ReactElement {
     document.body.style.userSelect = 'none'
     document.body.style.cursor = 'grabbing'
   }, [miniEditorPos.x, miniEditorPos.y])
+
+  const insertCodeAtCursor = useCallback((snippet: string) => {
+    const ta = codeTextareaRef.current
+    if (!ta) {
+      setCode((prev) => {
+        const sep = prev.length > 0 && !prev.endsWith('\n') ? '\n\n' : ''
+        return prev + sep + snippet
+      })
+      return
+    }
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const val = ta.value
+    const before = val.slice(0, start)
+    const after = val.slice(end)
+    const needsNewline = before.length > 0 && !before.endsWith('\n')
+    const prefix = needsNewline ? '\n\n' : ''
+    const next = before + prefix + snippet + after
+    setCode(next)
+    requestAnimationFrame(() => {
+      const pos = start + prefix.length + snippet.length
+      ta.selectionStart = ta.selectionEnd = pos
+      ta.focus()
+    })
+  }, [])
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -680,22 +716,121 @@ export function CodeRunner(): React.ReactElement {
             </div>
           </div>
 
-          <div className="cr-editor-wrap">
-            <div className="cr-line-numbers">
-              {code.split('\n').map((_, i) => (<span key={i}>{i + 1}</span>))}
+          <div className="cr-editor-body">
+            <div className="cr-editor-wrap">
+              <div className="cr-line-numbers">
+                {code.split('\n').map((_, i) => (<span key={i}>{i + 1}</span>))}
+              </div>
+              <textarea
+                ref={codeTextareaRef}
+                className="cr-textarea"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'copy'
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const text = e.dataTransfer.getData('text/plain')
+                  if (text.trim()) insertCodeAtCursor(text)
+                }}
+                spellCheck={false}
+                placeholder={'m = Mind()\nm.name = "my mind"\n\nmt = ContactMental()\nm.add(mt)'}
+              />
             </div>
-            <textarea
-              className="cr-textarea"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              onKeyDown={handleKeyDown}
-              spellCheck={false}
-              placeholder={'m = Mind()\nm.name = "my mind"\n\nmt = ContactMental()\nm.add(mt)'}
-            />
+
+            <aside
+              className={`cr-mental-snippets-panel${mentalSnippetsOpen ? ' cr-mental-snippets-panel--open' : ''}`}
+              aria-label="Mental code snippets"
+            >
+              {!mentalSnippetsOpen ? (
+                <button
+                  type="button"
+                  className="cr-mental-snippets-rail"
+                  onClick={() => setMentalSnippetsOpen(true)}
+                  aria-expanded={false}
+                  title="Open mental snippets — drag or click items into the editor"
+                >
+                  <span className="cr-mental-snippets-rail-icon" aria-hidden>
+                    ◆
+                  </span>
+                  <span className="cr-mental-snippets-rail-label">Snippets</span>
+                </button>
+              ) : (
+                <>
+                  <div className="cr-mental-snippets-head">
+                    <button
+                      type="button"
+                      className="cr-mental-snippets-collapse"
+                      onClick={() => setMentalSnippetsOpen(false)}
+                      aria-label="Collapse snippets panel"
+                      title="Hide panel"
+                    >
+                      ›
+                    </button>
+                    <span className="cr-mental-snippets-title">Snippets</span>
+                    <button
+                      type="button"
+                      className="cr-mental-snippets-full-btn"
+                      onClick={() => setCode(PLACEHOLDER_CODE)}
+                      title="Replace editor with the 7-mental demo"
+                    >
+                      Demo
+                    </button>
+                  </div>
+                  <input
+                    type="search"
+                    className="cr-mental-snippets-filter"
+                    value={mentalSnippetFilter}
+                    onChange={(e) => setMentalSnippetFilter(e.target.value)}
+                    placeholder="Filter…"
+                    aria-label="Filter mental snippets"
+                  />
+                  <ul className="cr-mental-snippets-list">
+                    {MENTAL_PREVIEW_ENTRIES.filter((entry) => {
+                      const q = mentalSnippetFilter.trim().toLowerCase()
+                      if (!q) return true
+                      return (
+                        entry.ctor.toLowerCase().includes(q) ||
+                        entry.label.toLowerCase().includes(q)
+                      )
+                    }).map((entry) => {
+                      const snippet = buildMentalSnippetOnly(entry)
+                      return (
+                        <li key={entry.ctor}>
+                          <button
+                            type="button"
+                            className="cr-mental-snippet-chip"
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', snippet)
+                              e.dataTransfer.effectAllowed = 'copy'
+                            }}
+                            onClick={() => insertCodeAtCursor(snippet)}
+                            title={`${entry.label} — drag or click to insert`}
+                          >
+                            <span
+                              className="cr-mental-snippet-dot"
+                              style={{ background: entry.color }}
+                              aria-hidden
+                            />
+                            <span className="cr-mental-snippet-line">
+                              <span className="cr-mental-snippet-ctor">{entry.ctor}</span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              )}
+            </aside>
           </div>
 
           <div className="cr-hint">
-            <kbd>Cmd</kbd>+<kbd>Enter</kbd> to run &middot; <kbd>Tab</kbd> to indent
+            <kbd>Cmd</kbd>+<kbd>Enter</kbd> to run &middot; <kbd>Tab</kbd> to indent &middot; open the Snippets strip on the right to drag or click
           </div>
         </section>
 

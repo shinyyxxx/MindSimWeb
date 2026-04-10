@@ -11,6 +11,7 @@ type MentalPassthroughGlassBackup = {
     clearcoat: number;
     clearcoatRoughness: number;
     opacity: number;
+    color: THREE.Color;
     iridescence: number;
     iridescenceIOR: number;
     emissiveIntensity: number;
@@ -124,18 +125,20 @@ export class Mental extends AbstractMental {
                 clearcoat: mat.clearcoat,
                 clearcoatRoughness: mat.clearcoatRoughness,
                 opacity: mat.opacity,
+                color: mat.color.clone(),
                 iridescence: mat.iridescence,
                 iridescenceIOR: mat.iridescenceIOR,
                 emissiveIntensity: mat.emissiveIntensity,
             };
             mat.transmission = 0;
             mat.thickness = 0;
-            mat.roughness = 0.28;
-            mat.clearcoat = 0.55;
-            mat.clearcoatRoughness = 0.22;
+            mat.roughness = 0.34;
+            mat.clearcoat = 0.28;
+            mat.clearcoatRoughness = 0.3;
             mat.iridescence = 0;
-            mat.opacity = Math.min(0.58, mat.opacity + 0.12);
-            mat.emissiveIntensity = Math.min(0.85, mat.emissiveIntensity + 0.12);
+            mat.color.lerp(new THREE.Color(0xffffff), 0.08);
+            mat.opacity = Math.min(0.5, mat.opacity + 0.07);
+            mat.emissiveIntensity = Math.min(0.68, mat.emissiveIntensity + 0.07);
             mat.transparent = true;
             mat.depthWrite = false;
             mat.envMap = null;
@@ -153,6 +156,7 @@ export class Mental extends AbstractMental {
         mat.clearcoat = b.clearcoat;
         mat.clearcoatRoughness = b.clearcoatRoughness;
         mat.opacity = b.opacity;
+        mat.color.copy(b.color);
         mat.iridescence = b.iridescence;
         mat.iridescenceIOR = b.iridescenceIOR;
         mat.emissiveIntensity = b.emissiveIntensity;

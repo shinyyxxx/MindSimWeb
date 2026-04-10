@@ -1793,7 +1793,219 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
   border-radius: 4px;
   font-size: 12px;
 }
-.cr-actions { display: flex; gap: 8px; padding-top: 2px; }
+.cr-actions { display: flex; gap: 8px; padding-top: 2px; flex-wrap: wrap; align-items: center; }
+
+.cr-editor-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  overflow: hidden;
+}
+/* Collapsed: slim rail; open: compact drawer (~184px) */
+.cr-mental-snippets-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 34px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  transition: width 0.18s ease;
+}
+.cr-mental-snippets-panel--open {
+  width: min(184px, 34vw);
+}
+.cr-mental-snippets-rail {
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+}
+.cr-mental-snippets-rail:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.04);
+}
+.cr-mental-snippets-rail-icon {
+  font-size: 9px;
+  opacity: 0.75;
+}
+.cr-mental-snippets-rail-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.cr-mental-snippets-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+.cr-mental-snippets-collapse {
+  padding: 2px 4px;
+  font-size: 16px;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.cr-mental-snippets-collapse:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+}
+.cr-mental-snippets-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cr-mental-snippets-full-btn {
+  padding: 3px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 5px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.15);
+  color: #c7d2fe;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cr-mental-snippets-full-btn:hover {
+  background: rgba(99, 102, 241, 0.28);
+}
+.cr-mental-snippets-filter {
+  margin: 5px 6px 4px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e2e8f0;
+  font-size: 11px;
+  outline: none;
+  flex-shrink: 0;
+}
+.cr-mental-snippets-filter::placeholder {
+  color: #475569;
+}
+.cr-mental-snippets-filter:focus {
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2);
+}
+.cr-mental-snippets-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 6px;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.cr-mental-snippets-list li {
+  margin: 0;
+  padding: 0;
+}
+.cr-mental-snippet-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  padding: 3px 5px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: grab;
+  font: inherit;
+  transition: background 0.12s ease;
+}
+.cr-mental-snippet-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+.cr-mental-snippet-chip:active {
+  cursor: grabbing;
+}
+.cr-mental-snippet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.cr-mental-snippet-line {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.cr-mental-snippet-ctor {
+  display: block;
+  font-size: 10px;
+  line-height: 1.25;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 960px) {
+  .cr-editor-body {
+    flex-direction: column;
+  }
+  .cr-mental-snippets-panel:not(.cr-mental-snippets-panel--open) {
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
+    flex-shrink: 0;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-direction: row;
+  }
+  .cr-mental-snippets-panel:not(.cr-mental-snippets-panel--open) .cr-mental-snippets-rail {
+    flex-direction: row;
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .cr-mental-snippets-rail-label {
+    writing-mode: horizontal-tb;
+    transform: none;
+    letter-spacing: 0.08em;
+  }
+  .cr-mental-snippets-panel--open {
+    width: 100%;
+    max-height: min(42vh, 260px);
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
 .cr-btn {
   padding: 8px 16px;
   border-radius: 10px;
@@ -1822,6 +2034,7 @@ button.mindstudy-diagram-group-head.mindstudy-diagram-group-toggle:focus-visible
 
 .cr-editor-wrap {
   flex: 1;
+  min-width: 0;
   display: flex;
   overflow: hidden;
   background: #0b1220;
