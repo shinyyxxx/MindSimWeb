@@ -333,7 +333,6 @@ const TIMELINE_STOPS: { label: string; description: string }[] = [
   { label: 'T10', description: 'Bhavanga — mind returns to life-continuum after every cognitive process' },
 ]
 
-/** Universal 7 — common to all timeline steps: Contact, Feeling, Perception, Intention, Attention, Concentration, Life Faculty */
 const UNIVERSAL_SEEDS: MentalSeed[] = [
   { name: 'Contact', color: '#a1a1aa', scale: 0.14, position: [0.0, -0.45, 0.1], detail: 'Meeting of sense base and object', modelPath: paperPlaneModel, modelTargetWorldSize: 0.08, modelOffset: { x: 0, y: -0.04, z: 0 }, variant: 'contact' },
   { name: 'Feeling', color: '#a1a1aa', scale: 0.14, position: [0.15, -0.4, 0.0], variant: 'feeling' },
@@ -344,14 +343,12 @@ const UNIVERSAL_SEEDS: MentalSeed[] = [
   { name: 'Life Faculty', color: '#a1a1aa', scale: 0.14, position: [0.18, -0.48, -0.08], variant: 'life_faculty' },
 ]
 
-/** T0-specific: Initial Application, Sustained Application, Decision (Determination) */
 const T0_SPECIFIC_SEEDS: MentalSeed[] = [
   { name: 'Initial Application', color: '#a1a1aa', scale: 0.14, position: [-0.22, -0.44, 0.08], variant: 'initial_application' },
   { name: 'Sustained Application', color: '#a1a1aa', scale: 0.14, position: [0.12, -0.46, -0.06], variant: 'sustained_application' },
   { name: 'Decision', color: '#a1a1aa', scale: 0.14, position: [-0.08, -0.5, 0.12], variant: 'decision' },
 ]
 
-/** Bhavanga cetasikas — shown at T0-T2 and T10 (universal 7 + T0-specific 3) */
 const BHAVANGA_VARIANTS: MentalVariant[] = [
   ...UNIVERSAL_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
   ...T0_SPECIFIC_SEEDS.map((s) => s.variant).filter((v): v is MentalVariant => v != null),
@@ -397,7 +394,6 @@ const DEFAULT_SEEDS: MentalSeed[] = [
   { name: 'Perception', color: '#60a5fa', scale: 0.2, position: [-0.14, 0.16, 0.24], detail: 'Perception mental with bowl model', modelPath: perceptionBowlModel, modelTargetWorldSize: 0.02, modelOffset: { x: 0, y: -0.3, z: 0.5 }, variant: 'perception' },
 ]
 
-/** Seeds for T5-specific variants (energy, desire, rapture) not in DEFAULT_SEEDS */
 const T5_EXTRA_SEEDS: MentalSeed[] = [
   { name: 'Energy (Vīriya)', color: '#a1a1aa', scale: 0.12, position: [0.2, -0.35, 0.1], variant: 'energy' },
   { name: 'Desire (Chanda)', color: '#a1a1aa', scale: 0.12, position: [0.25, -0.38, -0.05], variant: 'desire' },
@@ -413,7 +409,6 @@ const RAPTURE_TIMELINE_SEED: MentalSeed = {
   variant: 'rapture',
 }
 
-/** Seeds for Beautiful Universals (missing body/mind), Abstinences, Illimitables, Wisdom */
 const WHOLESOME_SEEDS: MentalSeed[] = [
   { name: 'Tranquility (Body)', color: '#22c55e', scale: 0.12, position: [-0.64, 0.10, -0.04], variant: 'tranquility_body' },
   { name: 'Wieldiness (Mind)', color: '#22c55e', scale: 0.12, position: [-0.52, -0.04, -0.08], variant: 'wieldiness_mind' },
@@ -963,7 +958,6 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
     return variants
   }
 
-  // Universal 7 — exist in all active timeline steps (T3+)
   pushUnique(...UNIVERSAL_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
 
   if (index === 3) {
@@ -971,7 +965,6 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
   } else if (index === 5) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
   } else if (index === 4) {
-    // T4: Universal 7 only
   } else if (index === 6) {
     pushUnique(...T0_SPECIFIC_SEEDS.map((seed) => seed.variant).filter(Boolean) as MentalVariant[])
     if (t3Happy) pushUnique('rapture')
@@ -986,7 +979,6 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
       if (opt) pushUnique(...opt.variants)
     }
 
-    // If no selection, show random (fallback)
     if (!t5SelectedId) {
       const rng = seededRandom(1000 + index)
       const universalVariants = new Set(UNIVERSAL_SEEDS.map((s) => s.variant).filter(Boolean) as MentalVariant[])
@@ -1005,7 +997,6 @@ function getMentalVariantsForTimelineStop(index: number, t3Happy: boolean, t5Sel
       })
     }
   } else {
-    // T6: add random selection from non-universal seeds
     const rng = seededRandom(1000 + index)
     const universalVariants = new Set(UNIVERSAL_SEEDS.map((s) => s.variant).filter(Boolean) as MentalVariant[])
     const nonUniversal = DEFAULT_SEEDS.filter((s) => s.variant && !universalVariants.has(s.variant as MentalVariant))
@@ -1189,7 +1180,6 @@ function sampleSpherePoints(count: number, radius: number): Float32Array {
     const i3 = i * 3
     const theta = Math.random() * Math.PI * 2
     const phi = Math.acos(1 - 2 * Math.random())
-    // Shell-only distribution to keep the particle body hollow.
     const r = radius * (0.94 + Math.random() * 0.06)
     out[i3] = r * Math.sin(phi) * Math.cos(theta)
     out[i3 + 1] = r * Math.cos(phi)
@@ -1202,7 +1192,6 @@ function sampleCubePoints(count: number, halfExtent: number): Float32Array {
   const out = new Float32Array(count * 3)
   for (let i = 0; i < count; i += 1) {
     const i3 = i * 3
-    // Cube shell (sample on faces only), not the solid volume.
     const face = Math.floor(Math.random() * 6)
     const u = (Math.random() * 2 - 1) * halfExtent
     const v = (Math.random() * 2 - 1) * halfExtent
@@ -1264,7 +1253,6 @@ function normalizePointsToHeight(points: Float32Array, targetHeight: number): Fl
 
   for (let i = 0; i < out.length; i += 3) {
     out[i] = (out[i] - centerX) * scale
-    // Keep body feet on ground (minY = 0) instead of centering vertically.
     out[i + 1] = out[i + 1] * scale - groundOffsetY
     out[i + 2] = (out[i + 2] - centerZ) * scale
   }
@@ -1417,7 +1405,6 @@ function HumanBody({
         targetZ
       )
 
-      // When entering human mode, move camera closer once so the morph body is readable.
       if (!hasAppliedHumanCameraRef.current) {
         const camera = ctl.object as THREE.PerspectiveCamera
         camera.position.set(targetX + 0.05, targetY + 0.08, targetZ + 2.75)
@@ -1461,7 +1448,6 @@ function HumanBody({
         },
         undefined,
         () => {
-          // Keep fallback if model loading fails.
         }
       )
     }
@@ -1474,7 +1460,6 @@ function HumanBody({
       const height = Math.max(0.0001, b.maxY - b.minY)
       const depth = Math.max(0.0001, b.maxZ - b.minZ)
       const centerX = (b.minX + b.maxX) * 0.5
-      // Chest sits slightly above half-height and closer to torso center.
       shapeChestLocalRef.current.dog = new THREE.Vector3(centerX, b.minY + height * 0.57, b.minZ + depth * 0.58)
     })
     loadShapeFromGltf('angel', `${import.meta.env.BASE_URL}assets/Angel/scene.gltf`, (angel) => {
@@ -1762,12 +1747,10 @@ function MentalsLayer({
 
   const handleMentalPick = useCallback((found: Mental, screenPos?: { x: number; y: number }) => {
     if (sendMode) {
-      // In send mode: first pick selects sender, second pick sends to receiver.
       const currentSender = senderRef.current
       if (!currentSender) {
         senderRef.current = found
         const senderMesh = found.getMesh()
-        // Highlight the sender when first selected.
         if (senderMesh && onSendMeshSelection) {
           onSendMeshSelection([senderMesh])
         }
@@ -1775,14 +1758,12 @@ function MentalsLayer({
         return
       }
       if (currentSender === found) {
-        // Same as sender; ignore to avoid self-send spam.
         return
       }
       const senderName = currentSender.getName()
       const receiverName = found.getName()
       const receiverMesh = found.getMesh()
 
-      // Unhighlight sender and highlight only the receiver.
       if (receiverMesh && onSendMeshSelection) {
         onSendMeshSelection([receiverMesh])
       }
@@ -1805,14 +1786,11 @@ function MentalsLayer({
       ;(sendPromise as Promise<void>)
         .then(() => {
           onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Delivered' })
-          // Keep receiver highlighted until another one is picked.
         })
         .catch((err) => {
           console.error('Failed to visualize send', err)
           onSendSelection?.({ sender: senderName, receiver: receiverName, status: 'Failed' })
-          // Keep receiver highlighted even on error.
         })
-      // Reset sender so next pick can choose a new sender.
       senderRef.current = null
       return
     }
@@ -1821,14 +1799,12 @@ function MentalsLayer({
       return
     }
 
-    // Do not unfreeze other mentals on selection; keep existing freeze states stable.
     found.setFrozen(true)
     found.setVelocity(0, 0, 0)
     const foundMesh = found.getMesh()
     const worldPos = new THREE.Vector3()
     foundMesh?.getWorldPosition(worldPos)
 
-    // Keep selected sphere in place and expose its world position for overlay anchoring.
     if (foundMesh) {
       focusTargetRef.current = worldPos
     } else {
@@ -1999,19 +1975,16 @@ function MentalsLayer({
         y: event.clientY + window.scrollY,
       }
 
-      // Keep existing pointer-down behavior for send/emoji modes.
       if (sendMode || emojiMode) {
         handleMentalPick(found, screenPos)
         return
       }
 
-      // Keep left-click select behavior in normal mode.
       if (isLeftButton) {
         handleMentalPick(found, screenPos)
         return
       }
 
-      // Right-click drag only in normal mode.
       if (!isRightButton) return
 
       const mesh = found.getMesh()
@@ -2035,7 +2008,6 @@ function MentalsLayer({
       }
       dragActiveRef.current = false
 
-      // Freeze while dragging so physics never fights pointer movement.
       found.setDragging(true)
       found.setFrozen(true)
       found.setVelocity(0, 0, 0)
@@ -2075,7 +2047,6 @@ function MentalsLayer({
       if (!state) return
       controlsRef?.current && (controlsRef.current.enabled = true)
 
-      // If user only clicked (no drag), preserve current pointer-down pick behavior.
       if (!dragActiveRef.current) {
         state.mental.setDragging(false)
         state.mental.setFrozen(false)
@@ -2099,7 +2070,6 @@ function MentalsLayer({
         state.mental.setDragging(false)
         state.mental.setFrozen(true)
         state.mental.setVelocity(0, 0, 0)
-        // Outside the main sphere, show a readable floating name label.
         state.mental.setLabelEnabled(true)
         state.mental.setLabelWorldSize(0.3)
         state.mental.setLabelOffset(0.12)
@@ -2108,7 +2078,6 @@ function MentalsLayer({
         state.mental.setOutsideMindPinned(false)
         state.mental.setDragging(false)
         state.mental.setFrozen(false)
-        // Restore default in-sphere styling (name on sphere only).
         state.mental.setLabelEnabled(false)
         state.mental.setLabelWorldSize(0.18)
         state.mental.setLabelOffset(0.06)
@@ -2150,8 +2119,6 @@ function MentalsLayer({
     const handleXrSelect = (event: unknown) => {
       if (!gl.xr.isPresenting) return
       if (blockXrMentalPick) return
-      // Avoid click-through: while a mental is already selected in XR,
-      // panel interactions should not also re-pick underlying mentals.
       if (selectedMentalName && !sendMode && !emojiMode) return
 
       const controller = (event as { target?: unknown }).target as THREE.Object3D | undefined
@@ -2192,7 +2159,6 @@ function MentalsLayer({
 
   useEffect(() => {
     if (!onHoverSelection) return
-    // Disable hover highlighting when in send mode (send meshes will be highlighted instead)
     if (sendMode) return
     
     const canvas = gl.domElement
@@ -2388,12 +2354,10 @@ function MentalsLayer({
 
   useEffect(() => {
     if (!selectedMentalName) {
-      // Keep existing freeze states when selection is cleared.
       focusTargetRef.current = null
     }
   }, [selectedMentalName, focusTargetRef])
 
-  // Clear send highlights when send mode is exited
   useEffect(() => {
     if (!sendMode && onSendMeshSelection) {
       onSendMeshSelection([])
@@ -2591,7 +2555,6 @@ function SoundReceiveEffect({
     mentalMoveTargetRef.current.clear()
 
     if (activeFlowMode === 'full' && contact) {
-      // Freeze and stage all mentals so the receive animation has clear focus.
       mentals.forEach((m) => {
         const p = m.getPosition()
         mentalOriginalRef.current.set(m, {
@@ -2605,7 +2568,6 @@ function SoundReceiveEffect({
 
       const start = contact.getPosition()
       contactStartRef.current.set(start.x, start.y, start.z)
-      // Bring Contact close to right side (ear side) of mind, still inside sphere.
       contactTargetRef.current.set(0.78, 0.06, 0.02)
       mentalMoveTargetRef.current.set(contact, contactTargetRef.current.clone())
     }
@@ -2615,9 +2577,7 @@ function SoundReceiveEffect({
     const baseZ = mind.position.z
     const radius = Math.max(1.1, mind.scale)
     if (isSceneMode) {
-      // Scene mode: place two eyes in front of the mind sphere.
       earWorld.set(baseX, baseY + 0.24, baseZ + radius + 0.12)
-      // Start farther away so the incoming scene-data flight is obvious.
       planeStartRef.current.copy(earWorld).add(new THREE.Vector3(0, 0.16, 2.6))
     } else {
       earWorld.set(baseX + radius + earSideGap, baseY + earHeightOffset, baseZ + earDepthOffset)
@@ -2892,7 +2852,6 @@ function SoundReceiveEffect({
           }
 
           if (activeFlowMode === 'full' && isSceneMode) {
-            // Scene mode: travel from afar -> eyes -> Contact.
             await sendFromWorldToWorld(planeStartRef.current, earWorld.clone())
             await sendFromWorldToMental(earWorld.clone(), contactMental)
           } else if (activeFlowMode === 'full') {
@@ -2910,7 +2869,6 @@ function SoundReceiveEffect({
             if (runToken !== runTokenRef.current) return
           }
         } catch {
-          // keep cleanup flow below
         } finally {
           if (runToken !== runTokenRef.current) return
           cleanupAndRestore()
@@ -3017,16 +2975,13 @@ function MindZoneBoundaries({ mind }: { mind: Mind }) {
   const mindPosition = mind.position
   const mindScale = mind.scale
   
-  // Local space radius (before scaling)
   const localRadius = mindRadius / mindScale
   const neutralBoundaryY = -0.3 // Local space boundary for neutral zone
   
-  // Calculate circle radius at the neutral boundary height
   const horizontalCircleRadius = Math.sqrt(Math.max(0, localRadius * localRadius - neutralBoundaryY * neutralBoundaryY))
 
   return (
     <group position={[mindPosition.x, mindPosition.y, mindPosition.z]}>
-      {/* Vertical plane (YZ plane) separating good (left, X<0) and bad (right, X>0) zones */}
       <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
         <meshBasicMaterial
@@ -3036,7 +2991,6 @@ function MindZoneBoundaries({ mind }: { mind: Mind }) {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Vertical plane wireframe for better visibility */}
       <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
         <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
         <meshBasicMaterial
@@ -3048,7 +3002,6 @@ function MindZoneBoundaries({ mind }: { mind: Mind }) {
         />
       </mesh>
       
-      {/* Horizontal plane (XZ plane) separating neutral (below, Y<neutralBoundaryY) from good/bad (above) zones */}
       <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
         <meshBasicMaterial
@@ -3058,7 +3011,6 @@ function MindZoneBoundaries({ mind }: { mind: Mind }) {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Horizontal plane wireframe for better visibility */}
       <mesh position={[0, neutralBoundaryY * mindScale, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[localRadius * 2.5, localRadius * 2.5]} />
         <meshBasicMaterial
@@ -3070,13 +3022,11 @@ function MindZoneBoundaries({ mind }: { mind: Mind }) {
         />
       </mesh>
       
-      {/* Great circle on sphere surface for left/right boundary (vertical circle in YZ plane) */}
       <lineSegments rotation={[Math.PI / 2, 0, 0]}>
         <edgesGeometry args={[new THREE.CircleGeometry(localRadius, 64)]} />
         <lineBasicMaterial color={0x00ff00} linewidth={3} />
       </lineSegments>
       
-      {/* Horizontal circle on sphere surface for neutral boundary */}
       {horizontalCircleRadius > 0 && (
         <lineSegments position={[0, neutralBoundaryY * mindScale, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <edgesGeometry args={[new THREE.CircleGeometry(horizontalCircleRadius, 64)]} />
@@ -3843,8 +3793,6 @@ function XRTimelineToggle({
       if (inputSource.handedness !== 'right') continue
       const gamepad = (inputSource as { gamepad?: Gamepad }).gamepad
       if (!gamepad || !gamepad.buttons?.length) continue
-      // Right controller: B button only (do not toggle on A).
-      // Keep a conservative fallback for runtimes that expose only 4 face buttons.
       bPressed = Boolean(
         gamepad.buttons[5]?.pressed ||
         (!gamepad.buttons[5] && gamepad.buttons[3]?.pressed)
@@ -4359,7 +4307,6 @@ function XRTimelinePanel({
   }
   const explainButtonY = Math.max(-0.52, contentBottomY - 0.09)
   const slideshowPauseY = explainButtonY + 0.1
-  // Size panel to content so we don't keep excessive empty space below controls.
   const panelBottomY = explainButtonY - 0.075
   const panelHeight = Math.max(0.84, panelTopY - panelBottomY)
   const innerPanelHeight = Math.max(0.2, panelHeight - 0.004)
@@ -4371,12 +4318,10 @@ function XRTimelinePanel({
         <planeGeometry args={[0.24, 1.08]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
-      {/* Outer capsule frame */}
       <mesh position={[0, -0.01, 0]}>
         <planeGeometry args={[0.074, 0.9]} />
         <meshBasicMaterial color={0xe2e8f0} transparent opacity={0.82} side={THREE.DoubleSide} />
       </mesh>
-      {/* Inner dark rail */}
       <mesh position={[0, -0.01, 0.002]}>
         <planeGeometry args={[0.038, 0.864]} />
         <meshBasicMaterial color={0x0f172a} side={THREE.DoubleSide} />
@@ -5068,7 +5013,6 @@ function ThreeScene({
     return DEFAULT_HUMAN_GROUND_Y + XR_MIND_HEIGHT_OFFSET
   }, [isXrActive])
   const xrInitialOffset = useMemo<[number, number, number]>(() => {
-    // Push XR start position backward so the mind is visible in front on enter.
     return [0, 0, 4]
   }, [])
   const mentalScaleFactor = useMemo(() => {
@@ -5081,7 +5025,6 @@ function ThreeScene({
     return Math.pow(0.80, si)
   }, [vithiStageData, timelineIndex, subStepIndex])
 
-  // Keep mentals interactable in AR so controller trigger/tap can pick them.
   const showMentalsLayer = true
   const showHumanInScene = showHumanModel && (!isArMode || !sendMode)
 
@@ -5097,7 +5040,6 @@ function ThreeScene({
     onSelectMental(info)
   }, [isXrActive, onSelectMental, xrTimelineOpen])
 
-  // Priority: active explanation sphere, search results, send mode picks, selected sphere, then hover.
   const outlineSelection =
     (explainHighlight?.length ?? 0) > 0
       ? explainHighlight!
@@ -5113,10 +5055,6 @@ function ThreeScene({
     return new Set(mentals.map((m) => m.getMesh()).filter(Boolean) as THREE.Object3D[])
   }, [mentals])
 
-  /**
-   * Amber outline = “new” mentals vs previous step. Disabled during slideshow — auto-advance + TTS
-   * was leaving a spurious centered yellow ring (postprocessing Outline with empty/stale selection).
-   */
   const newMentalOutlineSelectionFiltered = useMemo(() => {
     if (timelineMode === 'slideshow') return [] as THREE.Object3D[]
     if ((explainHighlight?.length ?? 0) > 0) return [] as THREE.Object3D[]
@@ -5124,7 +5062,6 @@ function ThreeScene({
     return raw.filter((obj) => mentalMeshesForOutline.has(obj))
   }, [explainHighlight, mentalMeshesForOutline, newMentalHighlight, timelineMode])
 
-  // When hiding the human model, put the mind back to its default position/scale.
   useLayoutEffect(() => {
     if (showHumanModel) return
     mind.setScale(defaultMindScale)
@@ -5491,7 +5428,6 @@ export function Simulation(): React.ReactElement {
     body.classList.add('simulation-no-scroll')
 
     if (activeXrMode !== null) {
-      // Keep XR layout stable and avoid resize-driven renderer warnings while presenting.
       root.style.setProperty('--mindsim-nav-height', '0px')
       return () => {
         body.classList.remove('simulation-no-scroll')
@@ -5576,7 +5512,6 @@ export function Simulation(): React.ReactElement {
   const prevStageVariantsRef = useRef<Set<MentalVariant>>(new Set())
   const [newMentalSelection, setNewMentalSelection] = useState<THREE.Object3D[]>([])
 
-  /** Clear stale yellow “new mental” outlines before paint when the timeline step changes (fixes postprocessing + slideshow). */
   useLayoutEffect(() => {
     setNewMentalSelection([])
   }, [timelineIndex, subStepIndex])
@@ -5764,7 +5699,6 @@ export function Simulation(): React.ReactElement {
 
         const minX = rect.left + window.scrollX + menuWidth / 2 + margin
         const maxX = rect.left + window.scrollX + rect.width - menuWidth / 2 - margin
-        // Menu uses translate(-50%, -100%), so anchor Y is bottom edge.
         const minY = rect.top + window.scrollY + menuHeight + margin
         const maxY = rect.top + window.scrollY + rect.height - margin
 
@@ -6060,7 +5994,6 @@ export function Simulation(): React.ReactElement {
       defaultMentalsByName.set(key, mental)
     })
 
-    // Keep default mentals, but reset previously scripted output each run.
     scriptMentalMapRef.current.forEach((mental) => mental.dispose())
     scriptMentalMapRef.current.clear()
     let autoMentalPositionIndex = 0
@@ -6096,7 +6029,6 @@ export function Simulation(): React.ReactElement {
           try {
             await playTextToSpeech(speak)
           } catch {
-            /* TTS optional */
           }
         } else {
           if (!linkedMentalVars.has(action.variable)) continue
@@ -6114,7 +6046,6 @@ export function Simulation(): React.ReactElement {
           try {
             await playTextToSpeech(speak)
           } catch {
-            /* TTS optional */
           }
         }
         continue
@@ -6217,8 +6148,6 @@ export function Simulation(): React.ReactElement {
       }
     }
 
-    // Spread scripted mentals farther apart for readability in Simulation Code Runner.
-    // This runs after script actions so even preset scripts with dense positions become clearer.
     const scriptedMentalsToSpread = Array.from(newMentalsByVar.values())
     if (scriptedMentalsToSpread.length > 1) {
       const mindCenter = new THREE.Vector3(mind.position.x, mind.position.y, mind.position.z)
@@ -6246,7 +6175,6 @@ export function Simulation(): React.ReactElement {
       })
     }
 
-    // Collect all mental names for validation
     const allLinkedNames: string[] = []
     nowMentalsByVar.forEach((mental) => {
       allLinkedNames.push(mental.getName())
@@ -6538,8 +6466,6 @@ export function Simulation(): React.ReactElement {
     let fromIndex = timelineSoundCursorRef.current
     if (fromIndex < -1 || fromIndex >= timelineChain.length) fromIndex = -1
 
-    // Keep continuity: previous receiver should be next sender whenever possible.
-    // If that sender disappeared, restart from Contact.
     if (fromIndex >= 0 && !hasMentalByName(timelineChain[fromIndex])) {
       fromIndex = -1
       timelineSoundCursorRef.current = -1
@@ -6645,7 +6571,6 @@ export function Simulation(): React.ReactElement {
         holdDurationMs: 220,
         returnDurationMs: 520,
         outDistanceWorld: 0.62,
-        // Present spheres in front of the mind (camera-facing view).
         presentationDirectionLocal: { x: 0, y: 0.14, z: 1 },
         presentationSpread: 0.024,
         onStart: async () => {
