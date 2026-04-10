@@ -237,7 +237,7 @@ mt1.detail = "Meeting of sense base, object, and consciousness."
 mt1.color = "#a1a1aa"
 mt1.scale = 0.140
 mt1.position = (0.000, -0.450, 0.100)
-mt1.detail = "Phassa — contact: meeting of sense base, object, and the cognizing consciousness."
+mt1.detail = "Phassa or contact: meeting of sense base, object, and the cognizing consciousness."
 m.add(mt1)
 
 mt2 = FeelingMental()
@@ -246,7 +246,7 @@ mt2.detail = "Tone of experience: pleasant, unpleasant, or neutral."
 mt2.color = "#a1a1aa"
 mt2.scale = 0.140
 mt2.position = (0.150, -0.400, 0.000)
-mt2.detail = "Vedanā — feeling tone: pleasant, unpleasant, or neutral hedonic coloring of experience."
+mt2.detail = "Vedanā or feeling: pleasant, unpleasant, or neutral hedonic coloring of experience."
 m.add(mt2)
 
 mt3 = PerceptionMental()
@@ -255,7 +255,7 @@ mt3.detail = "Recognizes and marks the features of what is known."
 mt3.color = "#60a5fa"
 mt3.scale = 0.180
 mt3.position = (-0.140, 0.080, 0.180)
-mt3.detail = "Saññā — perception: recognition, labeling, and marking of the object as this or that."
+mt3.detail = "Saññā or perception: recognition, labeling, and marking of the object as this or that."
 m.add(mt3)
 
 mt4 = IntentionMental()
@@ -264,7 +264,7 @@ mt4.detail = "Coordinates and directs associated mental activity."
 mt4.color = "#a1a1aa"
 mt4.scale = 0.140
 mt4.position = (0.050, -0.520, 0.050)
-mt4.detail = "Cetanā — intention or volition: the directional impulse that shapes action and karma."
+mt4.detail = "Cetanā or intention: the directional impulse that shapes action and karma."
 m.add(mt4)
 
 mt5 = AttentionMental()
@@ -273,7 +273,7 @@ mt5.detail = "Turns the mind toward the present object."
 mt5.color = "#a1a1aa"
 mt5.scale = 0.140
 mt5.position = (-0.100, -0.500, -0.150)
-mt5.detail = "Manasikāra — attention: selecting and aiming the mind at an object among competing stimuli."
+mt5.detail = "Manasikāra or attention: selecting and aiming the mind at an object among competing stimuli."
 m.add(mt5)
 
 mt6 = ConcentrationMental()
@@ -282,7 +282,7 @@ mt6.detail = "Keeps the mind steady and unified on the object."
 mt6.color = "#a1a1aa"
 mt6.scale = 0.140
 mt6.position = (-0.180, -0.420, 0.020)
-mt6.detail = "Samādhi — concentration: one-pointedness; stability of mind on the chosen object."
+mt6.detail = "Samādhi or concentration: one-pointedness; stability of mind on the chosen object."
 m.add(mt6)
 
 mt7 = LifeFacultyMental()
@@ -291,7 +291,7 @@ mt7.detail = "Sustains the vitality of mental states."
 mt7.color = "#a1a1aa"
 mt7.scale = 0.140
 mt7.position = (0.180, -0.480, -0.080)
-mt7.detail = "Jīvitindriya — life faculty: sustains the co-arising mental factors in that moment of mind."
+mt7.detail = "Jīvitindriya or life faculty: sustains the co-arising mental factors in that moment of mind."
 m.add(mt7)`
 
 function convertDslToPython(dsl: string): string {
