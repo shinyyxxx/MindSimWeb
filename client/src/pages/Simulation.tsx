@@ -4985,8 +4985,20 @@ function ThreeScene({
           ? selectedOutlineSelection
           : hoverSelection
 
-  const newMentalOutlineSelection =
-    (explainHighlight?.length ?? 0) > 0 ? [] : (newMentalHighlight ?? [])
+  const mentalMeshesForOutline = useMemo(() => {
+    return new Set(mentals.map((m) => m.getMesh()).filter(Boolean) as THREE.Object3D[])
+  }, [mentals])
+
+  /**
+   * Amber outline = “new” mentals vs previous step. Disabled during slideshow — auto-advance + TTS
+   * was leaving a spurious centered yellow ring (postprocessing Outline with empty/stale selection).
+   */
+  const newMentalOutlineSelectionFiltered = useMemo(() => {
+    if (timelineMode === 'slideshow') return [] as THREE.Object3D[]
+    if ((explainHighlight?.length ?? 0) > 0) return [] as THREE.Object3D[]
+    const raw = newMentalHighlight ?? []
+    return raw.filter((obj) => mentalMeshesForOutline.has(obj))
+  }, [explainHighlight, mentalMeshesForOutline, newMentalHighlight, timelineMode])
 
   // When hiding the human model, put the mind back to its default position/scale.
   useLayoutEffect(() => {
@@ -5146,25 +5158,37 @@ function ThreeScene({
       />
       <PanelPositionSync focusTargetRef={focusTargetRef} selectedMentalName={selectedMentalName} onUpdate={onUpdatePanelPosition} />
       {showMentalsLayer && !isXrActive && (
-        <EffectComposer multisampling={2} autoClear={false}>
-          <Outline
-            selection={outlineSelection}
-            blendFunction={BlendFunction.ALPHA}
-            visibleEdgeColor={0xffffff}
-            hiddenEdgeColor={0x190a05}
-            edgeStrength={30}
-            resolutionScale={1}
-            xRay
-          />
-          <Outline
-            selection={newMentalOutlineSelection}
-            blendFunction={BlendFunction.ALPHA}
-            visibleEdgeColor={0xfbbf24}
-            hiddenEdgeColor={0x92400e}
-            edgeStrength={50}
-            resolutionScale={1}
-            xRay
-          />
+        <EffectComposer
+          key={`outline-${timelineIndex}-${subStepIndex}`}
+          multisampling={2}
+          autoClear={false}
+        >
+          {[
+            <Outline
+              key="outline-selection"
+              selection={outlineSelection}
+              blendFunction={BlendFunction.ALPHA}
+              visibleEdgeColor={0xffffff}
+              hiddenEdgeColor={0x190a05}
+              edgeStrength={30}
+              resolutionScale={1}
+              xRay
+            />,
+            ...(newMentalOutlineSelectionFiltered.length > 0
+              ? [
+                  <Outline
+                    key="outline-new-mental"
+                    selection={newMentalOutlineSelectionFiltered}
+                    blendFunction={BlendFunction.ALPHA}
+                    visibleEdgeColor={0xfbbf24}
+                    hiddenEdgeColor={0x92400e}
+                    edgeStrength={50}
+                    resolutionScale={1}
+                    xRay
+                  />,
+                ]
+              : []),
+          ]}
         </EffectComposer>
       )}
     </Canvas>
@@ -5408,15 +5432,22 @@ export function Simulation(): React.ReactElement {
   const prevStageVariantsRef = useRef<Set<MentalVariant>>(new Set())
   const [newMentalSelection, setNewMentalSelection] = useState<THREE.Object3D[]>([])
 
+  /** Clear stale yellow “new mental” outlines before paint when the timeline step changes (fixes postprocessing + slideshow). */
+  useLayoutEffect(() => {
+    setNewMentalSelection([])
+  }, [timelineIndex, subStepIndex])
+
   useEffect(() => {
     const updateHighlight = (currentVars: MentalVariant[], currentMentals: Mental[]) => {
       const currentSet = new Set(currentVars)
       const prev = prevStageVariantsRef.current
       const newMeshes: THREE.Object3D[] = []
-      for (let i = 0; i < currentVars.length; i++) {
-        if (!prev.has(currentVars[i])) {
-          const mesh = currentMentals[i]?.getMesh()
-          if (mesh) newMeshes.push(mesh)
+      if (timelineMode !== 'slideshow') {
+        for (let i = 0; i < currentVars.length; i++) {
+          if (!prev.has(currentVars[i])) {
+            const mesh = currentMentals[i]?.getMesh()
+            if (mesh) newMeshes.push(mesh)
+          }
         }
       }
       setNewMentalSelection(newMeshes)
@@ -5459,7 +5490,7 @@ export function Simulation(): React.ReactElement {
     setActiveVariants(new Set())
     setMentals([])
     updateHighlight([], [])
-  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, subStepIndex, vithiStageData])
+  }, [getOrCreateMental, t3HappySelected, t5SelectedId, timelineIndex, subStepIndex, timelineMode, vithiStageData])
 
   const allMentals = useMemo(() => {
     const base = scriptResultActive ? [...scriptMatchedDefaultMentals] : [...mentals]
