@@ -750,15 +750,6 @@ export function MindStudy(): React.ReactElement {
               <a className="mindstudy-nav-item sub" href={`#${mainTopic.id}`}>
                 {mainTopic.title}
               </a>
-              <a className="mindstudy-nav-item sub" href="#cognitive-start">
-                Where a mind-moment begins
-              </a>
-              <a className="mindstudy-nav-item sub" href="#cognitive">
-                How mind-moments unfold
-              </a>
-              <a className="mindstudy-nav-item sub" href="#learn-more">
-                Learn more about the mind
-              </a>
             </div>
 
             <div className="mindstudy-nav-divider" role="presentation"/>
@@ -842,29 +833,6 @@ export function MindStudy(): React.ReactElement {
             <ul className="mindstudy-list">
               {mainTopic.highlights.map((point) => (<li key={point}>{point}</li>))}
             </ul>
-          </article>
-
-          <article className="mindstudy-section mindstudy-cognitive-box" id="cognitive-start">
-            <button type="button" className="mindstudy-cognitive-box-trigger" onClick={() => navigate('/mind-study/cognitive-start')} aria-label="Open lesson: where a mind-moment begins">
-              <span className="mindstudy-badge light">Abhidhamma</span>
-              <h3 className="mindstudy-cognitive-box-title">Where a mind-moment begins</h3>
-              <span className="mindstudy-caret" aria-hidden>→</span>
-            </button>
-          </article>
-          <article className="mindstudy-section mindstudy-cognitive-box" id="cognitive">
-            <button type="button" className="mindstudy-cognitive-box-trigger" onClick={() => navigate('/mind-study/cognitive')} aria-label="Open lesson: how mind-moments unfold">
-              <span className="mindstudy-badge light">Analysis</span>
-              <h3 className="mindstudy-cognitive-box-title">How mind-moments unfold</h3>
-              <span className="mindstudy-caret" aria-hidden>→</span>
-            </button>
-          </article>
-
-          <article className="mindstudy-section mindstudy-cognitive-box" id="learn-more">
-            <button type="button" className="mindstudy-cognitive-box-trigger" onClick={() => setLearnMoreConfirmOpen(true)} aria-label="Learn more about the mind">
-              <span className="mindstudy-badge light">Learn more</span>
-              <h3 className="mindstudy-cognitive-box-title">Learn more about the mind</h3>
-              <span className="mindstudy-caret" aria-hidden>→</span>
-            </button>
           </article>
 
           <section className="mindstudy-topic-section" id="topic-mental" aria-labelledby="topic-mental-heading">

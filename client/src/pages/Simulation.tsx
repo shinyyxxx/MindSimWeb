@@ -233,6 +233,7 @@ m.scale = 1.6
 
 mt1 = ContactMental()
 mt1.name = "Contact"
+mt1.detail = "Meeting of sense base, object, and consciousness."
 mt1.color = "#a1a1aa"
 mt1.scale = 0.140
 mt1.position = (0.000, -0.450, 0.100)
@@ -241,6 +242,7 @@ m.add(mt1)
 
 mt2 = FeelingMental()
 mt2.name = "Feeling"
+mt2.detail = "Tone of experience: pleasant, unpleasant, or neutral."
 mt2.color = "#a1a1aa"
 mt2.scale = 0.140
 mt2.position = (0.150, -0.400, 0.000)
@@ -249,6 +251,7 @@ m.add(mt2)
 
 mt3 = PerceptionMental()
 mt3.name = "Perception"
+mt3.detail = "Recognizes and marks the features of what is known."
 mt3.color = "#60a5fa"
 mt3.scale = 0.180
 mt3.position = (-0.140, 0.080, 0.180)
@@ -257,6 +260,7 @@ m.add(mt3)
 
 mt4 = IntentionMental()
 mt4.name = "Intention"
+mt4.detail = "Coordinates and directs associated mental activity."
 mt4.color = "#a1a1aa"
 mt4.scale = 0.140
 mt4.position = (0.050, -0.520, 0.050)
@@ -265,6 +269,7 @@ m.add(mt4)
 
 mt5 = AttentionMental()
 mt5.name = "Attention"
+mt5.detail = "Turns the mind toward the present object."
 mt5.color = "#a1a1aa"
 mt5.scale = 0.140
 mt5.position = (-0.100, -0.500, -0.150)
@@ -273,6 +278,7 @@ m.add(mt5)
 
 mt6 = ConcentrationMental()
 mt6.name = "Concentration"
+mt6.detail = "Keeps the mind steady and unified on the object."
 mt6.color = "#a1a1aa"
 mt6.scale = 0.140
 mt6.position = (-0.180, -0.420, 0.020)
@@ -281,6 +287,7 @@ m.add(mt6)
 
 mt7 = LifeFacultyMental()
 mt7.name = "Life Faculty"
+mt7.detail = "Sustains the vitality of mental states."
 mt7.color = "#a1a1aa"
 mt7.scale = 0.140
 mt7.position = (0.180, -0.480, -0.080)
@@ -4252,10 +4259,58 @@ function XRTimelinePanel({
     }
   }
   if (vithiStageData?.has(selectedIndex) && !vithiStageData.get(selectedIndex)!.blocked && vithiStageData.get(selectedIndex)!.events.length > 0) {
-    const evtCount = vithiStageData.get(selectedIndex)!.events.length
-    contentBottomY = Math.min(contentBottomY, stageInfoY - (evtCount > 1 ? 0.28 : 0.24))
+    const stage = vithiStageData.get(selectedIndex)!
+    const evts = stage.events
+    const si = subStepIndex ?? 0
+    const currentEvt = evts.length > 0 ? evts[Math.min(si, evts.length - 1)] : null
+    if (currentEvt) {
+      const estimateLineCount = (text: string, charsPerLine: number): number => {
+        if (!text) return 1
+        return Math.max(1, Math.ceil(text.length / Math.max(1, charsPerLine)))
+      }
+      const rowGap = 0.026
+      let cursorY = stageInfoY
+      const consumeRows = (lineCount = 1) => {
+        cursorY -= rowGap * lineCount
+      }
+
+      consumeRows(1)
+      const mindTitle = currentEvt.mind_name || (currentEvt.mind_id != null ? `Citta ${currentEvt.mind_id}` : '')
+      if (mindTitle) consumeRows(1)
+      const mindIdText = selectedIndex > 2
+        ? (currentEvt.mind_id != null
+          ? `Mind ID: ${currentEvt.mind_id}`
+          : currentEvt.mind_id_range && currentEvt.mind_id_range.length > 0
+            ? `Mind ID range: [${currentEvt.mind_id_range.join(', ')}]`
+            : '')
+        : ''
+      if (mindIdText) consumeRows(1)
+      consumeRows(estimateLineCount(currentEvt.description, 56))
+      if (currentEvt.reason) consumeRows(estimateLineCount(currentEvt.reason, 72))
+      if (selectedIndex === 2 && vithiResultType === 'blocked') {
+        consumeRows(estimateLineCount('Object too faint — no further cetasikas or cognitive stages arise from this point onward.', 64))
+      }
+
+      let sectionBottomY = cursorY - 0.03
+      if (evts.length > 1) {
+        const substepY = cursorY - 0.03
+        sectionBottomY = substepY - 0.03
+      }
+
+      const currentDetails = currentEvt.mental_details ?? stage.mental_details
+      if (selectedIndex > 2 && currentDetails.length > 0) {
+        const detailsText = `${currentDetails.length} cetasika(s): ${currentDetails.map((d) => d.name).join(', ')}`
+        const detailsY = evts.length > 1 ? (cursorY - 0.108) : (cursorY - 0.05)
+        const detailsLineCount = estimateLineCount(detailsText, 66)
+        const detailsBottomY = detailsY - rowGap * Math.max(0, detailsLineCount - 1)
+        sectionBottomY = Math.min(sectionBottomY, detailsBottomY - 0.03)
+      }
+
+      contentBottomY = Math.min(contentBottomY, sectionBottomY)
+    }
   }
   const explainButtonY = Math.max(-0.52, contentBottomY - 0.09)
+  const slideshowPauseY = explainButtonY + 0.1
   // Size panel to content so we don't keep excessive empty space below controls.
   const panelBottomY = explainButtonY - 0.075
   const panelHeight = Math.max(0.84, panelTopY - panelBottomY)
@@ -4532,11 +4587,11 @@ function XRTimelinePanel({
 
           {timelineMode === 'slideshow' && selectedIndex > 0 && (
             <>
-              <mesh ref={slideshowPauseButtonRef} position={[-0.72, 0.09, 0.005]}>
+              <mesh ref={slideshowPauseButtonRef} position={[-0.72, slideshowPauseY, 0.005]}>
                 <planeGeometry args={[0.26, 0.065]} />
                 <meshBasicMaterial color={isActionHovered('slideshow-pause') ? 0x475569 : 0x334155} />
               </mesh>
-              <Text position={[-0.72, 0.09, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color="#f8fafc">
+              <Text position={[-0.72, slideshowPauseY, 0.007]} anchorX="center" anchorY="middle" fontSize={0.02} color="#f8fafc">
                 {slideshowPaused ? 'Play' : 'Pause'}
               </Text>
             </>
